@@ -1,0 +1,17 @@
+version: 1
+us_assets:
+  - SPY
+  - QQQ
+  - TLT
+  - HYG
+  - GLD
+  - UUP
+  - XLE
+korea_variables:
+  - USDKRW
+korea_asset_slots:
+  - kospi_200_etf
+  - semiconductor_etf
+  - secondary_battery_etf
+  - treasury_etf
+

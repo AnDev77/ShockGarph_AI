@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shockgraph-ai"
+version = "0.1.0"
+description = "Event-driven portfolio risk research MVP"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.28,<1",
+  "pydantic>=2.10,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pyright>=1.1.400,<2",
+  "pytest>=8.3,<9",
+  "ruff>=0.9,<1",
+]
+
+[tool.setuptools]
+packages = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [
+  "apps/collector",
+  "packages/domain",
+  "packages/data_pipeline",
+]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+include = ["apps", "packages", "scripts", "tests"]
+extraPaths = ["apps/collector", "packages/domain", "packages/data_pipeline"]
+venvPath = "."
+venv = ".venv"

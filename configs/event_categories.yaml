@@ -1,0 +1,9 @@
+version: 1
+categories:
+  fomc:
+    kalshi_series_candidates: [KXFEDDECISION, KXFED]
+  us_cpi:
+    kalshi_series_candidates: [KXCPI, KXCPIYOY, KXCPICORE]
+  oil:
+    kalshi_series_candidates: [KXOIL, KXOILW, KXEIACRUDEW]
+
