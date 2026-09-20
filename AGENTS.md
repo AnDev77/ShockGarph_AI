@@ -2,7 +2,18 @@
 
 - Build only the MVP defined in shockgraph-ai-project-spec.md.
 - Do not implement live trading, order placement, or personalized buy/sell advice.
-- Do not add Kafka, Kubernetes, or microservices.
+- Do not add Kafka or Kubernetes.
+- Keep one modular repository and independently runnable workers; do not split the
+  MVP into separately owned microservices.
+- RabbitMQ is the approved broker only after immutable raw storage and a durable
+  outbox exist. Consumers must be idempotent and tolerate redelivery.
+- Use PostgreSQL with TimescaleDB before introducing a separate time-series
+  database or dedicated feature-store product.
+- Store model binaries and immutable raw payloads behind an S3-compatible object
+  store interface. Keep model metadata, metrics, and predictions in PostgreSQL.
+- Prefect may orchestrate scheduled jobs, but it must not become part of the data
+  payload path. Redis may cache validated API responses but is never a source of
+  truth.
 
 ## Financial correctness
 

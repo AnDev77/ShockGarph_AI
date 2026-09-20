@@ -23,6 +23,7 @@ Days 1-2 are implemented:
 No UI or trained model is included yet by design.
 
 The current delivery review is in `docs/reviews/day-01-02-review.md`.
+The approved target architecture is in `docs/architecture.md`.
 
 ## Run locally
 
@@ -45,6 +46,8 @@ On macOS or Linux, use `.venv/bin/python` instead.
 - `packages/data_pipeline`: source contracts, lineage, and leakage guards.
 - `packages/*`: later calibration, event-study, graph, and risk engines.
 - `docs/data-feasibility.md`: Day 1 data gate and scope decision.
+- `docs/architecture.md`: raw-first ingestion, TimescaleDB, RabbitMQ, Prefect,
+  model registry, Redis, API, and UI target boundaries.
 - `data/fixtures`: small, source-shaped payloads used in deterministic tests.
 - `docs/reviews`: per-request code structure and user inspection checklists.
 

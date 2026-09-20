@@ -112,6 +112,42 @@ flowchart TB
 - 점선은 계약/스키마만 준비됐거나 다음 개발 일차에 연결할 경로다.
 - 현재 핵심은 `수집 -> 원본 보존 -> 검증`이며, 예측 모델과 UI는 아직 구현 전이다.
 
+## 목표 아키텍처 개정
+
+2026-09-19에 목표 구조를 raw-first 비동기 파이프라인으로 개정했다. 이 변경은
+기획 변경이며 아래 구성요소가 현재 구현됐다는 의미는 아니다. 상세 처리 계약과
+점검 항목은 [architecture.md](../architecture.md)를 따른다.
+
+```text
+External API
+  -> Collector
+  -> immutable S3/MinIO object
+  -> PostgreSQL metadata + transactional outbox
+  -> RabbitMQ
+  -> idempotent normalization worker
+  -> PostgreSQL + TimescaleDB feature snapshots
+  -> Prefect-controlled model training
+  -> model registry + prediction DB
+  -> Redis cache
+  -> FastAPI
+  -> Next.js
+```
+
+MVP는 Kafka, Kubernetes, 독립 마이크로서비스를 도입하지 않는다. RabbitMQ,
+MinIO, Prefect, Redis는 각 선행 데이터 계약과 성능 기준을 통과한 뒤 단계적으로
+도입한다.
+
+### 2026-09-19 기획 변경 검증
+
+- 변경 범위: 기획, 아키텍처, 데이터 계보, 의존성 결정 문서만 수정
+- `git diff --check`: 통과
+- `ruff check`: 통과
+- `pytest`: 26 passed
+- `compileall`: 통과
+- Pyright: 기존과 동일하게 Codex 샌드박스가 `C:\Users\agy91`의 `lstat`을
+  `EPERM`으로 차단해 실행되지 않음
+- 신규 runtime dependency 또는 Docker service: 추가하지 않음
+
 ## 검증 결과
 
 - `pytest`: 26 passed
@@ -145,8 +181,9 @@ flowchart TB
 ### Day 3
 
 - 미국 ETF 및 환율/한국 자산 데이터 공급원 Gate B 확정
-- 자산 가격 collector와 데이터 계약
+- Object Store, Queue Publisher, Repository protocol과 자산 가격 계약
 - UTC, 미국/한국 거래일, 휴장일 정렬 테스트
+- PostgreSQL/TimescaleDB asset price, feature snapshot, outbox schema
 - raw -> clean idempotent upsert 경로
 
 ### Day 4
@@ -155,3 +192,4 @@ flowchart TB
 - event-level chronological split
 - 관측시각/해결시각/feature timestamp 누수 테스트 확대
 - 시장확률 baseline과 Brier Score 계산
+- 모델 artifact URI, checksum, version, metric registry 계약
