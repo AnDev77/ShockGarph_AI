@@ -11,6 +11,8 @@
 사용자 선택과 Chakra UI 화면 방향은 [제품·화면 설계](docs/product-ui-direction.md)를 따른다.
 상용 전환과 온라인 서빙 지연 기준은 [상용 전환 인프라와 실시간 서빙 전략](docs/deployment-and-serving-strategy.md),
 데이터 정의와 평가 방법은 [데이터 분석 방법론](docs/methodology.md)을 따른다.
+공모전·금융 리서치 관점의 현재 수준과 검증 우선순위는
+[분석 가치 재평가](docs/research-value-assessment.md)를 따른다.
 
 ## 1. 제품 목표
 
