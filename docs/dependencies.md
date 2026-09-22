@@ -51,3 +51,22 @@ Kafka는 MVP 범위 밖이다.
 FastAPI 응답 지연이나 데이터베이스 부하 측정으로 필요성이 확인된 뒤 추가한다.
 검증된 응답에 만료시간을 둔 지연 로딩 캐시를 적용한다.
 특징량·예측·모델 결과의 유일한 사본을 Redis에 저장하지 않는다.
+
+온라인 서빙에서는 캐시 키에 자산·이벤트·분석 기간·기준시각·모델 버전·정규화 포트폴리오
+해시를 포함한다. 캐시 미적중 시 승인된 PostgreSQL 스냅샷만 제한시간 안에 조회하며,
+같은 키의 동시 요청은 단일 비행 lease로 중복 조회를 줄인다. 허용 가능한 오래된 결과가
+있으면 신선도 시각을 포함해 반환하고, 없으면 `pending` 또는 `insufficient_data`를 반환한다.
+Redis 장애가 원본 DB의 기준성을 바꾸지 않도록 한다.
+
+### 관리형 컨테이너
+
+MVP에서는 Kubernetes를 추가하지 않는다. 상용 전환 시 AWS 데이터 계층이면 ECS/Fargate,
+GCP 데이터 계층이면 Cloud Run을 우선 검토한다. 두 서비스 모두 Docker 이미지와 환경 변수
+계약을 유지할 수 있지만, 실제 선택 전 다음을 측정한다.
+
+- readiness와 health check를 통과하는 새 revision의 비율
+- 점진 배포 중 오류율, p95·p99 지연, rollback 시간
+- API 동시성·CPU·메모리와 작업 큐 backlog에 따른 확장 속도
+- 최소 실행 단위, 최대 실행 단위, cold start, DB connection pool 비용
+
+상세 기준은 [상용 전환 인프라와 실시간 서빙 전략](deployment-and-serving-strategy.md)을 따른다.

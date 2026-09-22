@@ -18,6 +18,7 @@
 5. 모델 바이너리와 대용량 스냅샷은 객체 저장소에, 관계형 메타데이터는 PostgreSQL에 둔다.
 6. 시계열과 관계형 데이터는 PostgreSQL과 TimescaleDB로 시작한다.
 7. 웹은 FastAPI만 호출하며 DB와 캐시에 직접 연결하지 않는다.
+8. MVP 배포는 로컬·Docker에서 검증하고, 상용 전환은 관리형 컨테이너에서 시작한다.
 
 ## 목표 구조
 
@@ -121,6 +122,11 @@ Next.js → FastAPI → Redis → 예측·모델 메타데이터 DB
 | 캐시 | Redis | FastAPI 부하 측정 이후 |
 | API·화면 | FastAPI / Next.js | 분석 전체 흐름 검증 이후 |
 
+상용 컨테이너 선택과 온라인 서빙 지연 방어는
+[상용 전환 인프라와 실시간 서빙 전략](deployment-and-serving-strategy.md)에 정리한다.
+AWS 데이터 계층이면 ECS/Fargate, GCP 데이터 계층이면 Cloud Run을 우선 검토한다.
+Kubernetes는 MVP의 제외 범위를 유지하되, 운영 복잡도와 트래픽 규모가 실제로 확인된 뒤 재평가한다.
+
 ## 신뢰성 계약
 
 - 전달 방식: 최소 한 번 전달을 가정한다.
@@ -135,7 +141,7 @@ Next.js → FastAPI → Redis → 예측·모델 메타데이터 DB
 - Kafka: 현재 처리량·운영 규모에 비해 복잡하며 원본 저장소에서 재처리할 수 있다.
 - 별도 특징량 저장소 제품: SQL 스냅샷으로 온라인·오프라인 일관성을 먼저 검증한다.
 - 별도 시계열 DB 클러스터: TimescaleDB로 PostgreSQL 운영 경계를 유지한다.
-- Kubernetes: 로컬·공모전 MVP의 검증 범위 밖이다.
+- Kubernetes: 로컬·공모전 MVP의 검증 범위 밖이다. 상용 전환 초기에는 ECS/Fargate 또는 Cloud Run의 관리형 컨테이너를 우선 검토한다.
 - 서비스별 저장소: 하나의 모듈형 저장소와 분리 실행 가능한 작업 프로세스를 유지한다.
 
 ## 사용자 점검 항목
@@ -147,6 +153,9 @@ Next.js → FastAPI → Redis → 예측·모델 메타데이터 DB
 - [ ] Redis 도입을 FastAPI 성능 측정 이후로 미루는가?
 - [ ] 모델 바이너리는 객체 저장소에, 버전·지표는 PostgreSQL에 저장하는가?
 - [ ] 3~4일차는 프로토콜·스키마·기준 모델까지 구현하고 전체 인프라 실행은 후속으로 두는가?
+- [ ] 상용 전환 시 AWS ECS/Fargate와 GCP Cloud Run 중 데이터 계층·팀 운영 역량에 맞는 하나를 선택했는가?
+- [ ] API와 작업 프로세스의 확장 지표를 CPU만이 아니라 요청 동시성·큐 backlog로 측정하는가?
+- [ ] Redis 캐시 미적중, DB timeout, 오래된 응답, cache stampede를 부하 테스트했는가?
 
 ## 참고 문서
 
