@@ -25,6 +25,7 @@ packages = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [
+  "packages/event_study",
   "apps/collector",
   "packages/calibration",
   "packages/domain",
@@ -44,6 +45,8 @@ pythonVersion = "3.12"
 typeCheckingMode = "basic"
 include = ["apps", "packages", "scripts", "tests"]
 extraPaths = [
+  "scripts",
+  "packages/event_study",
   "apps/collector",
   "packages/calibration",
   "packages/domain",

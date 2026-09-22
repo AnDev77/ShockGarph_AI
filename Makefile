@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build
+.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -17,6 +17,12 @@ test-fast:
 
 collect:
 	$(PYTHON) scripts/probe_kalshi.py
+
+research-demo:
+	$(PYTHON) scripts/run_event_research.py --input data/fixtures/analytics/synthetic_cpi.json --min-train 4
+
+research-probe:
+	$(PYTHON) scripts/probe_cpi_coverage.py --max-pages 10
 
 train:
 	@echo "Not implemented before the Day 4 data gate" && exit 2

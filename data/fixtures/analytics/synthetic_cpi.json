@@ -1,0 +1,768 @@
+{
+  "source_kind": "synthetic",
+  "definition": "synthetic CPI MoM > 0.3 percent",
+  "threshold": 0.3,
+  "assets": [
+    "SPY",
+    "TLT",
+    "GLD"
+  ],
+  "weights": [
+    0.5,
+    0.3,
+    0.2
+  ],
+  "currency": "USD",
+  "price_basis": "adjusted_close",
+  "releases": [
+    {
+      "event_id": "synthetic-0",
+      "prediction_at": "2020-01-14T20:30:00+00:00",
+      "release_at": "2020-01-15T13:30:00+00:00",
+      "return_start_at": "2020-01-14T20:30:00+00:00",
+      "return_end_at": "2020-01-15T21:00:00+00:00",
+      "outcome_available_at": "2020-01-15T13:31:00+00:00",
+      "actual_value": 0.2,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-01-14T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-1",
+      "prediction_at": "2020-02-13T20:30:00+00:00",
+      "release_at": "2020-02-14T13:30:00+00:00",
+      "return_start_at": "2020-02-13T20:30:00+00:00",
+      "return_end_at": "2020-02-14T21:00:00+00:00",
+      "outcome_available_at": "2020-02-14T13:31:00+00:00",
+      "actual_value": 0.4,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-02-13T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-2",
+      "prediction_at": "2020-03-14T20:30:00+00:00",
+      "release_at": "2020-03-15T13:30:00+00:00",
+      "return_start_at": "2020-03-14T20:30:00+00:00",
+      "return_end_at": "2020-03-15T21:00:00+00:00",
+      "outcome_available_at": "2020-03-15T13:31:00+00:00",
+      "actual_value": 0.2,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-03-14T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-3",
+      "prediction_at": "2020-04-13T20:30:00+00:00",
+      "release_at": "2020-04-14T13:30:00+00:00",
+      "return_start_at": "2020-04-13T20:30:00+00:00",
+      "return_end_at": "2020-04-14T21:00:00+00:00",
+      "outcome_available_at": "2020-04-14T13:31:00+00:00",
+      "actual_value": 0.4,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-04-13T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-4",
+      "prediction_at": "2020-05-13T20:30:00+00:00",
+      "release_at": "2020-05-14T13:30:00+00:00",
+      "return_start_at": "2020-05-13T20:30:00+00:00",
+      "return_end_at": "2020-05-14T21:00:00+00:00",
+      "outcome_available_at": "2020-05-14T13:31:00+00:00",
+      "actual_value": 0.2,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-05-13T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-5",
+      "prediction_at": "2020-06-12T20:30:00+00:00",
+      "release_at": "2020-06-13T13:30:00+00:00",
+      "return_start_at": "2020-06-12T20:30:00+00:00",
+      "return_end_at": "2020-06-13T21:00:00+00:00",
+      "outcome_available_at": "2020-06-13T13:31:00+00:00",
+      "actual_value": 0.4,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-06-12T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-6",
+      "prediction_at": "2020-07-12T20:30:00+00:00",
+      "release_at": "2020-07-13T13:30:00+00:00",
+      "return_start_at": "2020-07-12T20:30:00+00:00",
+      "return_end_at": "2020-07-13T21:00:00+00:00",
+      "outcome_available_at": "2020-07-13T13:31:00+00:00",
+      "actual_value": 0.2,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-07-12T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-7",
+      "prediction_at": "2020-08-11T20:30:00+00:00",
+      "release_at": "2020-08-12T13:30:00+00:00",
+      "return_start_at": "2020-08-11T20:30:00+00:00",
+      "return_end_at": "2020-08-12T21:00:00+00:00",
+      "outcome_available_at": "2020-08-12T13:31:00+00:00",
+      "actual_value": 0.4,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-08-11T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-8",
+      "prediction_at": "2020-09-10T20:30:00+00:00",
+      "release_at": "2020-09-11T13:30:00+00:00",
+      "return_start_at": "2020-09-10T20:30:00+00:00",
+      "return_end_at": "2020-09-11T21:00:00+00:00",
+      "outcome_available_at": "2020-09-11T13:31:00+00:00",
+      "actual_value": 0.2,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-09-10T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-9",
+      "prediction_at": "2020-10-10T20:30:00+00:00",
+      "release_at": "2020-10-11T13:30:00+00:00",
+      "return_start_at": "2020-10-10T20:30:00+00:00",
+      "return_end_at": "2020-10-11T21:00:00+00:00",
+      "outcome_available_at": "2020-10-11T13:31:00+00:00",
+      "actual_value": 0.4,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-10-10T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-10",
+      "prediction_at": "2020-11-09T20:30:00+00:00",
+      "release_at": "2020-11-10T13:30:00+00:00",
+      "return_start_at": "2020-11-09T20:30:00+00:00",
+      "return_end_at": "2020-11-10T21:00:00+00:00",
+      "outcome_available_at": "2020-11-10T13:31:00+00:00",
+      "actual_value": 0.2,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-11-09T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "event_id": "synthetic-11",
+      "prediction_at": "2020-12-09T20:30:00+00:00",
+      "release_at": "2020-12-10T13:30:00+00:00",
+      "return_start_at": "2020-12-09T20:30:00+00:00",
+      "return_end_at": "2020-12-10T21:00:00+00:00",
+      "outcome_available_at": "2020-12-10T13:31:00+00:00",
+      "actual_value": 0.4,
+      "expected_value": 0.3,
+      "expectation_available_at": "2020-12-09T20:30:00+00:00",
+      "raw_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "snapshots": [
+    {
+      "event_id": "synthetic-0",
+      "market_ticker": "contract-0",
+      "observed_at": "2020-01-14T20:30:00+00:00",
+      "available_at": "2020-01-14T20:30:00+00:00",
+      "probability": 0.35,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-1",
+      "market_ticker": "contract-1",
+      "observed_at": "2020-02-13T20:30:00+00:00",
+      "available_at": "2020-02-13T20:30:00+00:00",
+      "probability": 0.7,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-2",
+      "market_ticker": "contract-2",
+      "observed_at": "2020-03-14T20:30:00+00:00",
+      "available_at": "2020-03-14T20:30:00+00:00",
+      "probability": 0.6,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-3",
+      "market_ticker": "contract-3",
+      "observed_at": "2020-04-13T20:30:00+00:00",
+      "available_at": "2020-04-13T20:30:00+00:00",
+      "probability": 0.45,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-4",
+      "market_ticker": "contract-4",
+      "observed_at": "2020-05-13T20:30:00+00:00",
+      "available_at": "2020-05-13T20:30:00+00:00",
+      "probability": 0.35,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-5",
+      "market_ticker": "contract-5",
+      "observed_at": "2020-06-12T20:30:00+00:00",
+      "available_at": "2020-06-12T20:30:00+00:00",
+      "probability": 0.7,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-6",
+      "market_ticker": "contract-6",
+      "observed_at": "2020-07-12T20:30:00+00:00",
+      "available_at": "2020-07-12T20:30:00+00:00",
+      "probability": 0.6,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-7",
+      "market_ticker": "contract-7",
+      "observed_at": "2020-08-11T20:30:00+00:00",
+      "available_at": "2020-08-11T20:30:00+00:00",
+      "probability": 0.45,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-8",
+      "market_ticker": "contract-8",
+      "observed_at": "2020-09-10T20:30:00+00:00",
+      "available_at": "2020-09-10T20:30:00+00:00",
+      "probability": 0.35,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-9",
+      "market_ticker": "contract-9",
+      "observed_at": "2020-10-10T20:30:00+00:00",
+      "available_at": "2020-10-10T20:30:00+00:00",
+      "probability": 0.7,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-10",
+      "market_ticker": "contract-10",
+      "observed_at": "2020-11-09T20:30:00+00:00",
+      "available_at": "2020-11-09T20:30:00+00:00",
+      "probability": 0.6,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "event_id": "synthetic-11",
+      "market_ticker": "contract-11",
+      "observed_at": "2020-12-09T20:30:00+00:00",
+      "available_at": "2020-12-09T20:30:00+00:00",
+      "probability": 0.45,
+      "raw_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "prices": [
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-01-14T20:30:00+00:00",
+      "available_at": "2020-01-14T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-01-15T21:00:00+00:00",
+      "available_at": "2020-01-15T21:00:00+00:00",
+      "price": 100.4,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-01-14T20:30:00+00:00",
+      "available_at": "2020-01-14T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-01-15T21:00:00+00:00",
+      "available_at": "2020-01-15T21:00:00+00:00",
+      "price": 100.8,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-01-14T20:30:00+00:00",
+      "available_at": "2020-01-14T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-01-15T21:00:00+00:00",
+      "available_at": "2020-01-15T21:00:00+00:00",
+      "price": 99.4,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-02-13T20:30:00+00:00",
+      "available_at": "2020-02-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-02-14T21:00:00+00:00",
+      "available_at": "2020-02-14T21:00:00+00:00",
+      "price": 98.5,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-02-13T20:30:00+00:00",
+      "available_at": "2020-02-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-02-14T21:00:00+00:00",
+      "available_at": "2020-02-14T21:00:00+00:00",
+      "price": 97.7,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-02-13T20:30:00+00:00",
+      "available_at": "2020-02-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-02-14T21:00:00+00:00",
+      "available_at": "2020-02-14T21:00:00+00:00",
+      "price": 100.5,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-03-14T20:30:00+00:00",
+      "available_at": "2020-03-14T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-03-15T21:00:00+00:00",
+      "available_at": "2020-03-15T21:00:00+00:00",
+      "price": 101.2,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-03-14T20:30:00+00:00",
+      "available_at": "2020-03-14T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-03-15T21:00:00+00:00",
+      "available_at": "2020-03-15T21:00:00+00:00",
+      "price": 101.2,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-03-14T20:30:00+00:00",
+      "available_at": "2020-03-14T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-03-15T21:00:00+00:00",
+      "available_at": "2020-03-15T21:00:00+00:00",
+      "price": 100.0,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-04-13T20:30:00+00:00",
+      "available_at": "2020-04-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-04-14T21:00:00+00:00",
+      "available_at": "2020-04-14T21:00:00+00:00",
+      "price": 98.1,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-04-13T20:30:00+00:00",
+      "available_at": "2020-04-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-04-14T21:00:00+00:00",
+      "available_at": "2020-04-14T21:00:00+00:00",
+      "price": 98.1,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-04-13T20:30:00+00:00",
+      "available_at": "2020-04-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-04-14T21:00:00+00:00",
+      "available_at": "2020-04-14T21:00:00+00:00",
+      "price": 100.2,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-05-13T20:30:00+00:00",
+      "available_at": "2020-05-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-05-14T21:00:00+00:00",
+      "available_at": "2020-05-14T21:00:00+00:00",
+      "price": 100.8,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-05-13T20:30:00+00:00",
+      "available_at": "2020-05-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-05-14T21:00:00+00:00",
+      "available_at": "2020-05-14T21:00:00+00:00",
+      "price": 100.8,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-05-13T20:30:00+00:00",
+      "available_at": "2020-05-13T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-05-14T21:00:00+00:00",
+      "available_at": "2020-05-14T21:00:00+00:00",
+      "price": 99.7,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-06-12T20:30:00+00:00",
+      "available_at": "2020-06-12T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-06-13T21:00:00+00:00",
+      "available_at": "2020-06-13T21:00:00+00:00",
+      "price": 98.9,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-06-12T20:30:00+00:00",
+      "available_at": "2020-06-12T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-06-13T21:00:00+00:00",
+      "available_at": "2020-06-13T21:00:00+00:00",
+      "price": 97.7,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-06-12T20:30:00+00:00",
+      "available_at": "2020-06-12T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-06-13T21:00:00+00:00",
+      "available_at": "2020-06-13T21:00:00+00:00",
+      "price": 100.8,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-07-12T20:30:00+00:00",
+      "available_at": "2020-07-12T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-07-13T21:00:00+00:00",
+      "available_at": "2020-07-13T21:00:00+00:00",
+      "price": 100.4,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-07-12T20:30:00+00:00",
+      "available_at": "2020-07-12T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-07-13T21:00:00+00:00",
+      "available_at": "2020-07-13T21:00:00+00:00",
+      "price": 101.2,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-07-12T20:30:00+00:00",
+      "available_at": "2020-07-12T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-07-13T21:00:00+00:00",
+      "available_at": "2020-07-13T21:00:00+00:00",
+      "price": 99.4,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-08-11T20:30:00+00:00",
+      "available_at": "2020-08-11T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-08-12T21:00:00+00:00",
+      "available_at": "2020-08-12T21:00:00+00:00",
+      "price": 98.5,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-08-11T20:30:00+00:00",
+      "available_at": "2020-08-11T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-08-12T21:00:00+00:00",
+      "available_at": "2020-08-12T21:00:00+00:00",
+      "price": 98.1,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-08-11T20:30:00+00:00",
+      "available_at": "2020-08-11T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-08-12T21:00:00+00:00",
+      "available_at": "2020-08-12T21:00:00+00:00",
+      "price": 100.5,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-09-10T20:30:00+00:00",
+      "available_at": "2020-09-10T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-09-11T21:00:00+00:00",
+      "available_at": "2020-09-11T21:00:00+00:00",
+      "price": 101.2,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-09-10T20:30:00+00:00",
+      "available_at": "2020-09-10T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-09-11T21:00:00+00:00",
+      "available_at": "2020-09-11T21:00:00+00:00",
+      "price": 100.8,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-09-10T20:30:00+00:00",
+      "available_at": "2020-09-10T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-09-11T21:00:00+00:00",
+      "available_at": "2020-09-11T21:00:00+00:00",
+      "price": 100.0,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-10-10T20:30:00+00:00",
+      "available_at": "2020-10-10T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-10-11T21:00:00+00:00",
+      "available_at": "2020-10-11T21:00:00+00:00",
+      "price": 98.1,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-10-10T20:30:00+00:00",
+      "available_at": "2020-10-10T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-10-11T21:00:00+00:00",
+      "available_at": "2020-10-11T21:00:00+00:00",
+      "price": 97.7,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-10-10T20:30:00+00:00",
+      "available_at": "2020-10-10T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-10-11T21:00:00+00:00",
+      "available_at": "2020-10-11T21:00:00+00:00",
+      "price": 100.2,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-11-09T20:30:00+00:00",
+      "available_at": "2020-11-09T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-11-10T21:00:00+00:00",
+      "available_at": "2020-11-10T21:00:00+00:00",
+      "price": 100.8,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-11-09T20:30:00+00:00",
+      "available_at": "2020-11-09T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-11-10T21:00:00+00:00",
+      "available_at": "2020-11-10T21:00:00+00:00",
+      "price": 101.2,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-11-09T20:30:00+00:00",
+      "available_at": "2020-11-09T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-11-10T21:00:00+00:00",
+      "available_at": "2020-11-10T21:00:00+00:00",
+      "price": 99.7,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-12-09T20:30:00+00:00",
+      "available_at": "2020-12-09T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "SPY",
+      "price_at": "2020-12-10T21:00:00+00:00",
+      "available_at": "2020-12-10T21:00:00+00:00",
+      "price": 98.9,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-12-09T20:30:00+00:00",
+      "available_at": "2020-12-09T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "TLT",
+      "price_at": "2020-12-10T21:00:00+00:00",
+      "available_at": "2020-12-10T21:00:00+00:00",
+      "price": 98.1,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-12-09T20:30:00+00:00",
+      "available_at": "2020-12-09T20:30:00+00:00",
+      "price": 100,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "asset_id": "GLD",
+      "price_at": "2020-12-10T21:00:00+00:00",
+      "available_at": "2020-12-10T21:00:00+00:00",
+      "price": 100.8,
+      "raw_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "evaluation_at": "2022-01-01T00:00:00Z"
+}

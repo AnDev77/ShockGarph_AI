@@ -6,7 +6,7 @@ ShockGraph AI는 거시 이벤트를 기반으로 포트폴리오 위험을 연�
 
 ## 현재 구현 상태
 
-1~4일차 작업에서 데이터 계약과 재현 가능한 기준 모델 수준까지 구현했다.
+1~6일차 작업에서 데이터 계약과 발표 단위 기준 모델 비교 파이프라인까지 구현했다.
 
 - API, 웹, 수집기, 분석 패키지, 인프라의 저장소 구조
 - Kalshi API 계약 검증용 고정 응답 자료
@@ -26,13 +26,20 @@ ShockGraph AI는 거시 이벤트를 기반으로 포트폴리오 위험을 연�
 - 시장확률을 그대로 사용하는 기준 모델과 Brier 점수·표본 수·불확실성 계산
 - 모델 산출물·체크섬·버전·평가 지표 등록 계약
 
-웹 화면과 학습된 예측 모델은 아직 없다. 실제 데이터베이스 연결과 운영 검증도 후속 범위다.
+- 발표 전 확률·기대·가격의 시점 검증과 이벤트별 커버리지·제외 사유
+- 과거 수익률 분포와 이벤트 확률 가중 분포의 순차 학습·평가
+- 자산·포트폴리오 CRPS, 상승확률 Brier, 하방 분위수 손실, 발표 단위 대응 재표집
+- 정규화 입력과 결과 체크섬을 포함한 재현 리포트 CLI 및 합성 실행 예제
 
-현재 작업 결과는 [개발 리뷰](docs/reviews/day-03-04-review.md), 목표 구조는
+실데이터로 검증된 예측 모델과 웹 화면은 아직 없다. 실제 데이터베이스 연결과 운영 검증도 후속 범위다.
+
+현재 작업 결과는 [분석 개발 리뷰](docs/reviews/day-05-06-review.md), 목표 구조는
 [아키텍처 문서](docs/architecture.md)에서 확인할 수 있다.
 
 ## 학습과 제품 설계
 
+- [이벤트 분석 파이프라인 학습 가이드](docs/study-guide-analytics.md): 실행 방법, 시간 누수, 경험적 분포, CRPS, 지속 학습과의 연결
+- [이번 CPI·ETF 커버리지 점검](docs/cpi-coverage-review.md): 접근 실패·키 미설정과 실데이터 연결 조건
 - [데이터 파이프라인·확률 평가 학습 가이드](docs/study-guide-day-03-04.md): 6회 학습 순서, 코드 읽기, 실습, 금융 예제, 구현 한계
 - [제품·Chakra UI 화면 설계](docs/product-ui-direction.md): 사용자 종목 선택, 이벤트 분석, 모바일 화면, 결과 표시 기준
 
@@ -50,6 +57,14 @@ python -m venv .venv
 ```
 
 macOS와 Linux에서는 `.venv/bin/python`을 사용한다.
+
+가상환경의 Python으로 합성 이벤트 분석을 실행할 수 있다.
+
+```bash
+python scripts/run_event_research.py --input data/fixtures/analytics/synthetic_cpi.json --min-train 4
+```
+
+결과는 `artifacts/event-research/`에 저장되며 합성 결과는 금융 성능 근거가 아니다.
 
 ## 저장소 구성
 
