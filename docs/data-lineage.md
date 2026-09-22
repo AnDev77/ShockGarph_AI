@@ -1,27 +1,34 @@
-# Data Lineage
+# 데이터 계보
 
-`raw -> clean -> feature -> artifact`
+처리 흐름: 원본 → 정제 데이터 → 특징량 → 산출물
 
-Each record must retain source, UTC ingestion time, immutable payload SHA-256,
-schema version, and transformation version. Raw payloads are never mutated.
-Public artifacts must respect the source license and may expose only approved
-fields or derived statistics.
+각 레코드는 출처, UTC 수집시각, 불변 원본의 SHA-256, 스키마 버전, 변환 버전을 유지해야 한다.
+원본 응답은 변경하지 않는다. 공개 산출물은 데이터 출처의 이용조건을 준수하며,
+승인된 필드나 파생 통계만 노출할 수 있다.
 
-Day 2 raw object layout:
+## 기존 원본 저장 경로
+
+2일차 원본 객체 경로:
 
 `{root}/{source}/{yyyy}/{mm}/{dd}/{endpoint}/{request_hash}/{observed_at}_{payload_hash}.json`
 
-The retrieval timestamp is part of the identity so unchanged probability
-snapshots observed at different times remain distinct. Re-running the same
-request with the same timestamp and payload is idempotent.
+조회시각을 식별 정보에 포함하므로 같은 확률이 다른 시각에 관측되어도 별개의 관측으로 남는다.
+시각과 응답이 동일한 요청을 재실행하면 멱등적으로 처리한다.
 
-Target object-store lineage keeps the same logical identity when local storage is
-replaced by MinIO or S3:
+로컬 저장소를 MinIO 또는 S3로 교체할 때도 동일한 논리 식별 정보를 유지하는 것이 목표다.
 
 `s3://{bucket}/raw/{source}/{yyyy}/{mm}/{dd}/{endpoint}/{request_hash}/{observed_at}_{payload_hash}.json`
 
-The collector writes the immutable object before it records metadata and an
-outbox job in PostgreSQL. Normalization messages may be redelivered, so the clean
-write identity is `payload_hash + transformation_version + target_table`. Model
-artifacts use the same rule: PostgreSQL stores version, metrics, URI, and checksum;
-the binary remains in object storage.
+## 목표 수집 흐름
+
+수집기는 불변 객체를 먼저 저장한 뒤 PostgreSQL에 메타데이터와 아웃박스 작업을 기록한다.
+정규화 메시지는 중복 전달될 수 있으므로 정제 데이터의 작업 식별값은
+`payload_hash + transformation_version + target_table`로 구성한다.
+모델 산출물도 같은 저장 원칙을 적용한다. PostgreSQL에는 버전, 지표, URI, 체크섬을 기록하고,
+바이너리는 객체 저장소에 유지한다.
+
+## 신규 객체 저장 계약과의 관계
+
+3~4일차의 일반 객체 키 생성기는 날짜와 내용 해시 기반 키를 제공한다.
+아직 기존 수집기의 관측별 원본 저장 경로에 연결하지 않았다.
+관측별 식별 정보와 내용 해시의 차이는 [학습 가이드](study-guide-day-03-04.md)에서 설명한다.

@@ -1,4 +1,3 @@
-# Infrastructure boundary
+# 인프라 영역
 
-Deployment configuration starts after the analytical vertical slice is validated.
-
+분석 기능의 전체 처리 흐름을 검증한 뒤 배포 구성을 시작한다.

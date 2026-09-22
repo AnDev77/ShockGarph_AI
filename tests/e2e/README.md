@@ -1,4 +1,3 @@
-# E2E tests
+# 전체 흐름 테스트
 
-Playwright tests start when the Week 3 web milestone begins.
-
+3주차 웹 구현 단계가 시작되면 Playwright 테스트를 추가한다.

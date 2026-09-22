@@ -1,4 +1,3 @@
-# Transmission package
+# 전이 분석 패키지
 
-Week 2 boundary for sparse lagged associations and graph payloads.
-
+2주차 범위인 희소한 시차 연관성과 그래프 응답 데이터를 담당한다.

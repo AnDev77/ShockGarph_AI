@@ -1,25 +1,24 @@
-# Methodology
+# 금융 분석 방법론
 
-## Probability layer
+## 확률 계층
 
-Compare the raw market probability baseline with grouped chronological logistic
-calibration. Brier score is primary; log loss and expected calibration error are
-secondary. Never split snapshots from the same event across data splits.
+원시 시장확률 기준 모델과 이벤트별 시간순 분할을 적용한 로지스틱 확률 보정을 비교한다.
+Brier 점수를 주요 지표로, 로그 손실과 기대 보정 오차를 보조 지표로 사용한다.
+동일 이벤트의 관측 자료가 서로 다른 데이터 분할에 들어가지 않게 한다.
 
-## Event study layer
+## 이벤트 연구 계층
 
-Estimate expected returns over `[-120, -21]` trading days and report abnormal
-returns and CAR over `[-5, +5]`. Align event timestamps to the first tradable
-session for each asset and bootstrap confidence intervals by event.
+이벤트 전 `[-120, -21]`거래일 구간에서 기대수익률을 추정하고,
+`[-5, +5]`거래일 구간에서 비정상수익률과 누적 비정상수익률(CAR)을 보고한다.
+이벤트 시각을 자산별 첫 거래 가능 세션에 맞추고, 이벤트 단위 재표집으로 신뢰구간을 추정한다.
 
-## Transmission layer
+## 전이 분석 계층
 
-Use sparse lagged associations and label them as associations, not causal effects.
-Every edge carries its lag, coefficient, confidence interval, and sample size.
+희소한 시차 연관성을 사용하며 이를 인과효과로 표현하지 않는다.
+각 연결에는 시차, 계수, 신뢰구간, 표본 수를 포함한다.
 
-## Risk layer
+## 위험 계산 계층
 
-Combine scenario-conditional asset returns with validated portfolio weights.
-Report expected return, historical VaR, Expected Shortfall, and contribution by
-asset and event. Results are risk information, not trading advice.
-
+시나리오 조건부 자산 수익률과 검증된 포트폴리오 비중을 결합한다.
+기대수익률, 과거 자료 기반 VaR, 기대손실(Expected Shortfall), 자산별·이벤트별 기여도를 보고한다.
+결과는 위험 정보이며 거래 권유가 아니다.

@@ -1,5 +1,4 @@
-# API boundary
+# API 영역
 
-FastAPI routes are scheduled after the Day 1 data gate. No production API is
-implemented in this milestone.
-
+FastAPI 라우트는 초기 데이터 검토 이후에 구현한다.
+현재 단계에서는 운영용 API를 구현하지 않았다.

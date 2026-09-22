@@ -1,39 +1,39 @@
-## Project scope
+## 프로젝트 범위
 
-- Build only the MVP defined in shockgraph-ai-project-spec.md.
-- Do not implement live trading, order placement, or personalized buy/sell advice.
-- Do not add Kafka or Kubernetes.
-- Keep one modular repository and independently runnable workers; do not split the
-  MVP into separately owned microservices.
-- RabbitMQ is the approved broker only after immutable raw storage and a durable
-  outbox exist. Consumers must be idempotent and tolerate redelivery.
-- Use PostgreSQL with TimescaleDB before introducing a separate time-series
-  database or dedicated feature-store product.
-- Store model binaries and immutable raw payloads behind an S3-compatible object
-  store interface. Keep model metadata, metrics, and predictions in PostgreSQL.
-- Prefect may orchestrate scheduled jobs, but it must not become part of the data
-  payload path. Redis may cache validated API responses but is never a source of
-  truth.
+- shockgraph-ai-project-spec.md에 정의된 MVP만 구현한다.
+- 실시간 거래, 주문 실행, 개인화된 매수·매도 권유를 구현하지 않는다.
+- Kafka나 Kubernetes를 추가하지 않는다.
+- 하나의 모듈형 저장소와 독립 실행 가능한 작업 프로세스를 유지한다. MVP를 별도로 소유·관리하는 마이크로서비스로 분리하지 않는다.
+- 불변 원본 저장과 영속적 아웃박스가 갖춰진 뒤에만 RabbitMQ를 승인된 메시지 브로커로 사용한다. 소비자는 멱등성을 갖추고 중복 전달을 처리해야 한다.
+- 별도 시계열 데이터베이스나 전용 특징량 저장소 제품을 도입하기 전에 PostgreSQL과 TimescaleDB를 사용한다.
+- 모델 바이너리와 불변 원본 응답은 S3 호환 객체 저장소 인터페이스 뒤에 저장한다. 모델 메타데이터, 평가 지표, 예측 결과는 PostgreSQL에 저장한다.
+- Prefect는 예약 작업을 조율할 수 있지만 데이터 본문의 전달 경로에 포함하지 않는다. Redis는 검증된 API 응답을 캐시할 수 있지만 원본 데이터의 기준 저장소가 되어서는 안 된다.
 
-## Financial correctness
+## 금융 계산의 정확성
 
-- Store all market timestamps in UTC.
-- Never use observations created after an event resolution in model features.
-- The same event_id must never appear in more than one data split.
-- Every model result must report sample size and uncertainty.
-- Do not describe lagged association as causation.
-- Keep raw API payloads immutable and record their hashes.
-- LLM summaries may only use numbers present in validated JSON.
+- 모든 시장 시각은 UTC로 저장한다.
+- 이벤트 결과 확정 이후에 생성된 관측값을 모델 특징량에 사용하지 않는다.
+- 같은 `event_id`가 둘 이상의 데이터 분할에 포함되지 않게 한다.
+- 모든 모델 결과에 표본 수와 불확실성을 보고한다.
+- 시차를 둔 연관성을 인과관계로 설명하지 않는다.
+- 원본 API 응답을 불변으로 유지하고 해시를 기록한다.
+- LLM 요약에는 검증된 JSON에 존재하는 숫자만 사용한다.
 
-## Engineering workflow
+## 개발 절차
 
-- Treat each project-development request as two consecutive days from the 21-day plan,
-  unless the user explicitly changes the scope.
-- End every two-day delivery with `docs/reviews/day-XX-YY-review.md` containing the
-  changed code structure, exact verification results, and a user inspection checklist.
-- Write or update tests before fixing financial calculation bugs.
-- Run `make quality` and `make test` before completing a task.
-- Do not add a production dependency without documenting why it is needed.
-- Keep collectors idempotent.
-- Never commit API keys, tokens, account identifiers, or credentials.
-- Use read-only public endpoints or demo environments.
+- 사용자가 범위를 명시적으로 바꾸지 않는 한, 프로젝트 개발 요청 한 번을 21일 계획의 연속된 이틀로 취급한다.
+- 이틀 단위 작업을 마칠 때마다 `docs/reviews/day-XX-YY-review.md`에 변경된 코드 구조, 정확한 검증 결과, 사용자 점검표를 작성한다.
+- 금융 계산 오류를 수정하기 전에 테스트를 작성하거나 갱신한다.
+- 작업 완료 전에 `make quality`와 `make test`를 실행한다.
+- 운영 의존성을 추가할 때는 도입 이유를 문서화한다.
+- 수집기의 멱등성을 유지한다.
+- API 키, 토큰, 계정 식별자, 인증 정보를 커밋하지 않는다.
+- 읽기 전용 공개 엔드포인트나 데모 환경을 사용한다.
+
+## 문서와 커밋 작성 규칙
+
+- 모든 Markdown 문서의 제목과 설명은 한글로 작성한다. 제품명, 기술 식별자, 파일 경로, 명령어, URL은 원문을 유지한다.
+- 커밋 제목은 개발 일차 대신 실제 주요 변경 내용을 한글로 설명한다. `feat:`, `fix:`, `docs:` 등의 유형 접두사는 사용할 수 있다.
+- 예: `feat: 불변 객체 저장과 멱등 정규화 및 확률 평가 기반 구현`
+- 예: `docs: 문서 한글화와 학습 가이드 및 화면 설계 정리`
+- 개발 일차는 리뷰 문서의 일정 추적에 사용한다. 커밋 제목을 `day3-4`처럼 일차만으로 작성하지 않는다.

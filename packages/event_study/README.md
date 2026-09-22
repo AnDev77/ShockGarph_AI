@@ -1,4 +1,4 @@
-# Event study package
+# 이벤트 연구 패키지
 
-Week 2 boundary for abnormal returns, CAR, CAAR, and bootstrap intervals.
-
+2주차 범위인 비정상수익률, 누적 비정상수익률(CAR), 평균 누적 비정상수익률(CAAR),
+재표집 기반 신뢰구간을 담당한다.

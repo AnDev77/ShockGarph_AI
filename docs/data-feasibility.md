@@ -1,163 +1,153 @@
-# Data Feasibility Gate
+# 데이터 가용성 검토
 
-Status date: 2026-09-17 UTC/KST
+판단 기준일: 2026-09-17 UTC/KST. 아래 내용은 당시 확인 결과를 보존한 기록이다.
 
-## Executive decision
+## 종합 결정
 
-Overall Day 1 decision: **REDUCE_SCOPE**.
+1일차 종합 판단: **범위 축소(REDUCE_SCOPE)**.
 
-The public API surface is technically sufficient for event metadata, current and
-historical markets, public trades, current order books, and market candlesticks.
-It is not sufficient for historical order-book reconstruction. More importantly,
-the current Kalshi Developer Agreement blocks storing or sharing API data for a
-public research product without prior written authorization. Technical access is
-therefore not the same as permission to ship.
+공개 API는 이벤트 메타데이터, 현재·과거 시장, 공개 체결, 현재 호가창, 시장 캔들 수집에 기술적으로 충분했다.
+과거 호가창 재구성에는 충분하지 않았다. 당시 검토한 Kalshi 개발자 약관은 사전 서면 승인 없이
+공개 연구 제품을 위해 API 데이터를 저장하거나 공유하는 것을 제한하는 것으로 판단했다.
+따라서 기술적으로 접근할 수 있다는 사실을 제품 공개 허가로 간주하지 않는다.
 
-| Dataset or use | Decision | Reason |
+| 데이터 또는 용도 | 판단 | 이유 |
 |---|---|---|
-| Event and series discovery | GO_TECHNICAL | Public unauthenticated GET responses verified. |
-| Current markets and public trades | GO_TECHNICAL | Responses and cursor pagination verified. |
-| Historical markets and trades | GO_TECHNICAL | Historical partition and responses verified. |
-| Historical probability candles | GO_TECHNICAL | Daily candle response verified on a settled CPI market. |
-| Current order book | GO_TECHNICAL | Public depth response verified without credentials. |
-| Historical order book | BLOCKED | No historical order-book endpoint is documented. |
-| Calibration baseline | GO | Resolved outcomes and probability candles are obtainable. |
-| Logistic calibration | REDUCE_SCOPE | Only about 107 resolved events across the selected core series before splitting. |
-| LightGBM calibration | BLOCKED_FOR_MVP | Far below the 300 independent-event gate. |
-| Oil event family | REDUCE_SCOPE | The richer weekly series is small and stale; current inventory series is very short. |
-| Public redistribution or hosted product | BLOCKED_LEGAL | Written permission or a separately licensed source is required. |
-| US/Korean asset prices | NOT_VERIFIED | A licensed asset-price source is a separate Gate B task. |
+| 이벤트·시리즈 탐색 | 기술 검증 통과(GO_TECHNICAL) | 인증 없는 공개 GET 응답 확인 |
+| 현재 시장·공개 체결 | 기술 검증 통과(GO_TECHNICAL) | 응답과 커서 페이지네이션 확인 |
+| 과거 시장·체결 | 기술 검증 통과(GO_TECHNICAL) | 과거 자료 분할과 응답 확인 |
+| 과거 확률 캔들 | 기술 검증 통과(GO_TECHNICAL) | 결과 확정된 CPI 시장의 일별 캔들 응답 확인 |
+| 현재 호가창 | 기술 검증 통과(GO_TECHNICAL) | 인증 없이 공개 호가 깊이 응답 확인 |
+| 과거 호가창 | 보류(BLOCKED) | 문서화된 과거 호가창 엔드포인트 없음 |
+| 확률 보정 기준 모델 | 진행 가능(GO) | 확정 결과와 확률 캔들 확보 가능 |
+| 로지스틱 확률 보정 | 범위 축소(REDUCE_SCOPE) | 선정된 핵심 시리즈의 독립 확정 이벤트가 분할 전 약 107개 |
+| LightGBM 확률 보정 | MVP에서 보류(BLOCKED_FOR_MVP) | 독립 이벤트 300개 기준에 크게 못 미침 |
+| 유가 이벤트군 | 범위 축소(REDUCE_SCOPE) | 주간 시리즈도 표본이 적고 오래됐으며, 현재 재고 시리즈는 기간이 매우 짧음 |
+| 공개 재배포·호스팅 제품 | 이용조건 확인 필요(BLOCKED_LEGAL) | 서면 허가 또는 별도 이용권을 확보한 공급원 필요 |
+| 미국·한국 자산 가격 | 미검증(NOT_VERIFIED) | 이용권이 명확한 가격 공급원은 별도 2차 검토 대상 |
 
-## Sources checked
+## 당시 확인한 출처
 
-- API environments: https://docs.kalshi.com/getting_started/api_environments
-- Public market data: https://docs.kalshi.com/getting_started/quick_start_market_data
-- Historical partition: https://docs.kalshi.com/getting_started/historical_data
-- Rate limits: https://docs.kalshi.com/getting_started/rate_limits
-- Events: https://docs.kalshi.com/api-reference/events/get-events
-- Markets: https://docs.kalshi.com/api-reference/market/get-markets
-- Trades: https://docs.kalshi.com/api-reference/market/get-trades
-- Candlesticks: https://docs.kalshi.com/api-reference/market/get-market-candlesticks
-- Developer Agreement v1.1: https://kalshi-public-docs.s3.amazonaws.com/Kalshi-Developer-Agreement.pdf
+- API 환경: https://docs.kalshi.com/getting_started/api_environments
+- 공개 시장 데이터: https://docs.kalshi.com/getting_started/quick_start_market_data
+- 과거 데이터 분할: https://docs.kalshi.com/getting_started/historical_data
+- 요청 제한: https://docs.kalshi.com/getting_started/rate_limits
+- 이벤트: https://docs.kalshi.com/api-reference/events/get-events
+- 시장: https://docs.kalshi.com/api-reference/market/get-markets
+- 체결: https://docs.kalshi.com/api-reference/market/get-trades
+- 캔들: https://docs.kalshi.com/api-reference/market/get-market-candlesticks
+- 개발자 약관 v1.1: https://kalshi-public-docs.s3.amazonaws.com/Kalshi-Developer-Agreement.pdf
 
-## Verified environments
+## 검증 환경
 
-Production REST base URL:
+운영 REST 기본 URL:
 
 `https://external-api.kalshi.com/trade-api/v2`
 
-Demo REST base URL:
+데모 REST 기본 URL:
 
 `https://external-api.demo.kalshi.co/trade-api/v2`
 
-Production and demo credentials are separate. A one-market public GET returned
-successfully from the demo environment. This does not remove the data-use terms.
+운영과 데모의 인증 정보는 서로 다르다. 데모 환경에서 시장 한 개를 조회하는 공개 GET 요청이 성공했다.
+이 사실이 데이터 이용조건을 면제하지는 않는다.
 
-## Endpoint coverage
+## 엔드포인트별 확인 범위
 
-| Need | Endpoint | Actual result | Key fields |
+| 요구사항 | 엔드포인트 | 당시 확인 결과 | 주요 필드 |
 |---|---|---|---|
-| Events | `GET /events` | 200, cursor present | event ticker, series, title, category, times |
-| Markets | `GET /markets` | 200, cursor present | bid/ask, last price, volume, OI, result |
-| Trades | `GET /markets/trades` | 200, cursor present | ticker, price, count, trade timestamp |
-| Historical cutoff | `GET /historical/cutoff` | 200 | cutoff timestamps by entity |
-| Historical markets | `GET /historical/markets` | 200, cursor present | settled result and settlement time |
-| Historical trades | `GET /historical/trades` | 200, cursor present | older public trades |
-| Historical candles | `GET /historical/markets/{ticker}/candlesticks` | 200 | 1m/1h/1d probability OHLC, volume, OI |
-| Current order book | `GET /markets/{ticker}/orderbook` | 200 | current YES/NO bid levels |
-| Historical order book | none found | unavailable | no reconstructable depth history |
+| 이벤트 | `GET /events` | 200, 커서 있음 | 이벤트 코드, 시리즈, 제목, 분류, 시각 |
+| 시장 | `GET /markets` | 200, 커서 있음 | 매수·매도 호가, 최근 가격, 거래량, 미결제약정, 결과 |
+| 체결 | `GET /markets/trades` | 200, 커서 있음 | 종목 코드, 가격, 수량, 체결시각 |
+| 과거 자료 기준시각 | `GET /historical/cutoff` | 200 | 대상별 자료 분할 기준시각 |
+| 과거 시장 | `GET /historical/markets` | 200, 커서 있음 | 확정 결과와 정산시각 |
+| 과거 체결 | `GET /historical/trades` | 200, 커서 있음 | 이전 공개 체결 자료 |
+| 과거 캔들 | `GET /historical/markets/{ticker}/candlesticks` | 200 | 1분·1시간·1일 확률 시가·고가·저가·종가, 거래량, 미결제약정 |
+| 현재 호가창 | `GET /markets/{ticker}/orderbook` | 200 | 현재 YES/NO 매수 호가 단계 |
+| 과거 호가창 | 발견하지 못함 | 이용 불가 | 재구성 가능한 호가 깊이 이력 없음 |
 
-The observed historical cutoff was `2026-07-19T00:00:00Z`. Kalshi documents a
-target live-data window of roughly three months; callers must query both live and
-historical partitions and de-duplicate at the market/trade identifier boundary.
+당시 관측한 과거 자료 분할 기준은 `2026-07-19T00:00:00Z`였다.
+Kalshi 문서는 약 3개월을 실시간 자료 보관 목표 구간으로 설명했다.
+호출자는 현재·과거 자료를 모두 조회하고 시장·체결 식별자를 기준으로 중복을 제거해야 한다.
 
-## Independent sample counts
+## 독립 표본 수
 
-Counts below are from the read-only probe on 2026-09-17. `resolved_event_count`
-is the modeling unit; multiple snapshots or strike markets do not increase it.
+다음 수치는 2026-09-17 읽기 전용 확인 결과다.
+모델링 단위는 `resolved_event_count`이며 여러 관측값이나 임계값 계약이 이 수를 늘리지는 않는다.
 
-| Event family | Series | Events | Resolved events | Markets | Resolved markets | Settlement range |
+| 이벤트군 | 시리즈 | 이벤트 | 결과 확정 이벤트 | 시장 | 결과 확정 시장 | 정산 기간 |
 |---|---|---:|---:|---:|---:|---|
-| FOMC decision | KXFEDDECISION | 39 | 29 | 200 | 145 | 2023-05-03 to 2026-09-16 |
-| US CPI | KXCPI | 66 | 63 | 533 | 508 | 2021-07-15 to 2026-09-11 |
-| Oil monthly | KXOIL | 10 | 9 | 28 | 28 | 2022-03-10 to 2022-08-18 |
-| Oil weekly alternative | KXOILW | 15 | 15 | 30 | 30 | 2022-03-10 to 2022-08-25 |
-| EIA crude inventory alternative | KXEIACRUDEW | 4 | 3 | 52 | 39 | 2026-09-02 to 2026-09-16 |
+| FOMC 결정 | KXFEDDECISION | 39 | 29 | 200 | 145 | 2023-05-03 ~ 2026-09-16 |
+| 미국 CPI | KXCPI | 66 | 63 | 533 | 508 | 2021-07-15 ~ 2026-09-11 |
+| 월간 유가 | KXOIL | 10 | 9 | 28 | 28 | 2022-03-10 ~ 2022-08-18 |
+| 주간 유가 대안 | KXOILW | 15 | 15 | 30 | 30 | 2022-03-10 ~ 2022-08-25 |
+| EIA 원유 재고 대안 | KXEIACRUDEW | 4 | 3 | 52 | 39 | 2026-09-02 ~ 2026-09-16 |
 
-The selected FOMC, CPI, and weekly-oil series provide at most 107 independent
-resolved events before chronological train/validation/test splitting. That is
-enough for a pooled logistic comparison under the specification's 100-event
-threshold, but not enough for a credible LightGBM claim. Per-category test sets
-will be especially small and must show confidence intervals.
+선정한 FOMC·CPI·주간 유가 시리즈는 시간순 학습·검증·시험 분할 전에 최대 107개의 독립 확정 이벤트를 제공한다.
+이는 명세의 100개 기준상 통합 로지스틱 비교를 검토할 수 있는 규모지만, LightGBM 성능을 주장하기에는 부족하다.
+분류별 시험 표본은 특히 작으므로 신뢰구간을 함께 제시해야 한다.
 
-## Fields and gaps
+## 사용 가능한 필드와 부족한 데이터
 
-Available for calibration:
+확률 보정에 사용할 수 있는 자료:
 
-- market bid/ask and last price;
-- volume and open interest;
-- market/event/series identifiers;
-- trade timestamps, prices, and quantities;
-- resolution result and settlement timestamp;
-- 1-minute, 1-hour, and 1-day probability candles.
+- 시장 매수·매도 호가와 최근 가격
+- 거래량과 미결제약정
+- 시장·이벤트·시리즈 식별자
+- 체결시각, 가격, 수량
+- 확정 결과와 정산시각
+- 1분·1시간·1일 확률 캔들
 
-Unavailable or incomplete:
+이용할 수 없거나 보완이 필요한 항목:
 
-- no historical order-book snapshots;
-- retrieval time is not a source field and must be stamped by the collector;
-- the event object is metadata; binary outcomes live on market records;
-- spread and imbalance history must be collected prospectively or omitted;
-- event-family mapping requires a reviewed series allowlist;
-- raw API category labels are not a stable macro taxonomy;
-- the API contract may change without prior notice.
+- 과거 호가창 스냅샷 없음
+- 조회시각은 원본 필드가 아니므로 수집기가 직접 기록해야 함
+- 이벤트 객체는 메타데이터이며 이진 결과는 시장 레코드에 있음
+- 스프레드·호가 불균형 이력은 지금부터 수집하거나 특징량에서 제외해야 함
+- 이벤트군 매핑에는 검토된 시리즈 허용 목록이 필요함
+- 원본 API의 분류 이름은 안정적인 거시경제 분류 체계가 아님
+- API 계약이 사전 고지 없이 바뀔 수 있음
 
-## Rate limits and collection behavior
+## 요청 제한과 수집 동작
 
-The documented Basic event-contract tier has a read budget of 200 tokens per
-second. Limits use token buckets, and a 429 response currently has no
-`Retry-After` or `X-RateLimit-*` header. Collectors must use bounded exponential
-backoff, cursor checkpoints, idempotent upserts, and immutable payload hashes.
+당시 문서의 Basic 이벤트 계약 등급은 초당 읽기 예산 200토큰을 제공했다.
+토큰 버킷 방식을 사용했으며, 당시 429 응답에는 `Retry-After` 또는 `X-RateLimit-*` 헤더가 없었다.
+수집기는 횟수를 제한한 지수 백오프, 커서 체크포인트, 멱등 삽입·갱신, 불변 원본 해시를 사용해야 한다.
 
-## Licensing and public deployment gate
+## 이용조건과 공개 배포 기준
 
-Kalshi Developer Agreement v1.1 states that API use is limited to facilitating a
-member's own trading, and prohibits collecting, caching, aggregating, storing, or
-sharing API content for other purposes without prior written authorization.
+당시 개발자 약관 v1.1은 API 이용을 회원 자신의 거래 지원으로 제한하며,
+사전 서면 승인 없이 다른 목적으로 API 내용을 수집·캐시·집계·저장·공유하는 것을 금지하는 것으로 검토했다.
 
-Consequences for this MVP:
+이에 따른 MVP 기준:
 
-1. Do not ship raw Kalshi payloads, prices, charts, or a hosted collector publicly.
-2. Use repository fixtures only for deterministic development and demos.
-3. Obtain written Kalshi authorization or replace the source with a licensed data
-   provider before public deployment or a commercial pilot.
-4. Treat even derived public metrics as requiring legal/source review; do not
-   assume aggregation alone cures the restriction.
+1. Kalshi 원본 응답, 가격, 차트, 호스팅된 수집기를 공개 배포하지 않는다.
+2. 재현 가능한 개발과 시연에는 저장소의 고정 테스트 자료를 사용한다.
+3. 공개 배포나 상용 시험 운영 전 Kalshi 서면 승인을 받거나 이용권을 확보한 공급원으로 교체한다.
+4. 공개 파생 지표도 이용조건·출처 검토 대상으로 취급한다. 집계만으로 제한이 해소된다고 가정하지 않는다.
 
-This is a product gate, not legal advice.
+이는 프로젝트 진행 기준이며 법률 자문이 아니다.
 
-## Gate B: asset data
+## 2차 검토: 자산 데이터
 
-US ETF, USD/KRW, and Korean ETF sources have not been approved in this milestone.
-The next data task must document history depth, corporate-action handling,
-timezone/calendar alignment, redistribution rights, and whether only derived
-statistics may be exposed. Until then, asset ingestion is `NOT_VERIFIED`.
+이 초기 단계에서는 미국 ETF, USD/KRW, 한국 ETF 공급원을 승인하지 않았다.
+후속 검토에서는 과거 자료 범위, 기업행동 처리, 시각대·거래일 정렬, 재배포 권한,
+파생 통계만 공개 가능한지 여부를 문서화해야 한다. 초기 자산 수집 상태는 미검증(NOT_VERIFIED)이다.
+후속 판단은 [자산 공급원 검토](data-source-gate-b.md)를 확인한다.
 
-## Go-forward scope
+## 이후 진행 범위
 
-- Keep FOMC and CPI as the two required real-data analytical verticals.
-- Keep oil behind a feature flag until a larger or separately licensed event set
-  is identified; use KXOILW only for exploratory tests.
-- Build market-probability baseline and pooled logistic calibration first.
-- Do not build LightGBM until the independent resolved-event count exceeds 300.
-- Do not depend on historical order-book imbalance in the MVP feature set.
-- Keep public demos on synthetic/sanitized fixtures until data rights are cleared.
+- FOMC와 CPI를 필수 실데이터 분석 대상으로 유지한다.
+- 유가는 더 큰 표본 또는 별도 이용권을 확보한 이벤트 집합이 생길 때까지 기능 플래그로 분리한다. KXOILW는 탐색용 테스트에만 사용한다.
+- 시장확률 기준 모델과 통합 로지스틱 확률 보정을 먼저 만든다.
+- 독립 확정 이벤트가 300개를 초과하기 전에는 LightGBM을 만들지 않는다.
+- MVP 특징량을 과거 호가창 불균형에 의존시키지 않는다.
+- 데이터 이용권을 확인할 때까지 공개 시연에는 합성·정제된 고정 예제를 사용한다.
 
-## Reproduce the technical probe
+## 기술적 확인 재현
 
 ```bash
 python scripts/probe_kalshi.py
 ```
 
-The probe performs only unauthenticated GET requests and prints a summary. It
-does not place orders, access accounts, or write source payloads to disk.
-
+이 스크립트는 인증 없는 GET 요청만 수행하고 요약을 출력한다.
+주문하거나 계좌에 접근하지 않으며 원본 응답을 디스크에 저장하지 않는다.

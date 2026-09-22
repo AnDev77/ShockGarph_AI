@@ -1,14 +1,15 @@
-# Two-Day Delivery Reviews
+# 이틀 단위 개발 리뷰
 
-Each project-development request advances two consecutive days of the 21-day
-plan unless the user explicitly changes the scope.
+사용자가 범위를 명시적으로 바꾸지 않는 한, 프로젝트 개발 요청 한 번은
+21일 계획의 연속된 이틀을 진행한다.
 
-Every delivery creates `day-XX-YY-review.md` with:
+매번 `day-XX-YY-review.md`에 다음 내용을 작성한다.
 
-1. scope completed and intentionally deferred work;
-2. changed code structure;
-3. exact test and quality results;
-4. data/model/product decisions made;
-5. a checklist of items the user should inspect or decide before the next cycle;
-6. the next two planned days.
+1. 완료한 범위와 의도적으로 미룬 작업
+2. 변경된 코드 구조
+3. 정확한 테스트·품질 검사 결과
+4. 데이터·모델·제품 관련 결정
+5. 다음 작업 전에 사용자가 확인하거나 결정할 항목
+6. 다음 이틀의 계획
 
+일차는 리뷰 파일의 일정 추적에 사용한다. 커밋 메시지는 실제 주요 변경 내용을 한글로 작성한다.

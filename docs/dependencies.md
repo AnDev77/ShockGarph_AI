@@ -1,59 +1,53 @@
-# Dependency Decisions
+# 의존성 도입 결정
 
-## Runtime
+## 실행 의존성
 
 ### Pydantic
 
-Added on Day 2 to enforce UTC timestamps, bounded probabilities, non-negative
-quantities, strict event status/result values, and cross-field quote validation.
-These contracts sit at the ingestion boundary before database writes.
+2일차에 도입했다. UTC 시각, 확률 범위, 음수가 아닌 수량, 이벤트 상태·결과 값,
+매수·매도 호가 간 관계를 검증한다. 데이터베이스에 쓰기 전 수집 경계에서 이 계약을 적용한다.
 
 ### HTTPX
 
-Added on Day 2 for a timeout-aware, testable, read-only HTTP collector. The
-collector exposes GET requests only, accepts only approved Kalshi public/demo base
-URLs and public path prefixes, and uses `MockTransport` in tests. It contains no
-authentication, account, order, or execution support.
+2일차에 도입했다. 제한시간을 설정할 수 있고 테스트 가능한 읽기 전용 HTTP 수집기에 사용한다.
+수집기는 GET 요청만 제공하며 승인된 Kalshi 공개·데모 기본 URL과 공개 경로 접두사만 허용한다.
+테스트에서는 `MockTransport`를 사용한다. 인증·계좌·주문·체결 기능은 포함하지 않는다.
 
-## Development
+## 개발 도구
 
-- `pytest`: deterministic unit, contract, and integration tests.
-- `ruff`: linting and import formatting.
-- `pyright`: static type-checking contract; the Codex sandbox may block its Node
-  bootstrap even when configuration is valid.
+- `pytest`: 재현 가능한 단위·계약·통합 테스트
+- `ruff`: 코드 규칙 검사와 가져오기 구문 정렬
+- `pyright`: 정적 타입 검사. 설정이 올바르더라도 일부 Codex 실행 환경에서는 Node 초기 실행이 차단될 수 있다.
 
-## Planned infrastructure
+## 도입 예정 인프라
 
-These are approved architecture targets, not installed runtime dependencies yet.
-Each item must pass its stated gate before it is added to Docker Compose or the
-Python dependency lock.
+아래 항목은 승인된 목표 구성이다. 아직 설치된 실행 의존성을 뜻하지 않는다.
+각 항목의 선행 조건을 통과한 뒤 Docker Compose 또는 Python 의존성 잠금 파일에 추가한다.
 
-### PostgreSQL with TimescaleDB
+### PostgreSQL과 TimescaleDB
 
-Use one PostgreSQL-compatible operational boundary for relational metadata and
-time-series observations. Add hypertables only for price, probability, feature,
-and prediction series after the Day 3 schema tests pass.
+관계형 메타데이터와 시계열 관측값을 하나의 PostgreSQL 호환 운영 영역에서 관리한다.
+3일차 스키마 테스트를 통과한 뒤 가격·확률·특징량·예측 시계열에 하이퍼테이블을 추가한다.
 
-### S3-compatible object storage
+### S3 호환 객체 저장소
 
-Keep the current local immutable store behind a protocol. Add MinIO for local
-integration after object-key, checksum, collision, and retry tests exist. Model
-binaries and dataset snapshots belong here; their metadata belongs in PostgreSQL.
+현재 로컬 불변 저장소를 프로토콜 뒤에 유지한다.
+객체 키, 체크섬, 충돌, 재시도 테스트를 갖춘 뒤 로컬 통합 환경에 MinIO를 추가한다.
+모델 바이너리와 데이터셋 스냅샷은 객체 저장소에, 메타데이터는 PostgreSQL에 저장한다.
 
 ### RabbitMQ
 
-Use RabbitMQ for asynchronous ingestion work only after raw-first persistence and
-a PostgreSQL outbox are implemented. Consumers must use idempotency keys and
-tolerate at-least-once delivery. Kafka remains outside the MVP.
+원본 우선 영속 저장과 PostgreSQL 아웃박스가 구현된 뒤 비동기 수집 작업에 사용한다.
+소비자는 멱등 키를 사용하고 최소 한 번 전달에 따른 중복을 처리해야 한다.
+Kafka는 MVP 범위 밖이다.
 
 ### Prefect
 
-Use Prefect to schedule and observe collection, dataset build, training, and
-evaluation flows. Domain and transformation functions must remain callable and
-testable without a running Prefect server.
+수집, 데이터셋 생성, 학습, 평가 흐름의 예약과 관찰에 사용한다.
+도메인·변환 함수는 Prefect 서버 없이도 직접 호출하고 테스트할 수 있어야 한다.
 
 ### Redis
 
-Add Redis only after FastAPI latency or database-load measurements justify it.
-Use cache-aside with TTLs for validated responses; never store the only copy of a
-feature, prediction, or model result in Redis.
+FastAPI 응답 지연이나 데이터베이스 부하 측정으로 필요성이 확인된 뒤 추가한다.
+검증된 응답에 만료시간을 둔 지연 로딩 캐시를 적용한다.
+특징량·예측·모델 결과의 유일한 사본을 Redis에 저장하지 않는다.
