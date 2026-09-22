@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal, Self
 
@@ -102,3 +102,40 @@ class OrderBookSnapshotRecord(IngestionRecord):
     def require_utc(cls, value: datetime) -> datetime:
         return _as_utc(value)
 
+
+class AssetPriceRecord(IngestionRecord):
+    source: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    venue: str = Field(min_length=1)
+    observed_at: datetime
+    session_date: date
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    close: Annotated[Decimal, Field(gt=0)]
+    adjusted_close: Annotated[Decimal, Field(gt=0)] | None = None
+    volume: NonNegativeDecimal | None = None
+    raw_payload_hash: PayloadHash
+
+    @field_validator("observed_at")
+    @classmethod
+    def require_utc(cls, value: datetime) -> datetime:
+        return _as_utc(value)
+
+class FeatureSnapshotRecord(IngestionRecord):
+    event_id: str = Field(min_length=1)
+    feature_name: str = Field(min_length=1)
+    feature_as_of: datetime
+    observed_at: datetime
+    value: Decimal
+    transformation_version: str = Field(min_length=1)
+    raw_payload_hash: PayloadHash
+
+    @field_validator("feature_as_of", "observed_at")
+    @classmethod
+    def require_utc(cls, value: datetime) -> datetime:
+        return _as_utc(value)
+
+    @model_validator(mode="after")
+    def reject_future_feature(self) -> Self:
+        if self.feature_as_of > self.observed_at:
+            raise ValueError("feature_as_of cannot follow observed_at")
+        return self

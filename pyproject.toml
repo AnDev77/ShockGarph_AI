@@ -26,6 +26,7 @@ packages = []
 testpaths = ["tests"]
 pythonpath = [
   "apps/collector",
+  "packages/calibration",
   "packages/domain",
   "packages/data_pipeline",
 ]
@@ -42,6 +43,11 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
 include = ["apps", "packages", "scripts", "tests"]
-extraPaths = ["apps/collector", "packages/domain", "packages/data_pipeline"]
+extraPaths = [
+  "apps/collector",
+  "packages/calibration",
+  "packages/domain",
+  "packages/data_pipeline",
+]
 venvPath = "."
 venv = ".venv"

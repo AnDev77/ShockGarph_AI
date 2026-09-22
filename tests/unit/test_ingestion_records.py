@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError
 from shockgraph_domain.records import (
+    AssetPriceRecord,
     EventRecord,
     MarketSnapshotRecord,
     OrderBookSnapshotRecord,
@@ -79,3 +80,17 @@ def test_orderbook_level_requires_non_negative_quantity() -> None:
             raw_payload_hash="b" * 64,
         )
 
+
+def test_asian_session_date_may_be_next_utc_calendar_day() -> None:
+    price = AssetPriceRecord(
+        source="licensed-fixture",
+        symbol="069500",
+        venue="XKRX",
+        observed_at=datetime(2026, 9, 21, 23, 30, tzinfo=UTC),
+        session_date=date(2026, 9, 22),
+        currency="KRW",
+        close=Decimal("50123.50"),
+        raw_payload_hash="c" * 64,
+    )
+
+    assert price.session_date == date(2026, 9, 22)
