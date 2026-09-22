@@ -33,7 +33,8 @@ ShockGraph AI는 거시 이벤트를 기반으로 포트폴리오 위험을 연�
 
 실데이터로 검증된 예측 모델과 웹 화면은 아직 없다. 실제 데이터베이스 연결과 운영 검증도 후속 범위다.
 
-현재 작업 결과는 [분석 개발 리뷰](docs/reviews/day-05-06-review.md), 목표 구조는
+현재 작업 결과는 [분석 개발 리뷰](docs/reviews/day-05-06-review.md),
+재접속 후 상태는 [연동·재검증 기록](docs/reviews/analytics-sync-checkpoint.md), 목표 구조는
 [아키텍처 문서](docs/architecture.md)에서 확인할 수 있다.
 
 ## 학습과 제품 설계
