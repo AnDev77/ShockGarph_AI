@@ -4,7 +4,66 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from shockgraph_analytics.contracts import ResearchDataset
-from shockgraph_analytics.evaluation import empirical_crps, evaluate, forecast, prepare
+from shockgraph_analytics.evaluation import (
+    empirical_crps,
+    evaluate,
+    forecast,
+    prepare,
+    scenario_weights,
+    tail_risk,
+)
+from shockgraph_analytics.probability import (
+    binary_book_midpoint,
+    normalize_verified_partition,
+    thresholds_to_partition,
+)
+
+
+def test_binary_orderbook_spread_is_not_a_probability_overround() -> None:
+    quote = binary_book_midpoint(yes_bid=0.60, no_bid=0.30)
+    assert quote["yes_midpoint"] == pytest.approx(0.65)
+    assert quote["no_midpoint"] == pytest.approx(0.35)
+    assert quote["spread"] == pytest.approx(0.10)
+    with pytest.raises(ValueError, match="crossed"):
+        binary_book_midpoint(0.8, 0.3)
+
+
+def test_verified_partition_normalizes_and_abstains_on_bad_coverage() -> None:
+    result = normalize_verified_partition(
+        {"below": 0.42, "at_or_above": 0.60}, partition_verified=True
+    )
+    assert sum(result["probabilities"].values()) == pytest.approx(1)
+    assert result["probabilities"]["below"] == pytest.approx(0.42 / 1.02)
+    assert result["raw_sum"] == pytest.approx(1.02)
+    with pytest.raises(ValueError, match="verified"):
+        normalize_verified_partition({"below": 0.4, "at_or_above": 0.6})
+    with pytest.raises(ValueError, match="deviation"):
+        normalize_verified_partition({"below": 0.1, "at_or_above": 0.2}, partition_verified=True)
+
+
+def test_overlapping_thresholds_become_disjoint_intervals_only_if_monotone() -> None:
+    assert thresholds_to_partition([0.3, 0.5], [0.7, 0.2]) == pytest.approx([0.3, 0.5, 0.2])
+    with pytest.raises(ValueError, match="strictly increasing"):
+        thresholds_to_partition([0.5, 0.3], [0.7, 0.2])
+    with pytest.raises(ValueError, match="monotone"):
+        thresholds_to_partition([0.3, 0.5], [0.2, 0.7])
+
+
+def test_conditional_shrinkage_pools_sparse_scenarios_without_future_data() -> None:
+    weights = scenario_weights([True, True, False, False], 1.0, strength=4)
+    assert weights == pytest.approx([1 / 3, 1 / 3, 1 / 6, 1 / 6])
+    assert sum(weights) == pytest.approx(1)
+
+
+def test_tail_risk_requires_ten_effective_tail_observations() -> None:
+    small = tail_risk([-0.1] + [0.01] * 19, [0.05] * 20)
+    assert small["status"] == "insufficient_tail_data"
+    assert "var95" not in small and "es95" not in small
+    values = [-0.1] * 10 + [0.01] * 190
+    large = tail_risk(values, [1 / 200] * 200)
+    assert large["status"] == "exploratory"
+    assert large["var95"] == pytest.approx(0.1)
+    assert large["es95"] == pytest.approx(0.1)
 
 
 def dataset_payload(count: int = 8) -> dict:
@@ -200,8 +259,8 @@ def test_weighted_distribution_changes_with_probability_only() -> None:
     payload["snapshots"][4]["probability"] = 0.0
     result = evaluate(ResearchDataset.model_validate(payload), min_train=4)
     f = result["folds"][4]["predictions"]["SPY"]["probability_weighted"]
-    assert f["mean_return"] == pytest.approx(0.01)
-    assert f["q05"] == pytest.approx(0.01)
+    assert f["mean_return"] == pytest.approx(0.0)
+    assert f["q05"] == pytest.approx(-0.02)
 
 
 def test_crps_sorted_formula_matches_pairwise_definition() -> None:

@@ -10,7 +10,9 @@ from typing import Any
 
 from shockgraph_analytics.contracts import Release, ResearchDataset
 
-MODEL_VERSION = "empirical-scenarios-v1"
+MODEL_VERSION = "empirical-scenarios-shrinkage-v2"
+SHRINKAGE_STRENGTH = 4
+MIN_EFFECTIVE_TAIL_OBSERVATIONS = 10
 
 
 @dataclass(frozen=True)
@@ -105,7 +107,7 @@ def quantile(values: list[float], weights: list[float], q: float) -> float:
     total = 0.0
     for value, weight in sorted(zip(values, weights, strict=True)):
         total += weight
-        if total >= q:
+        if total >= q - 1e-12:
             return value
     return max(values)
 
@@ -121,6 +123,65 @@ def forecast(values: list[float], weights: list[float]) -> dict[str, float]:
         "q05": quantile(values, weights, 0.05),
         "q95": quantile(values, weights, 0.95),
     }
+
+
+def scenario_weights(outcomes: list[bool], probability: float, *, strength: int = 4) -> list[float]:
+    """Pool each scenario distribution toward the training-only unconditional distribution."""
+    if not outcomes or not 0 <= probability <= 1 or not math.isfinite(probability) or strength < 0:
+        raise ValueError("invalid scenario weighting inputs")
+    yes = sum(outcomes)
+    no = len(outcomes) - yes
+    if not yes or not no:
+        raise ValueError("both scenarios require observed training events")
+    n = len(outcomes)
+    return [
+        probability
+        * (
+            (yes / (yes + strength)) * (1 / yes if outcome else 0)
+            + (strength / (yes + strength)) / n
+        )
+        + (1 - probability)
+        * (
+            (no / (no + strength)) * (1 / no if not outcome else 0)
+            + (strength / (no + strength)) / n
+        )
+        for outcome in outcomes
+    ]
+
+
+def tail_risk(
+    values: list[float], weights: list[float], *, alpha: float = 0.05
+) -> dict[str, float | str]:
+    if (
+        not values
+        or len(values) != len(weights)
+        or not 0 < alpha < 1
+        or any(not math.isfinite(x) for x in [*values, *weights])
+        or any(w < 0 for w in weights)
+        or not math.isclose(math.fsum(weights), 1, abs_tol=1e-9, rel_tol=0)
+    ):
+        raise ValueError("finite values and normalized nonnegative weights required")
+    effective_n = 1 / math.fsum(w * w for w in weights)
+    expected_tail = effective_n * alpha
+    result: dict[str, float | str] = {
+        "status": "insufficient_tail_data",
+        "effective_events": effective_n,
+        "effective_tail_observations": expected_tail,
+    }
+    if expected_tail + 1e-9 < MIN_EFFECTIVE_TAIL_OBSERVATIONS:
+        return result
+    remaining = alpha
+    lower_sum = 0.0
+    for value, weight in sorted(zip(values, weights, strict=True)):
+        take = min(weight, remaining)
+        lower_sum += take * value
+        remaining -= take
+        if remaining <= 1e-12:
+            break
+    result.update(
+        status="exploratory", var95=-quantile(values, weights, alpha), es95=-lower_sum / alpha
+    )
+    return result
 
 
 def score(values: list[float], weights: list[float], observed: float) -> dict[str, float]:
@@ -180,11 +241,10 @@ def evaluate(
             folds.append(fold)
             continue
         uniform = [1 / len(train)] * len(train)
-        conditional = [
-            current.probability / yes if row.outcome else (1 - current.probability) / no
-            for row in train
-        ]
-        fold.update(status="evaluated", predictions={}, scores={})
+        conditional = scenario_weights(
+            [row.outcome for row in train], current.probability, strength=SHRINKAGE_STRENGTH
+        )
+        fold.update(status="evaluated", predictions={}, scores={}, tail_risk={})
         for index, name in enumerate(names):
 
             def value(row: PreparedEvent, asset_index: int = index) -> float:
@@ -201,6 +261,10 @@ def evaluate(
             fold["scores"][name] = {
                 "historical": score(values, uniform, target),
                 "probability_weighted": score(values, conditional, target),
+            }
+            fold["tail_risk"][name] = {
+                "historical": tail_risk(values, uniform),
+                "probability_weighted": tail_risk(values, conditional),
             }
         # Ex post diagnostics never enter forecast construction above.
         fold["diagnostics"] = {
@@ -237,6 +301,8 @@ def evaluate(
         "settings": {
             "min_train": min_train,
             "min_scenario": min_scenario,
+            "shrinkage_strength": SHRINKAGE_STRENGTH,
+            "minimum_effective_tail_observations": MIN_EFFECTIVE_TAIL_OBSERVATIONS,
             "bootstrap_repetitions": 1000,
             "bootstrap_seed": 42,
         },
@@ -249,7 +315,9 @@ def evaluate(
         "comparison": comparison,
         "promotion_status": "not_evaluated",
         "limitations": [
-            "Fixed-threshold binary empirical benchmark; not a surprise regression",
+            "Fixed-threshold binary pooled empirical benchmark; not a surprise regression",
+            "Regime shifts and short event windows require verified real intraday data",
+            "Tail risk is exploratory only after ten effective tail observations",
             "No conventional-expectations or volatility benchmark comparison yet",
             "Independent-event bootstrap assumes no serial dependence",
             "Predictive dispersion is not realized-volatility forecast validation",
