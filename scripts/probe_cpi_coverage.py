@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,132 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "apps/collector"), str(ROOT / "packages/data_pipeline")]
 
 from shockgraph_collector.client import KalshiPublicClient, RetryPolicy  # noqa: E402
+
+DEFAULT_EVENT = "KXCPI-26AUG"
+# BLS August 2026 CPI release: September 11, 2026 08:30 ET (12:30 UTC).
+DEFAULT_RELEASE_AT = datetime(2026, 9, 11, 12, 30, tzinfo=UTC)
+
+
+def _valid_decimal(value: Any) -> Decimal | None:
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    return number if number.is_finite() else None
+
+
+def inspect_pre_release_candles(payload: dict[str, Any], prediction_at: datetime) -> dict[str, Any]:
+    candles = payload.get("candlesticks")
+    if not isinstance(candles, list):
+        raise ValueError("candlesticks must be a list")
+    valid_ends: set[int] = set()
+    earliest = int((prediction_at - timedelta(hours=1)).timestamp())
+    latest = int(prediction_at.timestamp())
+    for candle in candles:
+        if not isinstance(candle, dict):
+            continue
+        end = candle.get("end_period_ts")
+        if isinstance(end, bool) or not isinstance(end, int) or not earliest <= end <= latest:
+            continue
+        bid = candle.get("yes_bid")
+        ask = candle.get("yes_ask")
+        if not isinstance(bid, dict) or not isinstance(ask, dict):
+            continue
+        buy = _valid_decimal(bid.get("close_dollars", bid.get("close")))
+        sell = _valid_decimal(ask.get("close_dollars", ask.get("close")))
+        volume = _valid_decimal(candle.get("volume_fp", candle.get("volume")))
+        if (
+            buy is not None
+            and sell is not None
+            and volume is not None
+            and Decimal(0) <= buy <= sell <= Decimal(1)
+            and sell - buy <= Decimal("0.10")
+            and volume > 0
+        ):
+            valid_ends.add(end)
+    return {
+        "candidate_candles": len(candles),
+        "eligible_candles": len(valid_ends),
+        "near_release_candles": sum(end >= latest - 15 * 60 for end in valid_ends),
+        "latest_eligible_end_at": datetime.fromtimestamp(max(valid_ends), UTC).isoformat()
+        if valid_ends
+        else None,
+        "screen": "pre_release_end,positive_volume,valid_bid_ask,spread_at_most_0.10",
+    }
+
+
+def sample_pre_release(
+    client: KalshiPublicClient, *, event_ticker: str, release_at: datetime
+) -> dict[str, Any]:
+    if not re.fullmatch(r"KXCPI-[A-Z0-9-]+", event_ticker):
+        raise ValueError("require a CPI event ticker")
+    if release_at.tzinfo is None or release_at.utcoffset() != timedelta(0):
+        raise ValueError("release_at must be timezone-aware UTC")
+    prediction_at = release_at - timedelta(minutes=5)
+    candidates: list[tuple[str, dict[str, Any]]] = []
+    errors: dict[str, dict[str, Any]] = {}
+    for path in ("/historical/markets", "/markets"):
+        try:
+            payload = client.get_json(path, params={"event_ticker": event_ticker, "limit": 100})
+            markets = payload.get("markets")
+            if not isinstance(markets, list):
+                raise ValueError("markets must be a list")
+            for market in markets:
+                if (
+                    isinstance(market, dict)
+                    and market.get("event_ticker") == event_ticker
+                    and market.get("result") in ("yes", "no")
+                    and isinstance(market.get("ticker"), str)
+                    and market["ticker"].startswith(event_ticker + "-")
+                    and re.fullmatch(r"[A-Z0-9.\-]+", market["ticker"])
+                ):
+                    candidates.append((path, market))
+        except (httpx.HTTPError, ValueError) as error:
+            errors[path] = {
+                "error_type": type(error).__name__,
+                "http_status": error.response.status_code
+                if isinstance(error, httpx.HTTPStatusError)
+                else None,
+            }
+    if not candidates:
+        return {
+            "status": "access_error" if errors else "no_resolved_market",
+            "market_access_errors": errors,
+        }
+    # Only a coverage probe: fixed ordering avoids selecting a contract by ex-post volume/outcome.
+    path, market = min(candidates, key=lambda pair: (pair[1]["ticker"], pair[0]))
+    ticker = market["ticker"]
+    candle_path = f"{path}/{ticker}/candlesticks"
+    try:
+        payload = client.get_json(
+            candle_path,
+            params={
+                "start_ts": int((prediction_at - timedelta(hours=1)).timestamp()),
+                "end_ts": int(prediction_at.timestamp()),
+                "period_interval": 1,
+            },
+        )
+        screen = inspect_pre_release_candles(payload, prediction_at)
+    except (httpx.HTTPError, ValueError) as error:
+        return {
+            "status": "candle_access_error",
+            "ticker": ticker,
+            "market_access_errors": errors,
+            "error_type": type(error).__name__,
+            "http_status": error.response.status_code
+            if isinstance(error, httpx.HTTPStatusError)
+            else None,
+        }
+    return {
+        "status": "eligible"
+        if screen["near_release_candles"]
+        else ("stale_candles" if screen["eligible_candles"] else "no_eligible_candles"),
+        "ticker": ticker,
+        "event_ticker": event_ticker,
+        "prediction_at": prediction_at.isoformat(),
+        "market_access_errors": errors,
+        **screen,
+    }
 
 
 def inventory(client: KalshiPublicClient, path: str, *, max_pages: int) -> dict[str, Any]:
@@ -58,7 +186,12 @@ def inventory(client: KalshiPublicClient, path: str, *, max_pages: int) -> dict[
     }
 
 
-def probe(*, max_pages: int = 10) -> dict[str, Any]:
+def probe(
+    *,
+    max_pages: int = 10,
+    event_ticker: str = DEFAULT_EVENT,
+    release_at: datetime = DEFAULT_RELEASE_AT,
+) -> dict[str, Any]:
     if max_pages < 1:
         raise ValueError("max_pages must be positive")
     report: dict[str, Any] = {
@@ -74,6 +207,18 @@ def probe(*, max_pages: int = 10) -> dict[str, Any]:
     }
     try:
         with KalshiPublicClient(timeout_seconds=8, retry_policy=RetryPolicy(max_attempts=1)) as c:
+            for path in ("/exchange/status", "/series/KXCPI"):
+                try:
+                    response = c.get_json(path)
+                    report["endpoints"][path] = {"status": "ok" if response else "empty_response"}
+                except (httpx.HTTPError, ValueError) as error:
+                    report["endpoints"][path] = {
+                        "status": "error",
+                        "error_type": type(error).__name__,
+                        "http_status": error.response.status_code
+                        if isinstance(error, httpx.HTTPStatusError)
+                        else None,
+                    }
             for path in ("/historical/cutoff", "/markets", "/historical/markets"):
                 try:
                     if path.endswith("cutoff"):
@@ -92,6 +237,9 @@ def probe(*, max_pages: int = 10) -> dict[str, Any]:
                         if isinstance(error, httpx.HTTPStatusError)
                         else None,
                     }
+            report["historical_pre_release_sample"] = sample_pre_release(
+                c, event_ticker=event_ticker, release_at=release_at
+            )
     except ImportError:
         report["environment_error"] = (
             "proxy dependency unavailable; install httpx[socks] if required"
@@ -102,8 +250,20 @@ def probe(*, max_pages: int = 10) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="CPI 공개 API의 제한된 읽기 전용 커버리지 점검")
     parser.add_argument("--max-pages", type=int, default=10)
+    parser.add_argument("--event-ticker", default=DEFAULT_EVENT)
+    parser.add_argument("--release-at", default=DEFAULT_RELEASE_AT.isoformat())
     args = parser.parse_args()
-    print(json.dumps(probe(max_pages=args.max_pages), ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            probe(
+                max_pages=args.max_pages,
+                event_ticker=args.event_ticker,
+                release_at=datetime.fromisoformat(args.release_at.replace("Z", "+00:00")),
+            ),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

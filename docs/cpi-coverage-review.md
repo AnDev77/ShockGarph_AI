@@ -2,6 +2,10 @@
 
 점검일: 2026-09-22
 
+2026-09-23에 기본 도메인 연결과 특정 CPI 이벤트의 발표 직전 분봉을 추가 점검했다.
+이번 환경의 접근 결과와 각 자료 수준에 맞는 분석 방법은
+[Kalshi CPI 접근·방법론 검토](kalshi-cpi-access-methods.md)를 따른다.
+
 ## 이번 실행 결과
 
 `scripts/probe_cpi_coverage.py --max-pages 10`으로 공개 GET 접근을 점검했다.
