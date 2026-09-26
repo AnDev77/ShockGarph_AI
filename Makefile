@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi
+.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi research-paper-data
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -26,6 +26,10 @@ research-probe:
 
 research-audit-cpi:
 	$(PYTHON) scripts/audit_kalshi_cpi.py --request-interval 0.3
+
+research-paper-data:
+	@test -n "$(PAPER_REPORT)" || (echo "PAPER_REPORT에 report.json 경로를 지정하세요" && exit 2)
+	$(PYTHON) scripts/export_paper_dataset.py --input "$(PAPER_REPORT)"
 
 train:
 	@echo "Not implemented before the Day 4 data gate" && exit 2

@@ -29,6 +29,8 @@ from shockgraph_collector.client import (  # noqa: E402
 )
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore  # noqa: E402
 
+AUDIT_SCHEMA_VERSION = "kalshi-cpi-audit-v2"
+
 
 def score_event_probabilities(
     events: list[dict[str, Any]], *, min_history: int = 10
@@ -69,6 +71,9 @@ def score_event_probabilities(
                 {
                     "market_ticker": str(event.get("market_ticker", "")),
                     "prior_events": len(prior_outcomes),
+                    "outcome_binary": int(target),
+                    "probability_yes": probability,
+                    "expanding_historical_probability": baseline,
                     "market_loss": (probability - target) ** 2,
                     "expanding_historical_loss": (baseline - target) ** 2,
                 }
@@ -243,6 +248,7 @@ def audit_cpi(
         for status in ("eligible", "stale", "no_eligible_candles", "access_error")
     }
     return {
+        "schema_version": AUDIT_SCHEMA_VERSION,
         "checked_at": datetime.now(UTC).isoformat(),
         "series_ticker": "KXCPI",
         "threshold_suffix": threshold_suffix,

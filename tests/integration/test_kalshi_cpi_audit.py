@@ -54,6 +54,7 @@ def test_audit_uses_correct_candle_tier_and_reports_quality(tmp_path) -> None:
             request_interval_seconds=0,
         )
     assert report["settled_fixed_threshold_events"] == 1
+    assert report["schema_version"] == "kalshi-cpi-audit-v2"
     assert report["status_counts"]["eligible"] == 1
     assert report["event_probability_comparison"]["eligible_events"] == 1
     assert (
@@ -92,5 +93,8 @@ def test_probability_score_uses_only_prior_settlements_for_baseline() -> None:
     assert result["eligible_events"] == 2
     assert result["comparable_events"] == 2
     assert result["raw_market_brier"] == pytest.approx(0.04)
+    assert result["comparisons"][0]["outcome_binary"] == 1
+    assert result["comparisons"][0]["probability_yes"] == pytest.approx(0.8)
+    assert result["comparisons"][0]["expanding_historical_probability"] == pytest.approx(0.5)
     assert result["comparisons"][0]["expanding_historical_loss"] == pytest.approx(0.25)
     assert result["comparisons"][1]["expanding_historical_loss"] == pytest.approx((6 / 11) ** 2)
