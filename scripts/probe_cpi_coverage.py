@@ -15,7 +15,12 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "apps/collector"), str(ROOT / "packages/data_pipeline")]
 
-from shockgraph_collector.client import KalshiPublicClient, RetryPolicy  # noqa: E402
+from shockgraph_collector.client import (  # noqa: E402
+    PRODUCTION_BASE_URL,
+    PRODUCTION_COMPAT_BASE_URL,
+    KalshiPublicClient,
+    RetryPolicy,
+)
 
 DEFAULT_EVENT = "KXCPI-26AUG"
 # BLS August 2026 CPI release: September 11, 2026 08:30 ET (12:30 UTC).
@@ -34,7 +39,7 @@ def inspect_pre_release_candles(payload: dict[str, Any], prediction_at: datetime
     candles = payload.get("candlesticks")
     if not isinstance(candles, list):
         raise ValueError("candlesticks must be a list")
-    valid_ends: set[int] = set()
+    valid_quotes: list[dict[str, Any]] = []
     earliest = int((prediction_at - timedelta(hours=1)).timestamp())
     latest = int(prediction_at.timestamp())
     for candle in candles:
@@ -58,14 +63,26 @@ def inspect_pre_release_candles(payload: dict[str, Any], prediction_at: datetime
             and sell - buy <= Decimal("0.10")
             and volume > 0
         ):
-            valid_ends.add(end)
+            valid_quotes.append(
+                {
+                    "end": end,
+                    "end_at": datetime.fromtimestamp(end, UTC).isoformat(),
+                    "yes_midpoint": float((buy + sell) / 2),
+                    "spread": float(sell - buy),
+                    "volume": float(volume),
+                }
+            )
+    latest_quote = max(valid_quotes, key=lambda quote: quote["end"]) if valid_quotes else None
     return {
         "candidate_candles": len(candles),
-        "eligible_candles": len(valid_ends),
-        "near_release_candles": sum(end >= latest - 15 * 60 for end in valid_ends),
-        "latest_eligible_end_at": datetime.fromtimestamp(max(valid_ends), UTC).isoformat()
-        if valid_ends
-        else None,
+        "eligible_candles": len(valid_quotes),
+        "near_release_candles": sum(quote["end"] >= latest - 15 * 60 for quote in valid_quotes),
+        "latest_eligible_end_at": latest_quote["end_at"] if latest_quote else None,
+        "latest_quote": (
+            {key: value for key, value in latest_quote.items() if key != "end"}
+            if latest_quote
+            else None
+        ),
         "screen": "pre_release_end,positive_volume,valid_bid_ask,spread_at_most_0.10",
     }
 
@@ -73,7 +90,7 @@ def inspect_pre_release_candles(payload: dict[str, Any], prediction_at: datetime
 def sample_pre_release(
     client: KalshiPublicClient, *, event_ticker: str, release_at: datetime
 ) -> dict[str, Any]:
-    if not re.fullmatch(r"KXCPI-[A-Z0-9-]+", event_ticker):
+    if not re.fullmatch(r"(?:KX)?CPI-[A-Z0-9-]+", event_ticker):
         raise ValueError("require a CPI event ticker")
     if release_at.tzinfo is None or release_at.utcoffset() != timedelta(0):
         raise ValueError("release_at must be timezone-aware UTC")
@@ -111,7 +128,11 @@ def sample_pre_release(
     # Only a coverage probe: fixed ordering avoids selecting a contract by ex-post volume/outcome.
     path, market = min(candidates, key=lambda pair: (pair[1]["ticker"], pair[0]))
     ticker = market["ticker"]
-    candle_path = f"{path}/{ticker}/candlesticks"
+    candle_path = (
+        f"/series/KXCPI/markets/{ticker}/candlesticks"
+        if path == "/markets"
+        else f"{path}/{ticker}/candlesticks"
+    )
     try:
         payload = client.get_json(
             candle_path,
@@ -162,7 +183,7 @@ def inventory(client: KalshiPublicClient, path: str, *, max_pages: int) -> dict[
             ticker, event = market.get("ticker"), market.get("event_ticker")
             if not isinstance(ticker, str) or not isinstance(event, str):
                 raise ValueError("missing contract identity")
-            if not event.startswith("KXCPI-"):
+            if not re.fullmatch(r"(?:KX)?CPI-[A-Z0-9-]+", event):
                 raise ValueError("series filter mismatch")
             contracts.add(ticker)
             if market.get("result") in ("yes", "no"):
@@ -191,6 +212,7 @@ def probe(
     max_pages: int = 10,
     event_ticker: str = DEFAULT_EVENT,
     release_at: datetime = DEFAULT_RELEASE_AT,
+    base_urls: tuple[str, ...] = (PRODUCTION_BASE_URL, PRODUCTION_COMPAT_BASE_URL),
 ) -> dict[str, Any]:
     if max_pages < 1:
         raise ValueError("max_pages must be positive")
@@ -205,9 +227,41 @@ def probe(
         },
         "joint_dataset_status": "not_verified",
     }
+    report["connection_attempts"] = []
+    selected_base_url = None
+    for base_url in base_urls:
+        try:
+            with KalshiPublicClient(
+                base_url=base_url,
+                timeout_seconds=8,
+                retry_policy=RetryPolicy(max_attempts=1),
+            ) as candidate:
+                candidate.get_json("/exchange/status")
+            report["connection_attempts"].append({"base_url": base_url, "status": "ok"})
+            selected_base_url = base_url
+            break
+        except (httpx.HTTPError, ValueError) as error:
+            report["connection_attempts"].append(
+                {
+                    "base_url": base_url,
+                    "status": "error",
+                    "error_type": type(error).__name__,
+                    "http_status": error.response.status_code
+                    if isinstance(error, httpx.HTTPStatusError)
+                    else None,
+                }
+            )
+    if selected_base_url is None:
+        report["joint_dataset_status"] = "access_error"
+        return report
+    report["selected_base_url"] = selected_base_url
     try:
-        with KalshiPublicClient(timeout_seconds=8, retry_policy=RetryPolicy(max_attempts=1)) as c:
-            for path in ("/exchange/status", "/series/KXCPI"):
+        with KalshiPublicClient(
+            base_url=selected_base_url,
+            timeout_seconds=15,
+            retry_policy=RetryPolicy(max_attempts=2),
+        ) as c:
+            for path in ("/series/KXCPI",):
                 try:
                     response = c.get_json(path)
                     report["endpoints"][path] = {"status": "ok" if response else "empty_response"}
@@ -252,6 +306,11 @@ def main() -> None:
     parser.add_argument("--max-pages", type=int, default=10)
     parser.add_argument("--event-ticker", default=DEFAULT_EVENT)
     parser.add_argument("--release-at", default=DEFAULT_RELEASE_AT.isoformat())
+    parser.add_argument(
+        "--base-url",
+        choices=("auto", PRODUCTION_BASE_URL, PRODUCTION_COMPAT_BASE_URL),
+        default="auto",
+    )
     args = parser.parse_args()
     print(
         json.dumps(
@@ -259,6 +318,9 @@ def main() -> None:
                 max_pages=args.max_pages,
                 event_ticker=args.event_ticker,
                 release_at=datetime.fromisoformat(args.release_at.replace("Z", "+00:00")),
+                base_urls=(PRODUCTION_BASE_URL, PRODUCTION_COMPAT_BASE_URL)
+                if args.base_url == "auto"
+                else (args.base_url,),
             ),
             ensure_ascii=False,
             indent=2,

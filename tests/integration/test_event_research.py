@@ -82,6 +82,24 @@ def test_inventory_rejects_repeated_cursor() -> None:
         inventory(client, "/markets", max_pages=3)
 
 
+def test_inventory_accepts_legacy_cpi_event_ticker() -> None:
+    with KalshiPublicClient(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={
+                    "markets": [
+                        {"ticker": "CPI-22OCT-T0.3", "event_ticker": "CPI-22OCT", "result": "yes"}
+                    ],
+                    "cursor": "",
+                },
+            )
+        )
+    ) as client:
+        result = inventory(client, "/historical/markets", max_pages=1)
+    assert result["observed_resolved_events"] == 1
+
+
 def test_cpi_candle_gate_rejects_late_and_untradable_prices() -> None:
     prediction = datetime(2026, 9, 11, 12, 25, tzinfo=UTC)
     ts = int(prediction.timestamp())
@@ -116,6 +134,12 @@ def test_cpi_candle_gate_rejects_late_and_untradable_prices() -> None:
     assert outcome["eligible_candles"] == 1
     assert outcome["near_release_candles"] == 1
     assert outcome["latest_eligible_end_at"] == datetime.fromtimestamp(ts - 60, UTC).isoformat()
+    assert outcome["latest_quote"] == {
+        "end_at": datetime.fromtimestamp(ts - 60, UTC).isoformat(),
+        "yes_midpoint": pytest.approx(0.42),
+        "spread": pytest.approx(0.02),
+        "volume": pytest.approx(2),
+    }
 
 
 def test_old_candle_and_ex_post_volume_do_not_choose_a_favorable_contract() -> None:
