@@ -1,4 +1,3 @@
-# Feature package
+# 특징량 패키지
 
-Day 4 boundary for leakage-safe calibration features.
-
+4일차 범위인 미래 정보 누수를 방지하는 확률 보정용 특징량을 담당한다.

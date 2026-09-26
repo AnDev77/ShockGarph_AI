@@ -1,4 +1,3 @@
-# Calibration package
+# 확률 보정 패키지
 
-Day 4-7 boundary for baseline, logistic calibration, metrics, and model artifacts.
-
+4~7일차 범위인 기준 모델, 로지스틱 확률 보정, 평가 지표, 모델 산출물을 담당한다.

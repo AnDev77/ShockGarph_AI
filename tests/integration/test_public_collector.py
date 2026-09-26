@@ -5,7 +5,11 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from shockgraph_collector.client import KalshiPublicClient, RetryPolicy
+from shockgraph_collector.client import (
+    PRODUCTION_COMPAT_BASE_URL,
+    KalshiPublicClient,
+    RetryPolicy,
+)
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore
 
 
@@ -41,6 +45,14 @@ def test_collector_rejects_private_or_trading_paths() -> None:
 
     with client, pytest.raises(ValueError, match="public read endpoint"):
         client.get_json("/portfolio/orders")
+
+
+def test_collector_accepts_official_compatible_production_host() -> None:
+    with KalshiPublicClient(
+        base_url=PRODUCTION_COMPAT_BASE_URL,
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"series": {}})),
+    ) as client:
+        assert client.get_json("/series/KXCPI") == {"series": {}}
 
 
 def test_collector_retries_rate_limit_with_bounded_backoff() -> None:

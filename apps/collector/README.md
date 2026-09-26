@@ -1,12 +1,11 @@
-# Collector boundary
+# 수집기 영역
 
-Collectors must be read-only, idempotent, UTC-normalized, and preserve immutable
-raw payloads with SHA-256 hashes.
+수집기는 읽기 전용이어야 하며 멱등성, UTC 시각 정규화, SHA-256 해시를 포함한 불변 원본 보존을 지켜야 한다.
 
-`shockgraph_collector.client.KalshiPublicClient` currently provides:
+현재 `shockgraph_collector.client.KalshiPublicClient`는 다음을 제공한다.
 
-- approved production/demo base URLs only;
-- public GET paths only;
-- bounded retry for 429 and transient 5xx responses;
-- cursor pagination with repeated-cursor protection;
-- direct persistence into the immutable raw store.
+- 승인된 운영·데모 기본 URL만 허용
+- 공개 GET 경로만 허용
+- 429 및 일시적인 5xx 응답에 대해 횟수를 제한한 재시도
+- 동일 커서 반복을 방지하는 커서 페이지네이션
+- 불변 원본 저장소에 직접 저장

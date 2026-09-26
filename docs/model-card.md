@@ -1,9 +1,9 @@
-# Model Card
+# 모델 설명서
 
-Status: no model trained in Day 1.
+상태: 초기 1일차에는 학습한 모델이 없었다. 현재도 학습된 예측 모델은 없으며,
+시장확률을 그대로 사용하는 기준 모델과 평가 함수만 구현했다.
 
-The first candidate is a grouped chronological logistic calibration model. A
-market-probability identity baseline is mandatory. This document must not claim
-performance until a frozen test split reports Brier score, log loss, expected
-calibration error, category slices, sample size, and confidence intervals.
-
+첫 학습 후보는 이벤트 단위 시간순 분할을 사용하는 로지스틱 확률 보정 모델이다.
+시장확률을 그대로 사용하는 기준 모델과 반드시 비교한다.
+고정된 시험 데이터 분할에서 Brier 점수, 로그 손실, 기대 보정 오차,
+분류별 결과, 표본 수, 신뢰구간을 보고하기 전에는 성능을 주장하지 않는다.

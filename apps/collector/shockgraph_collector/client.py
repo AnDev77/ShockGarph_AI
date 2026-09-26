@@ -10,8 +10,9 @@ import httpx
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore, RawArtifact
 
 PRODUCTION_BASE_URL = "https://external-api.kalshi.com/trade-api/v2"
+PRODUCTION_COMPAT_BASE_URL = "https://api.elections.kalshi.com/trade-api/v2"
 DEMO_BASE_URL = "https://external-api.demo.kalshi.co/trade-api/v2"
-ALLOWED_BASE_URLS = frozenset({PRODUCTION_BASE_URL, DEMO_BASE_URL})
+ALLOWED_BASE_URLS = frozenset({PRODUCTION_BASE_URL, PRODUCTION_COMPAT_BASE_URL, DEMO_BASE_URL})
 PUBLIC_PATHS = (
     "/events",
     "/markets",

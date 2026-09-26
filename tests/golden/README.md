@@ -1,4 +1,3 @@
-# Golden fixtures
+# 기준 정답 테스트 자료
 
-Hand-calculated CAR, CAAR, VaR, and CVaR fixtures will be added with their engines.
-
+각 계산 엔진을 구현할 때 손으로 계산한 CAR, CAAR, VaR, CVaR의 기준 정답 자료를 추가한다.

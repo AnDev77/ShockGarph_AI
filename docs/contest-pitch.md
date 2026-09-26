@@ -1,14 +1,12 @@
-# Contest Pitch
+# 공모전 발표 구상
 
-Prediction markets show a probability. ShockGraph AI shows where the associated
-risk enters a portfolio, how large the loss range may be, and how uncertain the
-estimate is.
+예측시장은 사건의 확률을 보여준다. ShockGraph AI는 그 사건과 관련된 위험이
+포트폴리오의 어디로 전달되는지, 손실 범위가 얼마나 클 수 있는지, 추정이 얼마나 불확실한지 보여준다.
 
-The three-minute demo path is:
+3분 시연 흐름은 다음과 같다.
 
-1. Select a CPI or FOMC event.
-2. Compare market and calibrated probability.
-3. Inspect lagged asset-response evidence.
-4. Enter a sample portfolio.
-5. Show Expected Shortfall, loss contributions, uncertainty, and limitations.
-
+1. CPI 또는 FOMC 이벤트를 선택한다.
+2. 시장확률과 보정확률을 비교한다.
+3. 자산 반응의 시차를 뒷받침하는 근거를 확인한다.
+4. 예시 포트폴리오를 입력한다.
+5. 기대손실(Expected Shortfall), 손실 기여도, 불확실성과 한계를 보여준다.

@@ -1,59 +1,72 @@
-# Dependency Decisions
+# 의존성 도입 결정
 
-## Runtime
+## 실행 의존성
 
 ### Pydantic
 
-Added on Day 2 to enforce UTC timestamps, bounded probabilities, non-negative
-quantities, strict event status/result values, and cross-field quote validation.
-These contracts sit at the ingestion boundary before database writes.
+2일차에 도입했다. UTC 시각, 확률 범위, 음수가 아닌 수량, 이벤트 상태·결과 값,
+매수·매도 호가 간 관계를 검증한다. 데이터베이스에 쓰기 전 수집 경계에서 이 계약을 적용한다.
 
 ### HTTPX
 
-Added on Day 2 for a timeout-aware, testable, read-only HTTP collector. The
-collector exposes GET requests only, accepts only approved Kalshi public/demo base
-URLs and public path prefixes, and uses `MockTransport` in tests. It contains no
-authentication, account, order, or execution support.
+2일차에 도입했다. 제한시간을 설정할 수 있고 테스트 가능한 읽기 전용 HTTP 수집기에 사용한다.
+수집기는 GET 요청만 제공하며 승인된 Kalshi 공개·데모 기본 URL과 공개 경로 접두사만 허용한다.
+테스트에서는 `MockTransport`를 사용한다. 인증·계좌·주문·체결 기능은 포함하지 않는다.
 
-## Development
+## 개발 도구
 
-- `pytest`: deterministic unit, contract, and integration tests.
-- `ruff`: linting and import formatting.
-- `pyright`: static type-checking contract; the Codex sandbox may block its Node
-  bootstrap even when configuration is valid.
+- `pytest`: 재현 가능한 단위·계약·통합 테스트
+- `ruff`: 코드 규칙 검사와 가져오기 구문 정렬
+- `pyright`: 정적 타입 검사. 설정이 올바르더라도 일부 Codex 실행 환경에서는 Node 초기 실행이 차단될 수 있다.
 
-## Planned infrastructure
+## 도입 예정 인프라
 
-These are approved architecture targets, not installed runtime dependencies yet.
-Each item must pass its stated gate before it is added to Docker Compose or the
-Python dependency lock.
+아래 항목은 승인된 목표 구성이다. 아직 설치된 실행 의존성을 뜻하지 않는다.
+각 항목의 선행 조건을 통과한 뒤 Docker Compose 또는 Python 의존성 잠금 파일에 추가한다.
 
-### PostgreSQL with TimescaleDB
+### PostgreSQL과 TimescaleDB
 
-Use one PostgreSQL-compatible operational boundary for relational metadata and
-time-series observations. Add hypertables only for price, probability, feature,
-and prediction series after the Day 3 schema tests pass.
+관계형 메타데이터와 시계열 관측값을 하나의 PostgreSQL 호환 운영 영역에서 관리한다.
+3일차 스키마 테스트를 통과한 뒤 가격·확률·특징량·예측 시계열에 하이퍼테이블을 추가한다.
 
-### S3-compatible object storage
+### S3 호환 객체 저장소
 
-Keep the current local immutable store behind a protocol. Add MinIO for local
-integration after object-key, checksum, collision, and retry tests exist. Model
-binaries and dataset snapshots belong here; their metadata belongs in PostgreSQL.
+현재 로컬 불변 저장소를 프로토콜 뒤에 유지한다.
+객체 키, 체크섬, 충돌, 재시도 테스트를 갖춘 뒤 로컬 통합 환경에 MinIO를 추가한다.
+모델 바이너리와 데이터셋 스냅샷은 객체 저장소에, 메타데이터는 PostgreSQL에 저장한다.
 
 ### RabbitMQ
 
-Use RabbitMQ for asynchronous ingestion work only after raw-first persistence and
-a PostgreSQL outbox are implemented. Consumers must use idempotency keys and
-tolerate at-least-once delivery. Kafka remains outside the MVP.
+원본 우선 영속 저장과 PostgreSQL 아웃박스가 구현된 뒤 비동기 수집 작업에 사용한다.
+소비자는 멱등 키를 사용하고 최소 한 번 전달에 따른 중복을 처리해야 한다.
+Kafka는 MVP 범위 밖이다.
 
 ### Prefect
 
-Use Prefect to schedule and observe collection, dataset build, training, and
-evaluation flows. Domain and transformation functions must remain callable and
-testable without a running Prefect server.
+수집, 데이터셋 생성, 학습, 평가 흐름의 예약과 관찰에 사용한다.
+도메인·변환 함수는 Prefect 서버 없이도 직접 호출하고 테스트할 수 있어야 한다.
 
 ### Redis
 
-Add Redis only after FastAPI latency or database-load measurements justify it.
-Use cache-aside with TTLs for validated responses; never store the only copy of a
-feature, prediction, or model result in Redis.
+FastAPI 응답 지연이나 데이터베이스 부하 측정으로 필요성이 확인된 뒤 추가한다.
+검증된 응답에 만료시간을 둔 지연 로딩 캐시를 적용한다.
+특징량·예측·모델 결과의 유일한 사본을 Redis에 저장하지 않는다.
+
+온라인 서빙에서는 캐시 키에 자산·이벤트·분석 기간·기준시각·모델 버전·정규화 포트폴리오
+해시를 포함한다. 캐시 미적중 시 승인된 PostgreSQL 스냅샷만 제한시간 안에 조회하며,
+같은 키의 동시 요청은 단일 비행 lease로 중복 조회를 줄인다. 허용 가능한 오래된 결과가
+있으면 신선도 시각을 포함해 반환하고, 없으면 `pending` 또는 `insufficient_data`를 반환한다.
+Redis 장애가 원본 DB의 기준성을 바꾸지 않도록 한다.
+
+### 관리형 컨테이너
+
+MVP에서는 Kubernetes를 추가하지 않는다. 상용 전환 시 AWS 데이터 계층이면 ECS/Fargate,
+GCP 데이터 계층이면 Cloud Run을 우선 검토한다. 두 서비스 모두 Docker 이미지와 환경 변수
+계약을 유지할 수 있지만, 실제 선택 전 다음을 측정한다.
+
+- readiness와 health check를 통과하는 새 revision의 비율
+- 점진 배포 중 오류율, p95·p99 지연, rollback 시간
+- API 동시성·CPU·메모리와 작업 큐 backlog에 따른 확장 속도
+- 최소 실행 단위, 최대 실행 단위, cold start, DB connection pool 비용
+
+상세 기준은 [상용 전환 인프라와 실시간 서빙 전략](deployment-and-serving-strategy.md)을 따른다.
