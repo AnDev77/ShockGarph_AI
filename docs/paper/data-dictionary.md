@@ -9,7 +9,7 @@
 | 원본 | 이용권이 확인된 SPY·TLT·GLD 분봉 | 발표 전후 가격 | 원시 가격 공개 보류 |
 | 정제 | `event_coverage.csv` | Kalshi 포함·제외와 확률 점수 | 로컬 연구 전용 |
 | 정제 | `release_vintage.csv` | BLS 최초 발표값·시각과 Kalshi 결과 대조 | 출처 링크·파생값 공개 가능성 검토 |
-| 외부 입력 | ETF 분봉 CSV | 사건·자산·분별 OHLCV와 가용시각 | 공급원 이용조건 확인 필요 |
+| 정제 | `asset_minute_bars.csv` | Alpaca 사건·자산·분별 OHLCV와 가용시각 | 로컬 연구 전용, 재배포 금지 |
 | 분석 | `event_asset_panel.csv` | 확률·최초 발표·자산 구간 수익률 공통 입력 | 원시 가격 이용조건 검토 후 결정 |
 
 ## `event_coverage.csv` 스키마
@@ -61,11 +61,16 @@
 | 필드 | 의미 |
 |---|---|
 | `asset_id` | `SPY`, `TLT`, `GLD` 중 하나 |
+| `source_start_at` | 공급원이 표시한 1분봉 시작 UTC 시각 |
 | `price_at`, `available_at` | UTC 분 시각과 관측 가능 시각 |
 | `open`, `high`, `low`, `close` | 양수이며 OHLC 범위가 일관된 가격 |
 | `volume` | 비음수 거래량 |
 | `extended_hours` | 장전 자료 포함 여부, 현재 사건창에서는 참이어야 함 |
 | `raw_hash` | 가격 원본 SHA-256 |
+
+Alpaca 봉은 시작시각으로 표시되므로 `price_at = source_start_at + 1분`으로 정규화한다.
+따라서 `price_at`은 해당 OHLCV가 완성되어 이용 가능한 봉 종료시각이다. 피드가 `iex`인지
+`sip`인지는 `metadata.json`에 저장하며 서로 다른 피드를 한 패널에 합치지 않는다.
 
 ### `event_asset_panel.csv`
 
@@ -93,5 +98,6 @@
 - 표·그림 생성 스크립트 버전
 
 현재 내보내기는 `paper-event-v1`, `cpi-release-vintage-v1`,
-`cpi-event-asset-panel-v1`이다. 입력·CSV 해시가 `metadata.json`에 기록되며 기존
+`alpaca-etf-minute-bars-v1`, `cpi-event-asset-panel-v1`이다. 입력·CSV 해시가
+`metadata.json`에 기록되며 기존
 내용과 다른 파일을 같은 해시 경로에 덮어쓰지 않는다.

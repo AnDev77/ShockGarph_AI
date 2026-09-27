@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-asset-panel
+.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -34,6 +34,10 @@ research-paper-data:
 research-bls-cpi:
 	@test -n "$(AUDIT_REPORT)" || (echo "AUDIT_REPORT에 Kalshi 감사 report.json 경로를 지정하세요" && exit 2)
 	$(PYTHON) scripts/collect_bls_cpi_vintages.py --input-audit "$(AUDIT_REPORT)"
+
+research-alpaca-etf:
+	@test -n "$(RELEASE_CSV)" || (echo "RELEASE_CSV에 release_vintage.csv 경로를 지정하세요" && exit 2)
+	$(PYTHON) scripts/collect_alpaca_etf_bars.py --releases "$(RELEASE_CSV)" --feed "$${ALPACA_FEED:-iex}"
 
 research-asset-panel:
 	@test -n "$(RELEASE_CSV)" || (echo "RELEASE_CSV에 release_vintage.csv 경로를 지정하세요" && exit 2)

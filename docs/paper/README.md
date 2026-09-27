@@ -25,7 +25,7 @@
 | 과거 사건 10개 이후 같은 사건 기준 비교 | 24 | 확보 |
 | BLS 표준 월간 최초 발표 결합 | 53 | 확보·Kalshi 결과 전건 일치 |
 | 비표준 발표 | 2 | 2025년 10월 발표 없음, 11월 2개월 누적 발표 제외 |
-| SPY·TLT·GLD 공통 분봉 결합 | 0 | 입력 계약·품질 게이트 구현, 실데이터 미확보 |
+| SPY·TLT·GLD 공통 분봉 결합 | 0 | Alpaca 수집기 구현, 현재 환경 키 미설정 |
 
 비표준 BLS 발표를 과거 기준선에서도 제거한 24개 비교 사건에서 원시 시장확률 Brier는
 0.1005, 이전 표준 월간 결과의 누적 발생비율은 0.2342였다. 사건별 손실 차이의 평균은
@@ -63,15 +63,22 @@ BLS 최초 발표 자료를 대조한 뒤 이용권이 확인된 ETF 분봉과 �
 make PYTHON=.venv/bin/python research-bls-cpi \
   AUDIT_REPORT=artifacts/kalshi-cpi-audit/<실행-해시>/report.json
 
+export ALPACA_API_KEY_ID=<개인-연구용-키>
+export ALPACA_API_SECRET_KEY=<개인-연구용-비밀키>
+make PYTHON=.venv/bin/python research-alpaca-etf \
+  RELEASE_CSV=artifacts/bls-cpi-vintages/<실행-해시>/release_vintage.csv
+
 make PYTHON=.venv/bin/python research-asset-panel \
   RELEASE_CSV=artifacts/bls-cpi-vintages/<실행-해시>/release_vintage.csv \
   PROBABILITY_CSV=artifacts/paper-dataset/<실행-해시>/event_coverage.csv \
-  ASSET_BAR_CSV=<이용권이-확인된-분봉.csv>
+  ASSET_BAR_CSV=artifacts/alpaca-etf-bars/<실행-해시>/asset_minute_bars.csv
 ```
 
 자산 패널은 발표 1분 전 종가를 시작값으로 두고 발표 후 5분·30분의 정확한 분봉만
 사용한다. 가까운 시각으로 대체하거나 결측을 보간하지 않으며, 세 자산과 두 구간이 모두
-존재하는 사건만 공통 표본에 넣는다.
+존재하는 사건만 공통 표본에 넣는다. 기본 `ALPACA_FEED`는 `iex`이며 SIP 결과와 섞지
+않는다. 키와 원시 가격은 커밋하지 않고, 시장자료 재배포 허가가 확인되기 전에는 파생
+패널도 로컬 연구 전용으로 취급한다.
 
 ## 주장 등급
 

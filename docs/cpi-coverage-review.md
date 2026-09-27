@@ -15,7 +15,7 @@ URL은 HTTP 403 또는 시간 초과가 있었고 호환 URL도 한 차례 일�
 | 계약 종료 직전 1분 확률 | 29개 품질 통과, 6개 오래된 호가, 20개 유효 캔들 없음 | 결측을 보고한 제한적 평가 가능 |
 | BLS 최초 발표 대조 | 표준 월간 53개 전건 일치, 비표준 2개 제외 | 정산 정의와 최초 빈티지 검증 완료 |
 | Kalshi 확률 Brier | 비교 가능한 24개에서 0.1005 | 검증된 월간 과거비율 0.2342보다 낮음 |
-| SPY·TLT·GLD | `ALPHA_VANTAGE_API_KEY` 미설정 | 실가격 연결 미실행 |
+| SPY·TLT·GLD | Alpaca 수집기 구현, 키 미설정 | 인증 전 실가격 0건 |
 | 거시 자료 | BLS 보도자료 연결 | 기대값 공급원은 미확정 |
 | CPI 확률·ETF 가격 공통 표본 | 아직 없음 | 자산 반응 모델 학습 전 단계 |
 
@@ -48,6 +48,9 @@ python scripts/probe_cpi_coverage.py --max-pages 2
 python scripts/audit_kalshi_cpi.py --request-interval 0.3
 python scripts/collect_bls_cpi_vintages.py \
   --input-audit artifacts/kalshi-cpi-audit/<실행-해시>/report.json
+ALPACA_API_KEY_ID=... ALPACA_API_SECRET_KEY=... \
+python scripts/collect_alpaca_etf_bars.py \
+  --releases artifacts/bls-cpi-vintages/<실행-해시>/release_vintage.csv
 ```
 
 전체 감사는 원본 응답을 해시 기반 불변 저장소에 보관하고, 품질 결과와 점수를 별도
@@ -56,8 +59,8 @@ python scripts/collect_bls_cpi_vintages.py \
 ## 다음 데이터 연결 순서
 
 1. 발표 당시 시장 기대값과 동시 발표 지표를 BLS 월별 이벤트에 결합한다.
-2. 이용권이 확인된 공급원에서 SPY·TLT·GLD 장전 분봉 가격을 확보한다.
-3. 발표 직후 5분·30분과 정규장 구간의 수익률을 사건 단위로 만든다.
+2. 개인 연구용 Alpaca 키로 SPY·TLT·GLD IEX 장전 분봉의 결측률을 먼저 확인한다.
+3. 표본이 부족하거나 IEX 대표성이 낮으면 SIP 이용권을 검토하고 전 표본을 같은 피드로 다시 만든다.
 4. 55개 전체와 확률 품질 통과 29개의 차이를 보고해 선택 편향을 점검한다.
 5. 과거비율·전통적 CPI surprise·시장확률 모델을 같은 표본 외 사건에서 비교한다.
 
