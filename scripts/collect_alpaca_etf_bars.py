@@ -128,7 +128,7 @@ def collect_alpaca_asset_dataset(
     release_path: Path,
     output_dir: Path,
     *,
-    feed: str = "iex",
+    feed: str = "sip",
     request_interval_seconds: float = 0.35,
 ) -> Path:
     if request_interval_seconds < 0:
@@ -243,7 +243,7 @@ def collect_alpaca_asset_dataset(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Alpaca에서 CPI 발표 전후 미국 ETF 분봉 수집")
     parser.add_argument("--releases", type=Path, required=True)
-    parser.add_argument("--feed", choices=("iex", "sip"), default="iex")
+    parser.add_argument("--feed", choices=("iex", "sip"), default="sip")
     parser.add_argument("--raw-dir", type=Path, default=ROOT / "artifacts/raw")
     parser.add_argument("--output", type=Path, default=ROOT / "artifacts/alpaca-etf-bars")
     parser.add_argument("--request-interval", type=float, default=0.35)

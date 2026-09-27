@@ -37,7 +37,7 @@ research-bls-cpi:
 
 research-alpaca-etf:
 	@test -n "$(RELEASE_CSV)" || (echo "RELEASE_CSV에 release_vintage.csv 경로를 지정하세요" && exit 2)
-	$(PYTHON) scripts/collect_alpaca_etf_bars.py --releases "$(RELEASE_CSV)" --feed "$${ALPACA_FEED:-iex}"
+	$(PYTHON) scripts/collect_alpaca_etf_bars.py --releases "$(RELEASE_CSV)" --feed "$${ALPACA_FEED:-sip}"
 
 research-asset-panel:
 	@test -n "$(RELEASE_CSV)" || (echo "RELEASE_CSV에 release_vintage.csv 경로를 지정하세요" && exit 2)

@@ -191,7 +191,7 @@ class AlpacaMarketDataClient:
         symbols: tuple[str, ...],
         start: datetime,
         end: datetime,
-        feed: str = "iex",
+        feed: str = "sip",
         max_pages: int = 100,
     ) -> tuple[AlpacaBarsPage, ...]:
         unique_symbols = tuple(dict.fromkeys(symbols))
@@ -203,6 +203,8 @@ class AlpacaMarketDataClient:
         end_iso = _utc_iso(end, "end")
         if start >= end:
             raise ValueError("start must be before end")
+        if feed == "sip" and end > self.clock() - timedelta(minutes=15):
+            raise ValueError("historical SIP end must be at least 15 minutes old")
         if max_pages < 1:
             raise ValueError("max_pages must be at least 1")
         base_params: dict[str, Any] = {

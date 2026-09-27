@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -87,6 +87,37 @@ def test_alpaca_collector_paginates_with_bounded_page_tokens(tmp_path) -> None:
 
     assert tokens == [None, "second"]
     assert len(pages) == 2
+
+
+def test_historical_sip_is_default_and_recent_sip_is_rejected_before_request(tmp_path) -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"bars": {}, "next_page_token": None})
+
+    now = datetime(2026, 9, 27, 12, tzinfo=UTC)
+    with AlpacaMarketDataClient(
+        api_key_id="key-id",
+        api_secret_key="secret-key",
+        transport=httpx.MockTransport(handler),
+        clock=lambda: now,
+    ) as client:
+        client.collect_stock_bars(
+            ImmutableRawStore(tmp_path),
+            symbols=("SPY",),
+            start=now - timedelta(days=1, minutes=2),
+            end=now - timedelta(days=1),
+        )
+        assert requests[0].url.params["feed"] == "sip"
+        with pytest.raises(ValueError, match="15 minutes"):
+            client.collect_stock_bars(
+                ImmutableRawStore(tmp_path),
+                symbols=("SPY",),
+                start=now - timedelta(minutes=20),
+                end=now - timedelta(minutes=14),
+            )
+    assert len(requests) == 1
 
 
 def test_alpaca_collector_rejects_a_repeated_page_token(tmp_path) -> None:
