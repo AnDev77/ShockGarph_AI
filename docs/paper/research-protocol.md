@@ -8,6 +8,10 @@ SPY·TLT·GLD의 사건 단위 표본 외 평가**
 영문 가제: *Do Prediction-Market Probabilities Improve Short-Horizon ETF Risk
 Forecasts? Event-Level Evidence from U.S. CPI Releases*
 
+이 프로토콜은 다중 이벤트 제품 전체가 아니라 첫 검증 연구인 CPI 논문의 범위를
+의도적으로 고정한다. 제품 파이프라인은 이후 FOMC·고용보고서·PCE와 비정기 정책 사건으로
+확장하되, CPI 결과를 다른 이벤트에 일반화하지 않고 이벤트군별 모델을 별도로 검증한다.
+
 ## 연구 질문과 기여
 
 주요 연구 질문은 다음과 같다.

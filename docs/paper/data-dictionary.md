@@ -8,9 +8,9 @@
 | 원본 | BLS 과거 CPI 보도자료 또는 승인된 빈티지 | 최초 발표값·발표시각 | 출처 조건 확인 후 링크 중심 |
 | 원본 | 이용권이 확인된 SPY·TLT·GLD 분봉 | 발표 전후 가격 | 원시 가격 공개 보류 |
 | 정제 | `event_coverage.csv` | Kalshi 포함·제외와 확률 점수 | 로컬 연구 전용 |
-| 정제 예정 | `release_vintage.csv` | 발표값·기대값·동시 발표 | 파생 표 공개 가능성 검토 |
-| 정제 예정 | `asset_window.csv` | 사건·자산·구간별 수익률 | 파생 수익률 공개 가능성 검토 |
-| 분석 예정 | `event_asset_panel.csv` | 기준 모델과 후보 모델 공통 입력 | 익명화·이용조건 검토 후 결정 |
+| 정제 | `release_vintage.csv` | BLS 최초 발표값·시각과 Kalshi 결과 대조 | 출처 링크·파생값 공개 가능성 검토 |
+| 외부 입력 | ETF 분봉 CSV | 사건·자산·분별 OHLCV와 가용시각 | 공급원 이용조건 확인 필요 |
+| 분석 | `event_asset_panel.csv` | 확률·최초 발표·자산 구간 수익률 공통 입력 | 원시 가격 이용조건 검토 후 결정 |
 
 ## `event_coverage.csv` 스키마
 
@@ -45,27 +45,34 @@
 | 필드 | 의미 |
 |---|---|
 | `event_id` | 내부의 월별 CPI 발표 식별자 |
+| `event_ticker` | Kalshi CPI 사건 식별자 |
 | `reference_month` | CPI가 측정하는 연·월 |
 | `release_at` | BLS 최초 공개 UTC 시각 |
 | `actual_mom_first` | 최초 발표 계절조정 전월비 |
-| `expected_mom` | 발표 전에 이용 가능했던 기대값 |
-| `expectation_source` | 기대값 공급원과 정의 |
-| `expectation_available_at` | 기대값 이용 가능 시각 |
-| `simultaneous_release_codes` | 같은 시각의 주요 발표 목록 |
+| `threshold` | 고정 임계값 0.3% |
+| `bls_outcome` | 최초 발표값의 엄격한 `actual > 0.3` 결과 |
+| `kalshi_outcome` | 계약 정산 결과 |
+| `outcome_match` | 두 결과 일치 여부 |
+| `source_url` | 공식 BLS 보도자료 아카이브 주소 |
 | `raw_hash` | 원본 SHA-256 |
 
-### `asset_window.csv`
+### ETF 분봉 외부 입력
 
 | 필드 | 의미 |
 |---|---|
-| `event_id`, `asset_id` | 사건과 SPY·TLT·GLD 식별자 |
-| `horizon` | `m5`, `m30`, `open`, `close` 등 사전 정의 구간 |
-| `start_at`, `end_at` | UTC 가격 구간 |
-| `start_price`, `end_price` | 같은 가격 정의의 시작·종료 값 |
-| `return` | `end_price / start_price - 1` |
-| `price_basis` | 체결가·중간호가·조정종가 구분 |
-| `extended_hours` | 장전 자료 여부 |
+| `asset_id` | `SPY`, `TLT`, `GLD` 중 하나 |
+| `price_at`, `available_at` | UTC 분 시각과 관측 가능 시각 |
+| `open`, `high`, `low`, `close` | 양수이며 OHLC 범위가 일관된 가격 |
+| `volume` | 비음수 거래량 |
+| `extended_hours` | 장전 자료 포함 여부, 현재 사건창에서는 참이어야 함 |
 | `raw_hash` | 가격 원본 SHA-256 |
+
+### `event_asset_panel.csv`
+
+사건 식별자·최초 발표값·Kalshi 확률에 자산과 `m5`·`m30` 구간을 결합한다. 시작가는
+`release_at - 1분`, 종료가는 `release_at + 구간`의 종가다. 정확한 시각이 없으면
+가까운 관측값으로 대체하지 않는다. 세 자산과 모든 구간이 갖춰진 사건만 분석 표본에
+포함하고, 제외 사유는 `coverage.json`에 남긴다.
 
 ## 시각과 빈티지 규칙
 
@@ -85,5 +92,6 @@
 - 모델 설정과 난수 시드
 - 표·그림 생성 스크립트 버전
 
-현재 내보내기는 `paper-event-v1`이다. 원본 보고서 해시와 CSV 해시가
-`metadata.json`에 기록되며 기존 내용과 다른 파일을 같은 해시 경로에 덮어쓰지 않는다.
+현재 내보내기는 `paper-event-v1`, `cpi-release-vintage-v1`,
+`cpi-event-asset-panel-v1`이다. 입력·CSV 해시가 `metadata.json`에 기록되며 기존
+내용과 다른 파일을 같은 해시 경로에 덮어쓰지 않는다.

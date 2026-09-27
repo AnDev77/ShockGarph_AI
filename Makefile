@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi research-paper-data
+.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-asset-panel
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -30,6 +30,16 @@ research-audit-cpi:
 research-paper-data:
 	@test -n "$(PAPER_REPORT)" || (echo "PAPER_REPORT에 report.json 경로를 지정하세요" && exit 2)
 	$(PYTHON) scripts/export_paper_dataset.py --input "$(PAPER_REPORT)"
+
+research-bls-cpi:
+	@test -n "$(AUDIT_REPORT)" || (echo "AUDIT_REPORT에 Kalshi 감사 report.json 경로를 지정하세요" && exit 2)
+	$(PYTHON) scripts/collect_bls_cpi_vintages.py --input-audit "$(AUDIT_REPORT)"
+
+research-asset-panel:
+	@test -n "$(RELEASE_CSV)" || (echo "RELEASE_CSV에 release_vintage.csv 경로를 지정하세요" && exit 2)
+	@test -n "$(PROBABILITY_CSV)" || (echo "PROBABILITY_CSV에 event_coverage.csv 경로를 지정하세요" && exit 2)
+	@test -n "$(ASSET_BAR_CSV)" || (echo "ASSET_BAR_CSV에 이용권이 확인된 ETF 분봉 CSV 경로를 지정하세요" && exit 2)
+	$(PYTHON) scripts/build_cpi_asset_panel.py --releases "$(RELEASE_CSV)" --probabilities "$(PROBABILITY_CSV)" --asset-bars "$(ASSET_BAR_CSV)"
 
 train:
 	@echo "Not implemented before the Day 4 data gate" && exit 2
