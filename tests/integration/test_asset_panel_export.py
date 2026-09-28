@@ -5,10 +5,13 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from build_cpi_asset_panel import build_panel_dataset  # noqa: E402
+from evaluate_cpi_price_baseline import evaluate_panel  # noqa: E402
 
 
 def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
@@ -57,6 +60,7 @@ def test_panel_export_creates_balanced_three_asset_dataset(tmp_path) -> None:
         for timestamp, price in (
             ("2026-03-11T12:29:00+00:00", 100),
             ("2026-03-11T12:35:00+00:00", end_price),
+            ("2026-03-11T13:00:00+00:00", end_price),
         ):
             bar_rows.append(
                 {
@@ -79,12 +83,19 @@ def test_panel_export_creates_balanced_three_asset_dataset(tmp_path) -> None:
         probabilities,
         bars,
         tmp_path / "output",
-        horizons={"m5": 5},
     )
 
     metadata = json.loads(destination.joinpath("metadata.json").read_text(encoding="utf-8"))
     assert metadata["common_events"] == 1
-    assert metadata["panel_rows"] == 3
+    assert metadata["panel_rows"] == 6
     with destination.joinpath("event_asset_panel.csv").open(encoding="utf-8", newline="") as handle:
         panel_rows = list(csv.DictReader(handle))
     assert {row["asset_id"] for row in panel_rows} == {"SPY", "TLT", "GLD"}
+    report_path = evaluate_panel(destination, tmp_path / "baseline")
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["status"] == "insufficient_test_events"
+    assert report["metrics"] == {}
+    assert evaluate_panel(destination, tmp_path / "baseline") == report_path
+    destination.joinpath("event_asset_panel.csv").write_text("tampered", encoding="utf-8")
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        evaluate_panel(destination, tmp_path / "baseline")

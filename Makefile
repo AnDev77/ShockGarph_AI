@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel
+.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel research-price-baseline
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -44,6 +44,10 @@ research-asset-panel:
 	@test -n "$(PROBABILITY_CSV)" || (echo "PROBABILITY_CSV에 event_coverage.csv 경로를 지정하세요" && exit 2)
 	@test -n "$(ASSET_BAR_CSV)" || (echo "ASSET_BAR_CSV에 이용권이 확인된 ETF 분봉 CSV 경로를 지정하세요" && exit 2)
 	$(PYTHON) scripts/build_cpi_asset_panel.py --releases "$(RELEASE_CSV)" --probabilities "$(PROBABILITY_CSV)" --asset-bars "$(ASSET_BAR_CSV)"
+
+research-price-baseline:
+	@test -n "$(PANEL_DIR)" || (echo "PANEL_DIR에 cpi-asset-panel 실행 디렉터리를 지정하세요" && exit 2)
+	$(PYTHON) scripts/evaluate_cpi_price_baseline.py --panel-dir "$(PANEL_DIR)"
 
 train:
 	@echo "Not implemented before the Day 4 data gate" && exit 2
