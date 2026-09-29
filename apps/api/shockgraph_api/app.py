@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -54,6 +55,20 @@ def create_app(*, research_metadata_path: Path | None = None) -> FastAPI:
         version="0.1.0",
         description="검증된 연구 스냅샷을 제공하는 읽기 전용 API",
     )
+    allowed_origins = [
+        origin.strip()
+        for origin in os.environ.get(
+            "SHOCKGRAPH_WEB_ORIGINS",
+            "http://localhost:3000,http://127.0.0.1:3000",
+        ).split(",")
+        if origin.strip()
+    ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_methods=["GET"],
+        allow_headers=["*"],
+    )
 
     @app.get("/health/live")
     def live() -> dict[str, str]:
@@ -100,6 +115,7 @@ def create_app(*, research_metadata_path: Path | None = None) -> FastAPI:
             "independent_event_count": metrics.comparable_events,
             "metrics": metrics.model_dump(),
             "interpretation_boundary": "not_an_asset_return_prediction",
+            "finding": "raw_market_probability_outperformed_expanding_history",
         }
 
     @app.get("/v1/analysis")

@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build api-dev research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel research-price-baseline research-cpi-asset-pipeline
+.PHONY: setup quality test test-fast collect train evaluate report dev build api-dev web-dev web-build research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel research-price-baseline research-cpi-asset-pipeline
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -58,6 +58,12 @@ api-dev:
 	@test -n "$${SHOCKGRAPH_RESEARCH_METADATA}" || (echo "SHOCKGRAPH_RESEARCH_METADATA를 지정하세요" && exit 2)
 	$(PYTHON) -m uvicorn shockgraph_api.app:app --app-dir apps/api --host 127.0.0.1 --port 8000
 
+web-dev:
+	npm --prefix apps/web run dev
+
+web-build:
+	npm --prefix apps/web run build
+
 train:
 	@echo "Not implemented before the Day 4 data gate" && exit 2
 
@@ -68,7 +74,6 @@ report:
 	@echo "Not implemented before validated model artifacts exist" && exit 2
 
 dev:
-	@echo "Not implemented before the API and web milestones" && exit 2
+	@echo "API와 웹을 별도 터미널에서 make api-dev, make web-dev로 실행하세요"
 
-build:
-	@echo "Not implemented before the deployment milestone" && exit 2
+build: web-build

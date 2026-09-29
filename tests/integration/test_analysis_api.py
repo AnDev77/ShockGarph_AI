@@ -42,6 +42,7 @@ def test_api_distinguishes_verified_probability_result_from_missing_asset_result
     assert research["status"] == "ready"
     assert research["independent_event_count"] == 24
     assert research["metrics"]["raw_market_brier"] == 0.1005
+    assert research["finding"] == "raw_market_probability_outperformed_expanding_history"
 
     assets = client.get("/v1/assets").json()
     assert {row["asset_id"] for row in assets["items"]} == {"SPY", "TLT", "GLD"}
@@ -65,6 +66,18 @@ def test_api_rejects_unsupported_combinations_and_fails_readiness_without_snapsh
     )
     assert unsupported.status_code == 404
     assert unsupported.json()["detail"]["status"] == "unsupported"
+
+
+def test_api_allows_local_web_origin(tmp_path) -> None:
+    client = TestClient(create_app(research_metadata_path=_write_research_metadata(tmp_path)))
+
+    response = client.get(
+        "/v1/assets",
+        headers={"Origin": "http://localhost:3000"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
 
 
 def test_api_rejects_unverified_research_schema(tmp_path) -> None:

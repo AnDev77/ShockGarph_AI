@@ -46,7 +46,7 @@ BLS 최초 발표 빈티지 검증과 미국 ETF 분봉 수집 경로까지 구�
 Kalshi 정산확률과 BLS 최초 발표의 대조는 완료했다. SPY·TLT·GLD 결합 코드는 준비됐지만
 현재 실행 환경에 Alpaca 키가 없어 실제 장전 분봉은 아직 0건이며 자산 반응 성능은
 검증하지 않았다. 원시 시장자료는 로컬 연구에만 보존하고 공개 저장소에 올리지 않는다.
-웹 화면과 실제 데이터베이스 연결도 아직 없다.
+FastAPI와 Next.js·Chakra UI 조회 화면은 연결했으며, 실제 데이터베이스 연결은 아직 없다.
 
 현재 작업 결과는 [미국 ETF 분봉 수집 리뷰](docs/reviews/day-17-18-review.md),
 다음 단계는 [가격 기준선 평가 리뷰](docs/reviews/day-19-20-review.md),
@@ -64,7 +64,8 @@ Kalshi 정산확률과 BLS 최초 발표의 대조는 완료했다. SPY·TLT·GL
 - [제품·Chakra UI 화면 설계](docs/product-ui-direction.md): 사용자 종목 선택, 이벤트 분석, 모바일 화면, 결과 표시 기준
 
 설정 파일의 자산 목록은 분석 후보이며 학습 완료 목록이 아니다.
-사용자는 지원되는 자산·이벤트·기간 조합에서 선택하게 된다. 예측 API와 Next.js·Chakra UI 화면은 구현 예정이다.
+사용자는 지원되는 자산·이벤트·기간 조합에서 선택한다. 현재 화면은 CPI와 SPY·TLT·GLD,
+발표 후 5분·30분을 지원하며 검증된 확률 결과와 자산 분석 미산출 상태를 구분한다.
 
 ## 로컬 실행
 
@@ -86,10 +87,19 @@ python scripts/run_event_research.py --input data/fixtures/analytics/synthetic_c
 
 결과는 `artifacts/event-research/`에 저장되며 합성 결과는 금융 성능 근거가 아니다.
 
+검증된 연구 메타데이터로 API와 웹 화면을 각각 실행한다.
+
+```bash
+SHOCKGRAPH_RESEARCH_METADATA=artifacts/paper-dataset/<실행 ID>/metadata.json make api-dev
+make web-dev
+```
+
+웹 화면은 `http://localhost:3000`, API 문서는 `http://localhost:8000/docs`에서 확인한다.
+
 ## 저장소 구성
 
-- `apps/api`: 2주차 구현 예정인 FastAPI 영역
-- `apps/web`: 3주차 구현 예정인 Next.js 영역
+- `apps/api`: 검증된 연구 스냅샷을 제공하는 FastAPI 영역
+- `apps/web`: Next.js·Chakra UI 기반 분석 조회 화면
 - `apps/collector`: 읽기 전용 수집 영역
 - `packages/domain`: 금융 데이터·포트폴리오 계약
 - `packages/data_pipeline`: 원본 계약, 객체 저장, 멱등 정규화, 계보 추적, 거래시각 정렬, 누수 방지
