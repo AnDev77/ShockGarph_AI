@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel research-price-baseline
+.PHONY: setup quality test test-fast collect train evaluate report dev build api-dev research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel research-price-baseline research-cpi-asset-pipeline
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -48,6 +48,15 @@ research-asset-panel:
 research-price-baseline:
 	@test -n "$(PANEL_DIR)" || (echo "PANEL_DIR에 cpi-asset-panel 실행 디렉터리를 지정하세요" && exit 2)
 	$(PYTHON) scripts/evaluate_cpi_price_baseline.py --panel-dir "$(PANEL_DIR)"
+
+research-cpi-asset-pipeline:
+	@test -n "$(RELEASE_CSV)" || (echo "RELEASE_CSV에 release_vintage.csv 경로를 지정하세요" && exit 2)
+	@test -n "$(PROBABILITY_CSV)" || (echo "PROBABILITY_CSV에 event_coverage.csv 경로를 지정하세요" && exit 2)
+	$(PYTHON) scripts/run_cpi_asset_pipeline.py --releases "$(RELEASE_CSV)" --probabilities "$(PROBABILITY_CSV)"
+
+api-dev:
+	@test -n "$${SHOCKGRAPH_RESEARCH_METADATA}" || (echo "SHOCKGRAPH_RESEARCH_METADATA를 지정하세요" && exit 2)
+	$(PYTHON) -m uvicorn shockgraph_api.app:app --app-dir apps/api --host 127.0.0.1 --port 8000
 
 train:
 	@echo "Not implemented before the Day 4 data gate" && exit 2

@@ -50,6 +50,7 @@ Kalshi 정산확률과 BLS 최초 발표의 대조는 완료했다. SPY·TLT·GL
 
 현재 작업 결과는 [미국 ETF 분봉 수집 리뷰](docs/reviews/day-17-18-review.md),
 다음 단계는 [가격 기준선 평가 리뷰](docs/reviews/day-19-20-review.md),
+배포 API 단계는 [검증 결과 조회 API 리뷰](docs/reviews/day-21-release-review.md),
 접근 문제는 [Alpaca API 트러블슈팅](docs/troubleshooting/alpaca-api-access.md),
 재접속 후 상태는 [연동·재검증 기록](docs/reviews/analytics-sync-checkpoint.md), 목표 구조는
 [아키텍처 문서](docs/architecture.md)에서 확인할 수 있다.
