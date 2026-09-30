@@ -89,6 +89,11 @@ def test_group_evaluation_preserves_independent_samples_and_threshold(tmp_path: 
     assert report["group_results"]["SPY:m5"]["status"] == "evaluated"
     assert report["group_results"]["GLD:m5"]["eligible_events"] == 6
     assert report["group_results"]["GLD:m5"]["metrics"] == {}
+    assert report["primary_cohort"]["assets"] == ["SPY", "TLT"]
+    assert report["primary_cohort"]["common_eligible_events"] == 15
+    assert report["primary_cohort"]["research_status"] == "insufficient_research_events"
+    assert report["primary_cohort"]["research_additional_events_needed"] == 15
+    assert report["supplemental_asset"] == "GLD"
     assert "return_value" not in output.read_text()
     assert evaluate_groups(release_path, probability_path, bar_path, output) == output
     bars[0]["volume"] = 11

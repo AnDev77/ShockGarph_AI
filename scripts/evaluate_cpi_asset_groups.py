@@ -75,15 +75,40 @@ def evaluate_groups(
             ),
         }
 
+    primary_keys = {(asset, horizon) for asset in ("SPY", "TLT") for horizon in ("m5", "m30")}
+    primary_event_ids = set.intersection(
+        *(set(event_id for _, event_id, _ in groups[key]) for key in primary_keys)
+    )
+    primary_count = len(primary_event_ids)
+    research_train, research_test = 20, 10
+
     report = {
-        "schema_version": "cpi-asset-group-baseline-v1",
+        "schema_version": "cpi-asset-group-baseline-v2",
         "method": "expanding_prior_event_mean_vs_zero_return",
+        "primary_cohort": {
+            "assets": ["SPY", "TLT"],
+            "horizons": ["m5", "m30"],
+            "common_eligible_events": primary_count,
+            "research_initial_train_events": research_train,
+            "research_test_events_available": max(0, primary_count - research_train),
+            "research_required_test_events": research_test,
+            "research_status": (
+                "ready_for_prespecified_evaluation"
+                if primary_count >= research_train + research_test
+                else "insufficient_research_events"
+            ),
+            "research_additional_events_needed": max(
+                0, research_train + research_test - primary_count
+            ),
+            "interpretation": "diagnostic_baselines_only_no_kalshi_incremental_test",
+        },
         "input_sha256": {
             "release_vintage_csv": hashlib.sha256(release_path.read_bytes()).hexdigest(),
             "probability_event_csv": hashlib.sha256(probability_path.read_bytes()).hexdigest(),
             "asset_minute_bar_csv": hashlib.sha256(asset_bar_path.read_bytes()).hexdigest(),
         },
         "group_results": results,
+        "supplemental_asset": "GLD",
         "interpretation_boundary": "different_event_sets_not_comparable_across_groups",
         "publication_boundary": "aggregate_only_no_prices_returns_or_event_predictions",
     }
