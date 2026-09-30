@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from shockgraph_analytics.kalshi_ablation import AblationReport
 
 ASSETS = ("SPY", "TLT", "GLD")
 HORIZONS = ("m5", "m30")
@@ -45,11 +46,23 @@ def _load_snapshot(path: Path | None) -> tuple[ResearchSnapshot | None, str | No
         return None, "invalid_research_snapshot"
 
 
-def create_app(*, research_metadata_path: Path | None = None) -> FastAPI:
+def create_app(
+    *, research_metadata_path: Path | None = None, ablation_report_path: Path | None = None
+) -> FastAPI:
     configured_path = research_metadata_path
     if configured_path is None and os.environ.get("SHOCKGRAPH_RESEARCH_METADATA"):
         configured_path = Path(os.environ["SHOCKGRAPH_RESEARCH_METADATA"])
     snapshot, snapshot_error = _load_snapshot(configured_path)
+    ablation_path = ablation_report_path
+    if ablation_path is None and os.environ.get("SHOCKGRAPH_ABLATION_REPORT"):
+        ablation_path = Path(os.environ["SHOCKGRAPH_ABLATION_REPORT"])
+    ablation = None
+    ablation_error = "ablation_report_not_loaded"
+    if ablation_path is not None:
+        try:
+            ablation = AblationReport.model_validate_json(ablation_path.read_text(encoding="utf-8"))
+        except (OSError, ValidationError):
+            ablation_error = "invalid_ablation_report"
     app = FastAPI(
         title="ShockGraph AI API",
         version="0.1.0",
@@ -92,8 +105,17 @@ def create_app(*, research_metadata_path: Path | None = None) -> FastAPI:
                     "currency": "USD",
                     "supported_events": ["CPI"],
                     "supported_horizons": list(HORIZONS),
-                    "status": "insufficient_data",
-                    "reason": "asset_price_dataset_not_loaded",
+                    "status": (
+                        "exploratory"
+                        if ablation is not None and asset != "GLD"
+                        else "insufficient_data"
+                    ),
+                    "reason": (
+                        "historical_frequency_ablation_not_macro_benchmark"
+                        if ablation is not None and asset != "GLD"
+                        else "asset_price_dataset_not_loaded"
+                    ),
+                    "role": "supplemental" if asset == "GLD" else "primary",
                 }
                 for asset in ASSETS
             ]
@@ -126,11 +148,7 @@ def create_app(*, research_metadata_path: Path | None = None) -> FastAPI:
     ) -> dict[str, Any]:
         normalized_asset = asset_id.upper()
         normalized_event = event_category.upper()
-        if (
-            normalized_asset not in ASSETS
-            or normalized_event != "CPI"
-            or horizon not in HORIZONS
-        ):
+        if normalized_asset not in ASSETS or normalized_event != "CPI" or horizon not in HORIZONS:
             raise HTTPException(
                 status_code=404,
                 detail={
@@ -140,6 +158,22 @@ def create_app(*, research_metadata_path: Path | None = None) -> FastAPI:
                     "horizon": horizon,
                 },
             )
+        if ablation is not None and normalized_asset in ("SPY", "TLT"):
+            group = f"{normalized_asset}:{horizon}"
+            metric = ablation.diagnostic.comparison.get(group)
+            return {
+                "status": "exploratory",
+                "reason": "historical_frequency_ablation_not_macro_benchmark",
+                "asset_id": normalized_asset,
+                "event_category": normalized_event,
+                "horizon": horizon,
+                "independent_event_count": ablation.common_events,
+                "diagnostic_test_events": ablation.diagnostic.test_events,
+                "research_test_events": ablation.research.test_events,
+                "research_required_test_events": ablation.research.required_test_events,
+                "research_status": ablation.research.status,
+                "comparison": metric.model_dump() if metric else None,
+            }
         return {
             "status": "insufficient_data",
             "reason": "asset_price_dataset_not_loaded",
@@ -148,6 +182,12 @@ def create_app(*, research_metadata_path: Path | None = None) -> FastAPI:
             "horizon": horizon,
             "independent_event_count": 0,
         }
+
+    @app.get("/v1/research/cpi-kalshi-ablation")
+    def cpi_kalshi_ablation() -> dict[str, Any]:
+        if ablation is None:
+            raise HTTPException(status_code=503, detail={"reason": ablation_error})
+        return ablation.model_dump(mode="json")
 
     return app
 

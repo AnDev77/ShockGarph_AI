@@ -109,6 +109,12 @@ jobs:
             --asset-bars "$asset_dir/asset_minute_bars.csv" \
             --output artifacts/ci-summary/asset_group_baseline.json
 
+          python scripts/evaluate_cpi_kalshi_ablation.py \
+            --releases "$release_dir/release_vintage.csv" \
+            --probabilities "$paper_dir/event_coverage.csv" \
+            --asset-bars "$asset_dir/asset_minute_bars.csv" \
+            --output artifacts/ci-summary/kalshi_ablation.json
+
       - name: 검증 요약 게시
         shell: bash
         run: |
@@ -125,6 +131,10 @@ jobs:
             echo '```json'
             cat artifacts/ci-summary/asset_group_baseline.json
             echo '```'
+            echo '## 동일 사건의 Kalshi 확률 추가 비교'
+            echo '```json'
+            cat artifacts/ci-summary/kalshi_ablation.json
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 집계 결과 보관
@@ -135,5 +145,6 @@ jobs:
             artifacts/ci-summary/validation_summary.json
             artifacts/ci-summary/event_loss_diagnostic.json
             artifacts/ci-summary/asset_group_baseline.json
+            artifacts/ci-summary/kalshi_ablation.json
           if-no-files-found: error
           retention-days: 14

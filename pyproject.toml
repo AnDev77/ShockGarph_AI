@@ -22,7 +22,11 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = []
+packages = ["shockgraph_analytics", "shockgraph_api"]
+
+[tool.setuptools.package-dir]
+shockgraph_analytics = "packages/event_study/shockgraph_analytics"
+shockgraph_api = "apps/api/shockgraph_api"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

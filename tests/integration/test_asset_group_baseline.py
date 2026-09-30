@@ -7,11 +7,14 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from shockgraph_api.app import create_app
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from evaluate_cpi_asset_groups import evaluate_groups  # noqa: E402
+from evaluate_cpi_kalshi_ablation import export_report  # noqa: E402
 
 
 def _csv(path: Path, rows: list[dict[str, object]]) -> Path:
@@ -40,9 +43,9 @@ def test_group_evaluation_preserves_independent_samples_and_threshold(tmp_path: 
                 "event_ticker": ticker,
                 "reference_month": f"{year}-{month:02d}-01",
                 "release_at": f"{release_day}T13:30:00+00:00",
-                "actual_mom_first": 0.4,
+                "actual_mom_first": 0.4 if index % 2 else 0.2,
                 "threshold": 0.3,
-                "bls_outcome": "yes",
+                "bls_outcome": "yes" if index % 2 else "no",
                 "source_url": (
                     "https://www.bls.gov/news.release/archives/"
                     f"cpi_{next_month:02d}12{next_year}.htm"
@@ -51,7 +54,15 @@ def test_group_evaluation_preserves_independent_samples_and_threshold(tmp_path: 
             }
         )
         probabilities.append(
-            {"event_ticker": ticker, "status": "stale" if index == 16 else "eligible"}
+            {
+                "event_ticker": ticker,
+                "status": "stale" if index == 16 else "eligible",
+                "outcome": "yes" if index % 2 else "no",
+                "quote_end_at": f"{release_day}T13:29:00+00:00",
+                "probability_yes": 0.8 if index % 2 else 0.2,
+                "spread": 0.02,
+                "volume": 10,
+            }
         )
         for asset in ("SPY", "TLT", "GLD"):
             if asset == "GLD" and index > 6:
@@ -96,7 +107,37 @@ def test_group_evaluation_preserves_independent_samples_and_threshold(tmp_path: 
     assert report["supplemental_asset"] == "GLD"
     assert "return_value" not in output.read_text()
     assert evaluate_groups(release_path, probability_path, bar_path, output) == output
+    ablation_path = tmp_path / "ablation.json"
+    export_report(release_path, probability_path, bar_path, ablation_path)
+    client = TestClient(create_app(ablation_report_path=ablation_path))
+    payload = client.get("/v1/research/cpi-kalshi-ablation").json()
+    assert payload["common_events"] == 15
+    assert payload["research"]["comparison"] == {}
+    assert payload["diagnostic"]["test_events"] == 10
+    assert "return_value" not in ablation_path.read_text()
+    assert "train_event_ids" not in ablation_path.read_text()
+    view = client.get(
+        "/v1/analysis",
+        params={
+            "asset_id": "SPY",
+            "event_category": "CPI",
+            "horizon": "m5",
+        },
+    ).json()
+    assert view["independent_event_count"] == 15
+    assert view["status"] == "exploratory"
+    assert view["comparison"] is not None
+    assert view["research_test_events"] == 0
+    assert export_report(release_path, probability_path, bar_path, ablation_path) == ablation_path
+    bad_report = json.loads(ablation_path.read_text())
+    bad_report["research"]["status"] = "exploratory"
+    invalid = tmp_path / "invalid.json"
+    invalid.write_text(json.dumps(bad_report))
+    bad_client = TestClient(create_app(ablation_report_path=invalid))
+    assert bad_client.get("/v1/research/cpi-kalshi-ablation").status_code == 503
     bars[0]["volume"] = 11
     _csv(bar_path, bars)
     with pytest.raises(ValueError, match="existing group report differs"):
         evaluate_groups(release_path, probability_path, bar_path, output)
+    with pytest.raises(ValueError, match="existing ablation report differs"):
+        export_report(release_path, probability_path, bar_path, ablation_path)

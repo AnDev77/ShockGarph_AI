@@ -15,7 +15,7 @@ import {
 } from "@chakra-ui/react";
 import { useEffect, useMemo, useState } from "react";
 
-type AssetId = "SPY" | "TLT" | "GLD";
+type AssetId = "SPY" | "TLT";
 type Horizon = "m5" | "m30";
 type LoadState = "loading" | "ready" | "error";
 
@@ -35,15 +35,24 @@ interface ResearchResponse {
 }
 
 interface AnalysisResponse {
-  status: "insufficient_data" | "ready";
+  status: "insufficient_data" | "ready" | "exploratory";
   reason?: string;
   independent_event_count: number;
+  diagnostic_test_events?: number;
+  research_test_events?: number;
+  research_required_test_events?: number;
+  research_status?: "exploratory" | "insufficient_test_events";
+  comparison?: {
+    historical_crps: number;
+    kalshi_crps: number;
+    mean_crps_difference: number;
+    paired_event_bootstrap95: [number, number];
+  } | null;
 }
 
 const assets: Array<{ id: AssetId; name: string; role: string }> = [
   { id: "SPY", name: "미국 주식", role: "성장·위험선호" },
   { id: "TLT", name: "장기 국채", role: "금리 민감도" },
-  { id: "GLD", name: "금", role: "물가·안전자산" },
 ];
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -170,7 +179,7 @@ export function Dashboard() {
             <Text mt="8px" color="#afb4c8" fontSize="14px" lineHeight="1.65">관심 자산과 발표 후 구간을 선택하세요.</Text>
 
             <Text mt="26px" mb="10px" fontSize="13px" color="#afb4c8" fontWeight="700">자산</Text>
-            <SimpleGrid columns={3} gap="8px">
+            <SimpleGrid columns={2} gap="8px">
               {assets.map((item) => (
                 <Button key={item.id} onClick={() => setAsset(item.id)} minH="52px" rounded="15px" bg={asset === item.id ? "#6757eb" : "#25293c"} color="white" border="1px solid" borderColor={asset === item.id ? "#8578ff" : "#353a50"} _hover={{ bg: asset === item.id ? "#7162ef" : "#30354b" }} aria-pressed={asset === item.id}>
                   {item.id}
@@ -198,13 +207,37 @@ export function Dashboard() {
 
               {analysisState === "error" && <StatusMessage title="API 연결을 확인해 주세요" body="분석 상태를 불러오지 못했습니다." />}
               {analysisState === "ready" && analysis?.status === "insufficient_data" && (
-                <StatusMessage title="가격 자료 검증 대기 중" body="실제 장전 분봉이 연결되면 표본 수와 자산 반응이 이 영역에 표시됩니다." />
+                <StatusMessage title="평가 보고서 연결 대기 중" body="검증된 평가 보고서가 연결되면 실제 표본 수와 비교 결과를 표시합니다." />
+              )}
+              {analysisState === "ready" && analysis?.status === "exploratory" && (
+                <Box mt="18px">
+                  <Badge colorPalette="orange">탐색적 과거 평가</Badge>
+                  <Text mt="12px" fontWeight="700">공통 사건 {analysis.independent_event_count}건</Text>
+                  <Text mt="6px" fontSize="13px" color="#c3c7d5">
+                    초기 5건 기준 · 시험 {analysis.diagnostic_test_events}건
+                  </Text>
+                  {analysis.comparison ? (
+                    <VStack align="stretch" gap="7px" mt="14px" fontSize="13px">
+                      <Text>과거 발생비율 CRPS: {analysis.comparison.historical_crps.toFixed(6)}</Text>
+                      <Text>Kalshi 확률 CRPS: {analysis.comparison.kalshi_crps.toFixed(6)}</Text>
+                      <Text>차이: {analysis.comparison.mean_crps_difference.toFixed(6)} (음수면 Kalshi 오차가 작음)</Text>
+                      <Text>탐색적 Bootstrap 95% 구간: [{analysis.comparison.paired_event_bootstrap95.map((v) => v.toFixed(6)).join(", ")}]</Text>
+                    </VStack>
+                  ) : <Text mt="12px" fontSize="13px">시험 표본이 부족해 비교 수치를 표시하지 않습니다.</Text>}
+                  <Text mt="14px" fontSize="13px" color="#f3cf95">
+                    초기 20건 연구 기준: 시험 {analysis.research_test_events}/{analysis.research_required_test_events}건
+                    {analysis.research_status === "insufficient_test_events" ? " · 주요 평가 보류" : " · 탐색 평가 가능"}
+                  </Text>
+                  <Text mt="10px" fontSize="12px" color="#afb4c8" lineHeight="1.7">
+                    같은 사건에서 과거 발생비율과 Kalshi 확률을 비교했습니다. 전통 거시정보 대비 검증과 미래 수익률 예측은 아직 제공하지 않습니다.
+                  </Text>
+                </Box>
               )}
             </Box>
 
             <Flex mt="18px" gap="10px" align="start">
               <Box mt="3px" w="8px" h="8px" rounded="full" bg="#f3b74f" flexShrink="0" />
-              <Text fontSize="12px" lineHeight="1.6" color="#afb4c8">현재 자산 분석값은 0이 아니라 미산출 상태입니다. 데이터가 없는 구간을 보간하지 않습니다.</Text>
+              <Text fontSize="12px" lineHeight="1.6" color="#afb4c8">주 분석은 SPY·TLT입니다. 보고서가 없으면 수치를 표시하지 않으며, 곡률·DNN 방법론은 배포 이후 추가 검증합니다.</Text>
             </Flex>
           </Box>
         </Grid>
