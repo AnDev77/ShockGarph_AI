@@ -37,7 +37,8 @@ def export_summary(
         "bar_rows": asset["bar_rows"],
         "coverage_rows": asset["coverage_rows"],
         "coverage_status_counts": asset["coverage_status_counts"],
-        "common_events": asset["common_events"],
+        "asset_complete_events": asset["common_events"],
+        "model_common_events": panel["common_events"],
         "asset_bar_sha256": asset["bar_csv_sha256"],
         "panel_sha256": panel["panel_sha256"],
         "evaluation": {

@@ -28,7 +28,11 @@ def test_summary_excludes_credentials_prices_and_event_predictions(tmp_path) -> 
     )
     panel = _write(
         tmp_path / "panel.json",
-        {"schema_version": "cpi-event-asset-panel-v1", "panel_sha256": "panel"},
+        {
+            "schema_version": "cpi-event-asset-panel-v1",
+            "panel_sha256": "panel",
+            "common_events": 11,
+        },
     )
     baseline = _write(
         tmp_path / "baseline.json",
@@ -50,7 +54,10 @@ def test_summary_excludes_credentials_prices_and_event_predictions(tmp_path) -> 
 
     assert "must-not-leak" not in content
     assert "actual_return" not in content
-    assert json.loads(content)["evaluation"]["metrics"]["SPY:m5"]["mae"] == 0.1
+    payload = json.loads(content)
+    assert payload["asset_complete_events"] == 15
+    assert payload["model_common_events"] == 11
+    assert payload["evaluation"]["metrics"]["SPY:m5"]["mae"] == 0.1
 
 
 def test_summary_rejects_mismatched_panel_hash(tmp_path) -> None:
@@ -70,7 +77,11 @@ def test_summary_rejects_mismatched_panel_hash(tmp_path) -> None:
     )
     panel = _write(
         tmp_path / "panel.json",
-        {"schema_version": "cpi-event-asset-panel-v1", "panel_sha256": "panel-a"},
+        {
+            "schema_version": "cpi-event-asset-panel-v1",
+            "panel_sha256": "panel-a",
+            "common_events": 0,
+        },
     )
     baseline = _write(
         tmp_path / "baseline.json",
