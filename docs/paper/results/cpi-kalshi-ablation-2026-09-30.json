@@ -1,0 +1,104 @@
+{
+  "common_events": 24,
+  "diagnostic": {
+    "comparison": {
+      "SPY:m30": {
+        "historical_crps": 0.0031783048122567496,
+        "kalshi_crps": 0.0032645826625438967,
+        "mean_crps_difference": 8.627785028714685e-05,
+        "paired_event_bootstrap95": [
+          -3.4695123067053414e-05,
+          0.0002181504028124976
+        ]
+      },
+      "SPY:m5": {
+        "historical_crps": 0.002895282242755333,
+        "kalshi_crps": 0.0029537233133683353,
+        "mean_crps_difference": 5.844107061300267e-05,
+        "paired_event_bootstrap95": [
+          -1.9637423321092297e-05,
+          0.0001608537438405607
+        ]
+      },
+      "TLT:m30": {
+        "historical_crps": 0.0034760237367971237,
+        "kalshi_crps": 0.0035704213810413524,
+        "mean_crps_difference": 9.439764424422918e-05,
+        "paired_event_bootstrap95": [
+          -9.427109049729878e-06,
+          0.00019796760070661052
+        ]
+      },
+      "TLT:m5": {
+        "historical_crps": 0.003049266705191251,
+        "kalshi_crps": 0.0031082231293656317,
+        "mean_crps_difference": 5.895642417438076e-05,
+        "paired_event_bootstrap95": [
+          -3.1082995893791168e-06,
+          0.00012039682484691847
+        ]
+      }
+    },
+    "min_train": 5,
+    "required_test_events": 10,
+    "skipped_counts": {
+      "insufficient_train_events": 5
+    },
+    "status": "exploratory",
+    "test_events": 19
+  },
+  "input_sha256": {
+    "bars": "c58b2a4a0ddc6d14e33f8316241ad526d1d1a492145883cada0e5ea08880a4b9",
+    "probabilities": "1cf90791908d74dcd470e0aa01469190b91e00f620553dca7b619d91073a6951",
+    "releases": "fabe80f40ea8ef4d103f5f53d166b8f84bd193208192bb04f1feb62f15d5b755"
+  },
+  "limitations": [
+    "전통 거시 기대·금리·최근 변동성 기준선 자료 미확보: 논문의 C-B 비교가 아님",
+    "T0.3 이진 계약만 사용하며 전체 CPI 확률분포를 복원하지 않음",
+    "사후 자산 선정에 따른 탐색 결과: 신규 또는 외부 표본 검증 필요",
+    "동일 사건 재표집 1000회·seed 42: 월별 독립 가정, 순차 학습 의존성 미반영",
+    "네 조합의 신뢰구간은 개별 구간이며 다중비교 보정되지 않음",
+    "후속 위험·곡률·DNN 연구는 배포 이후 진행, 실시간 예측 및 자동 거래 미제공"
+  ],
+  "model": "binary_empirical_shrinkage4",
+  "quote_time_exclusions": [
+    {
+      "event_id": "cpi-2023-02",
+      "quote_at": "2023-03-14T12:14:00Z",
+      "reason": "stale_before_release",
+      "release_at": "2023-03-14T12:30:00Z"
+    },
+    {
+      "event_id": "cpi-2024-05",
+      "quote_at": "2024-06-12T12:14:00Z",
+      "reason": "stale_before_release",
+      "release_at": "2024-06-12T12:30:00Z"
+    },
+    {
+      "event_id": "cpi-2024-12",
+      "quote_at": "2025-01-15T13:10:00Z",
+      "reason": "stale_before_release",
+      "release_at": "2025-01-15T13:30:00Z"
+    }
+  ],
+  "research": {
+    "comparison": {},
+    "min_train": 20,
+    "required_test_events": 10,
+    "skipped_counts": {
+      "insufficient_train_events": 20
+    },
+    "status": "insufficient_test_events",
+    "test_events": 4
+  },
+  "schema_version": "cpi-kalshi-ablation-v1",
+  "scope": "historical_frequency_vs_kalshi_not_macro_benchmark",
+  "selection_counts": {
+    "accepted": 24,
+    "at_or_after_release": 0,
+    "incomplete_asset_windows": 2,
+    "input_events": 53,
+    "probability_unavailable": 24,
+    "stale_before_release": 3
+  }
+}
