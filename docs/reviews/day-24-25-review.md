@@ -21,7 +21,7 @@
 
 ## 실행 방법
 
-`feat/analytics`에 관련 코드가 푸시되면 IEX 피드로 자동 실행된다. GitHub의 `Actions`에서
+`feat/analytics`에 관련 코드가 푸시되면 SIP 피드로 자동 실행된다. GitHub의 `Actions`에서
 `Alpaca CPI 자산 검증`을 선택해 수동 실행할 때는 `iex` 또는 `sip`를 고를 수 있다.
 
 ## 검증 결과

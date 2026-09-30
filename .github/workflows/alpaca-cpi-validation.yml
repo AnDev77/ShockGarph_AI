@@ -6,7 +6,7 @@ on:
       feed:
         description: Alpaca 주식 데이터 피드
         required: true
-        default: iex
+        default: sip
         type: choice
         options:
           - iex
@@ -36,7 +36,7 @@ jobs:
     env:
       ALPACA_API_KEY_ID: ${{ secrets.ALPACA_API_KEY_ID }}
       ALPACA_API_SECRET_KEY: ${{ secrets.ALPACA_API_SECRET_KEY }}
-      ALPACA_FEED: ${{ inputs.feed || 'iex' }}
+      ALPACA_FEED: ${{ inputs.feed || 'sip' }}
 
     steps:
       - name: 저장소 체크아웃
