@@ -103,6 +103,12 @@ jobs:
             --panel-metadata "$panel_dir/metadata.json" \
             --output artifacts/ci-summary/event_loss_diagnostic.json
 
+          python scripts/evaluate_cpi_asset_groups.py \
+            --releases "$release_dir/release_vintage.csv" \
+            --probabilities "$paper_dir/event_coverage.csv" \
+            --asset-bars "$asset_dir/asset_minute_bars.csv" \
+            --output artifacts/ci-summary/asset_group_baseline.json
+
       - name: 검증 요약 게시
         shell: bash
         run: |
@@ -115,6 +121,10 @@ jobs:
             echo '```json'
             cat artifacts/ci-summary/event_loss_diagnostic.json
             echo '```'
+            echo '## 자산·기간별 기준선 평가'
+            echo '```json'
+            cat artifacts/ci-summary/asset_group_baseline.json
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 집계 결과 보관
@@ -124,5 +134,6 @@ jobs:
           path: |
             artifacts/ci-summary/validation_summary.json
             artifacts/ci-summary/event_loss_diagnostic.json
+            artifacts/ci-summary/asset_group_baseline.json
           if-no-files-found: error
           retention-days: 14
