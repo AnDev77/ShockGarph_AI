@@ -1,0 +1,114 @@
+name: Alpaca CPI 자산 검증
+
+on:
+  workflow_dispatch:
+    inputs:
+      feed:
+        description: Alpaca 주식 데이터 피드
+        required: true
+        default: iex
+        type: choice
+        options:
+          - iex
+          - sip
+  push:
+    branches:
+      - feat/analytics
+    paths:
+      - .github/workflows/alpaca-cpi-validation.yml
+      - apps/collector/**
+      - packages/**
+      - scripts/**
+      - tests/**
+      - pyproject.toml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alpaca-cpi-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ALPACA_API_KEY_ID: ${{ secrets.ALPACA_API_KEY_ID }}
+      ALPACA_API_SECRET_KEY: ${{ secrets.ALPACA_API_SECRET_KEY }}
+      ALPACA_FEED: ${{ inputs.feed || 'iex' }}
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 의존성 설치
+        run: python -m pip install -e ".[dev]"
+
+      - name: 비밀키 등록 여부 확인
+        shell: bash
+        run: |
+          if [[ -z "$ALPACA_API_KEY_ID" || -z "$ALPACA_API_SECRET_KEY" ]]; then
+            echo "필수 Alpaca Actions Secret이 등록되지 않았습니다." >&2
+            exit 2
+          fi
+          echo "Alpaca Actions Secret 두 항목이 등록되어 있습니다."
+
+      - name: 정적 검사와 테스트
+        run: |
+          make quality
+          make test
+
+      - name: CPI 입력과 ETF 기준선 생성
+        id: research
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          audit_json=$(python scripts/audit_kalshi_cpi.py --request-interval 0.3)
+          audit_report=$(python -c 'import json,sys; print(json.load(sys.stdin)["report"])' <<< "$audit_json")
+
+          paper_json=$(python scripts/export_paper_dataset.py --input "$audit_report")
+          paper_dir=$(python -c 'import json,sys; print(json.load(sys.stdin)["paper_dataset"])' <<< "$paper_json")
+
+          release_json=$(python scripts/collect_bls_cpi_vintages.py --input-audit "$audit_report")
+          release_dir=$(python -c 'import json,sys; print(json.load(sys.stdin)["release_dataset"])' <<< "$release_json")
+
+          pipeline_json=$(python scripts/run_cpi_asset_pipeline.py \
+            --releases "$release_dir/release_vintage.csv" \
+            --probabilities "$paper_dir/event_coverage.csv" \
+            --feed "$ALPACA_FEED")
+
+          asset_dir=$(python -c 'import json,sys; print(json.load(sys.stdin)["asset_dataset"])' <<< "$pipeline_json")
+          panel_dir=$(python -c 'import json,sys; print(json.load(sys.stdin)["asset_panel"])' <<< "$pipeline_json")
+          report_path=$(python -c 'import json,sys; print(json.load(sys.stdin)["report"])' <<< "$pipeline_json")
+
+          python scripts/export_alpaca_validation_summary.py \
+            --asset-metadata "$asset_dir/metadata.json" \
+            --panel-metadata "$panel_dir/metadata.json" \
+            --baseline-report "$report_path" \
+            --output artifacts/ci-summary/validation_summary.json
+
+      - name: 검증 요약 게시
+        shell: bash
+        run: |
+          {
+            echo '## Alpaca CPI 자산 검증 결과'
+            echo '```json'
+            cat artifacts/ci-summary/validation_summary.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 집계 결과 보관
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpaca-cpi-validation-${{ env.ALPACA_FEED }}
+          path: artifacts/ci-summary/validation_summary.json
+          if-no-files-found: error
+          retention-days: 14

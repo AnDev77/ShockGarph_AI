@@ -22,9 +22,12 @@ from shockgraph_data_pipeline.raw_store import ImmutableRawStore  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="과거 SIP 수집부터 CPI ETF 기준선 평가까지 실행")
+    parser = argparse.ArgumentParser(
+        description="과거 ETF 분봉 수집부터 CPI ETF 기준선 평가까지 실행"
+    )
     parser.add_argument("--releases", type=Path, required=True)
     parser.add_argument("--probabilities", type=Path, required=True)
+    parser.add_argument("--feed", choices=("iex", "sip"), default="sip")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "artifacts")
     args = parser.parse_args()
     try:
@@ -41,7 +44,7 @@ def main() -> None:
             ImmutableRawStore(args.artifacts / "raw"),
             args.releases,
             args.artifacts / "alpaca-etf-bars",
-            feed="sip",
+            feed=args.feed,
         )
     panel_dir = build_panel_dataset(
         args.releases,
