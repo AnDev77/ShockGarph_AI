@@ -29,7 +29,27 @@
 - 로컬 `make quality`: Ruff 통과, Pyright 오류·경고 0개
 - 로컬 `make test`: 113개 통과, Starlette TestClient 사용 중단 예정 경고 1개
 - `git diff --check`: 통과
-- GitHub Actions 실제 Alpaca 호출: 워크플로 푸시 후 확인 예정
+- GitHub Actions 실제 Alpaca IEX 호출: 성공
+
+## 최초 실데이터 실행 결과
+
+2026-09-30 실행한 [GitHub Actions 실행 1번](https://github.com/AnDev77/ShockGarph_AI/actions/runs/36651767076)은
+Secret 확인, 품질 검사, 113개 테스트, 공개 입력 재수집, Alpaca 호출, 결과 보관까지 모두 성공했다.
+
+| 항목 | 결과 |
+|---|---:|
+| 피드 | `iex` |
+| CPI 발표 사건 | 53 |
+| 실제 ETF 분봉 | 539 |
+| 커버리지 판정 행 | 308 |
+| 시작 봉 결측 | 298 |
+| 종료 봉 결측 | 10 |
+| SPY·TLT·GLD 공통 완전 사건 | 0 |
+| 기준선 평가 | `insufficient_test_events` |
+
+인증과 Alpaca API 접근은 정상이다. 현재 병목은 IEX 피드에서 과거 CPI 발표시각의 장전 거래가
+희소해 정확한 시작 봉을 확보하지 못한다는 점이다. 분봉을 임의 보간하지 않았으므로 모델 평가는
+실행하지 않았고 성능 지표도 비워 두었다. 다음 판단은 SIP 수동 실행의 구독 가능 여부와 커버리지다.
 
 ## 사용자 점검표
 
