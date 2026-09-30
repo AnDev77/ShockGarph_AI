@@ -11,6 +11,7 @@
   사건 패널 생성, 가격 기준선 평가, 안전한 결과 보관
 - `scripts/run_cpi_asset_pipeline.py`: `iex`와 `sip` 피드 선택 지원
 - `scripts/export_alpaca_validation_summary.py`: 원시 가격과 사건별 예측을 제거하고 집계 결과만 출력
+- `scripts/analyze_event_coverage_losses.py`: 사건별 확률·가격 교집합 손실과 제외 사유 진단
 - `tests/unit/test_alpaca_validation_summary.py`: 비밀값·개별 수익률 제외와 입력 해시 연결 검증
 
 ## 보안·데이터 공개 경계

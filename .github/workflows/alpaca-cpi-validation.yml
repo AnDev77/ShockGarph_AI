@@ -95,6 +95,14 @@ jobs:
             --baseline-report "$report_path" \
             --output artifacts/ci-summary/validation_summary.json
 
+          python scripts/analyze_event_coverage_losses.py \
+            --releases "$release_dir/release_vintage.csv" \
+            --probabilities "$paper_dir/event_coverage.csv" \
+            --asset-coverage "$asset_dir/coverage.json" \
+            --asset-metadata "$asset_dir/metadata.json" \
+            --panel-metadata "$panel_dir/metadata.json" \
+            --output artifacts/ci-summary/event_loss_diagnostic.json
+
       - name: 검증 요약 게시
         shell: bash
         run: |
@@ -103,12 +111,18 @@ jobs:
             echo '```json'
             cat artifacts/ci-summary/validation_summary.json
             echo '```'
+            echo '## 사건 교집합 손실 진단'
+            echo '```json'
+            cat artifacts/ci-summary/event_loss_diagnostic.json
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 집계 결과 보관
         uses: actions/upload-artifact@v4
         with:
           name: alpaca-cpi-validation-${{ env.ALPACA_FEED }}
-          path: artifacts/ci-summary/validation_summary.json
+          path: |
+            artifacts/ci-summary/validation_summary.json
+            artifacts/ci-summary/event_loss_diagnostic.json
           if-no-files-found: error
           retention-days: 14
