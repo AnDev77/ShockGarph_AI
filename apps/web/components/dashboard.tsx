@@ -206,10 +206,10 @@ export function Dashboard() {
               </Flex>
 
               {analysisState === "error" && <StatusMessage title="API 연결을 확인해 주세요" body="분석 상태를 불러오지 못했습니다." />}
-              {analysisState === "ready" && analysis?.status === "insufficient_data" && (
+              {analysisState === "ready" && analysis?.status === "insufficient_data" && analysis.diagnostic_test_events === undefined && (
                 <StatusMessage title="평가 보고서 연결 대기 중" body="검증된 평가 보고서가 연결되면 실제 표본 수와 비교 결과를 표시합니다." />
               )}
-              {analysisState === "ready" && analysis?.status === "exploratory" && (
+              {analysisState === "ready" && analysis?.diagnostic_test_events !== undefined && (
                 <Box mt="18px">
                   <Badge colorPalette="orange">탐색적 과거 평가</Badge>
                   <Text mt="12px" fontWeight="700">공통 사건 {analysis.independent_event_count}건</Text>

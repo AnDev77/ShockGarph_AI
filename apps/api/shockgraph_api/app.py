@@ -106,7 +106,9 @@ def create_app(
                     "supported_events": ["CPI"],
                     "supported_horizons": list(HORIZONS),
                     "status": (
-                        "exploratory"
+                        ablation.diagnostic.status.replace(
+                            "insufficient_test_events", "insufficient_data"
+                        )
                         if ablation is not None and asset != "GLD"
                         else "insufficient_data"
                     ),
@@ -162,7 +164,7 @@ def create_app(
             group = f"{normalized_asset}:{horizon}"
             metric = ablation.diagnostic.comparison.get(group)
             return {
-                "status": "exploratory",
+                "status": "exploratory" if metric else "insufficient_data",
                 "reason": "historical_frequency_ablation_not_macro_benchmark",
                 "asset_id": normalized_asset,
                 "event_category": normalized_event,

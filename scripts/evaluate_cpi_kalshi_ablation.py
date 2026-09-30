@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,12 +21,15 @@ from shockgraph_analytics.kalshi_ablation import (  # noqa: E402
     GROUPS,
     AblationEvent,
     AblationReport,
+    QuoteTimeExclusion,
     summarize,
 )
 from shockgraph_analytics.paper_panel import build_asset_windows  # noqa: E402
 
 
-def build_events(releases: Path, probabilities: Path, bars: Path) -> list[AblationEvent]:
+def build_events(
+    releases: Path, probabilities: Path, bars: Path
+) -> tuple[list[AblationEvent], dict[str, int], list[QuoteTimeExclusion]]:
     release_rows = _load_releases(releases)
     probability_rows = _read_csv(probabilities)
     by_ticker = {row["event_ticker"]: row for row in probability_rows}
@@ -41,10 +45,26 @@ def build_events(releases: Path, probabilities: Path, bars: Path) -> list[Ablati
         if f"{w.asset_id}:{w.horizon}" in GROUPS:
             by_event.setdefault(w.event_id, {})[f"{w.asset_id}:{w.horizon}"] = w
     events = []
+    counts: dict[str, int] = dict.fromkeys(
+        (
+            "probability_unavailable",
+            "incomplete_asset_windows",
+            "stale_before_release",
+            "at_or_after_release",
+            "accepted",
+        ),
+        0,
+    )
+    counts["input_events"] = len(release_rows)
+    exclusions: list[QuoteTimeExclusion] = []
     for release in release_rows:
         p = by_ticker.get(release.event_ticker)
         selected = by_event.get(release.event_id, {})
-        if p is None or p["status"] != "eligible" or set(selected) != set(GROUPS):
+        if p is None or p["status"] != "eligible":
+            counts["probability_unavailable"] += 1
+            continue
+        if set(selected) != set(GROUPS):
+            counts["incomplete_asset_windows"] += 1
             continue
         if p["outcome"] != release.outcome:
             raise ValueError("Kalshi and BLS outcomes differ")
@@ -53,6 +73,20 @@ def build_events(releases: Path, probabilities: Path, bars: Path) -> list[Ablati
             raise ValueError("eligible quote violates spread gate")
         if not math.isfinite(volume) or volume <= 0:
             raise ValueError("eligible quote requires positive volume")
+        quote_at = _parse_datetime(p["quote_end_at"])
+        age = release.release_at - quote_at
+        if age <= timedelta(0) or age > timedelta(minutes=15):
+            reason = "at_or_after_release" if age <= timedelta(0) else "stale_before_release"
+            counts[reason] += 1
+            exclusions.append(
+                QuoteTimeExclusion(
+                    event_id=release.event_id,
+                    release_at=release.release_at,
+                    quote_at=quote_at,
+                    reason=reason,
+                )
+            )
+            continue
         if any(
             bar_index[w.asset_id, w.start_at].available_at >= release.release_at
             for w in selected.values()
@@ -62,7 +96,7 @@ def build_events(releases: Path, probabilities: Path, bars: Path) -> list[Ablati
             AblationEvent(
                 event_id=release.event_id,
                 release_at=release.release_at,
-                quote_at=_parse_datetime(p["quote_end_at"]),
+                quote_at=quote_at,
                 label_available_at=max(
                     bar_index[w.asset_id, w.end_at].available_at for w in selected.values()
                 ),
@@ -71,13 +105,16 @@ def build_events(releases: Path, probabilities: Path, bars: Path) -> list[Ablati
                 returns={key: w.return_value for key, w in selected.items()},
             )
         )
-    return events
+    counts["accepted"] = len(events)
+    return events, counts, exclusions
 
 
 def export_report(releases: Path, probabilities: Path, bars: Path, output: Path) -> Path:
-    events = build_events(releases, probabilities, bars)
+    events, counts, exclusions = build_events(releases, probabilities, bars)
     report = AblationReport(
         common_events=len(events),
+        selection_counts=counts,
+        quote_time_exclusions=exclusions,
         input_sha256={
             name: hashlib.sha256(path.read_bytes()).hexdigest()
             for name, path in (

@@ -129,6 +129,32 @@ def test_group_evaluation_preserves_independent_samples_and_threshold(tmp_path: 
     assert view["comparison"] is not None
     assert view["research_test_events"] == 0
     assert export_report(release_path, probability_path, bar_path, ablation_path) == ablation_path
+    # Contract-cutoff eligibility must not override actual BLS release timing.
+    for index, quote_time in enumerate(("13:14", "13:30", "13:31", "13:15")):
+        probabilities[index]["quote_end_at"] = str(probabilities[index]["quote_end_at"]).replace(
+            "13:29", quote_time
+        )
+    aligned_probability_path = _csv(tmp_path / "aligned_probabilities.csv", probabilities)
+    aligned_path = tmp_path / "aligned_ablation.json"
+    export_report(release_path, aligned_probability_path, bar_path, aligned_path)
+    aligned = json.loads(aligned_path.read_text())
+    assert aligned["common_events"] == 12
+    assert aligned["selection_counts"] == {
+        "input_events": 16,
+        "probability_unavailable": 1,
+        "incomplete_asset_windows": 0,
+        "stale_before_release": 1,
+        "at_or_after_release": 2,
+        "accepted": 12,
+    }
+    assert len(aligned["quote_time_exclusions"]) == 3
+    assert aligned["diagnostic"]["comparison"] == {}
+    aligned_client = TestClient(create_app(ablation_report_path=aligned_path))
+    aligned_view = aligned_client.get(
+        "/v1/analysis", params={"asset_id": "SPY", "event_category": "CPI", "horizon": "m5"}
+    ).json()
+    assert aligned_view["status"] == "insufficient_data"
+    assert aligned_view["independent_event_count"] == 12
     bad_report = json.loads(ablation_path.read_text())
     bad_report["research"]["status"] = "exploratory"
     invalid = tmp_path / "invalid.json"

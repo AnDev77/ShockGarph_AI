@@ -138,6 +138,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 집계 결과 보관
+        if: ${{ always() && steps.research.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
           name: alpaca-cpi-validation-${{ env.ALPACA_FEED }}

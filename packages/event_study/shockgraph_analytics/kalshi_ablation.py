@@ -13,7 +13,9 @@ GROUPS = ("SPY:m5", "SPY:m30", "TLT:m5", "TLT:m30")
 
 
 class AblationEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, allow_inf_nan=False, hide_input_in_errors=True
+    )
 
     event_id: str
     release_at: datetime
@@ -113,6 +115,15 @@ class EvaluationSummary(BaseModel):
         return self
 
 
+class QuoteTimeExclusion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str
+    release_at: datetime
+    quote_at: datetime
+    reason: Literal["stale_before_release", "at_or_after_release"]
+
+
 class AblationReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -122,6 +133,8 @@ class AblationReport(BaseModel):
     )
     model: Literal["binary_empirical_shrinkage4"] = "binary_empirical_shrinkage4"
     common_events: int = Field(ge=0)
+    selection_counts: dict[str, int]
+    quote_time_exclusions: list[QuoteTimeExclusion]
     input_sha256: dict[str, str]
     research: EvaluationSummary
     diagnostic: EvaluationSummary
@@ -129,6 +142,22 @@ class AblationReport(BaseModel):
 
     @model_validator(mode="after")
     def settings(self) -> Self:
+        counts = self.selection_counts
+        reasons = {"stale_before_release", "at_or_after_release"}
+        if set(counts) != reasons | {
+            "input_events",
+            "probability_unavailable",
+            "incomplete_asset_windows",
+            "accepted",
+        } or any(v < 0 for v in counts.values()):
+            raise ValueError("invalid selection counts")
+        if counts["accepted"] != self.common_events or counts["input_events"] != sum(
+            v for k, v in counts.items() if k != "input_events"
+        ):
+            raise ValueError("selection counts must reconcile")
+        exclusions = Counter(e.reason for e in self.quote_time_exclusions)
+        if any(exclusions[reason] != counts[reason] for reason in reasons):
+            raise ValueError("timing exclusions must reconcile")
         if self.research.min_train != 20 or self.diagnostic.min_train != 5:
             raise ValueError("report requires fixed 20/5 training gates")
         for summary in (self.research, self.diagnostic):
