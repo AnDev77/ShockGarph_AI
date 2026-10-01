@@ -74,6 +74,15 @@ jobs:
           audit_json=$(python scripts/audit_kalshi_cpi.py --request-interval 0.3)
           audit_report=$(python -c 'import json,sys; print(json.load(sys.stdin)["report"])' <<< "$audit_json")
 
+          curve_json=$(python scripts/audit_kalshi_cpi_curve.py \
+            --event KXCPI-26AUG \
+            --as-of 2026-09-11T12:25:00Z \
+            --request-interval 0.3)
+          curve_report=$(python -c 'import json,sys; print(json.load(sys.stdin)["report"])' <<< "$curve_json")
+          python scripts/export_cpi_curve_summary.py \
+            --input "$curve_report" \
+            --output artifacts/ci-summary/cpi_threshold_curve.json
+
           paper_json=$(python scripts/export_paper_dataset.py --input "$audit_report")
           paper_dir=$(python -c 'import json,sys; print(json.load(sys.stdin)["paper_dataset"])' <<< "$paper_json")
 
@@ -145,6 +154,10 @@ jobs:
             echo '```json'
             cat artifacts/ci-summary/kalshi_filter_sensitivity.json
             echo '```'
+            echo '## Kalshi CPI 다중 임계값 곡선 감사'
+            echo '```json'
+            cat artifacts/ci-summary/cpi_threshold_curve.json
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 집계 결과 보관
@@ -158,5 +171,6 @@ jobs:
             artifacts/ci-summary/asset_group_baseline.json
             artifacts/ci-summary/kalshi_ablation.json
             artifacts/ci-summary/kalshi_filter_sensitivity.json
+            artifacts/ci-summary/cpi_threshold_curve.json
           if-no-files-found: error
           retention-days: 14

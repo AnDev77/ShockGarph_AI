@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build api-dev web-dev web-build research-demo research-probe research-audit-cpi research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel research-price-baseline research-cpi-asset-pipeline
+.PHONY: setup quality test test-fast collect train evaluate report dev build api-dev web-dev web-build research-demo research-probe research-audit-cpi research-audit-cpi-curve research-paper-data research-bls-cpi research-alpaca-etf research-asset-panel research-price-baseline research-cpi-asset-pipeline
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -26,6 +26,11 @@ research-probe:
 
 research-audit-cpi:
 	$(PYTHON) scripts/audit_kalshi_cpi.py --request-interval 0.3
+
+research-audit-cpi-curve:
+	@test -n "$(CPI_EVENT)" || (echo "CPI_EVENT에 KXCPI 사건 식별자를 지정하세요" && exit 2)
+	@test -n "$(CPI_AS_OF)" || (echo "CPI_AS_OF에 발표 전 UTC 기준시각을 지정하세요" && exit 2)
+	$(PYTHON) scripts/audit_kalshi_cpi_curve.py --event "$(CPI_EVENT)" --as-of "$(CPI_AS_OF)" --request-interval 0.3
 
 research-paper-data:
 	@test -n "$(PAPER_REPORT)" || (echo "PAPER_REPORT에 report.json 경로를 지정하세요" && exit 2)

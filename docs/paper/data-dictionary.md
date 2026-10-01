@@ -8,7 +8,9 @@
 | 원본 | BLS 과거 CPI 보도자료 또는 승인된 빈티지 | 최초 발표값·발표시각 | 출처 조건 확인 후 링크 중심 |
 | 원본 | 이용권이 확인된 SPY·TLT·GLD 분봉 | 발표 전후 가격 | 원시 가격 공개 보류 |
 | 정제 | `event_coverage.csv` | Kalshi 포함·제외와 확률 점수 | 로컬 연구 전용 |
+| 정제 | `kalshi-cpi-threshold-curve-v1/report.json` | 사건별 다중 임계값 누적확률·배타 구간 | 로컬 연구 전용 |
 | 정제 | `release_vintage.csv` | BLS 최초 발표값·시각과 Kalshi 결과 대조 | 출처 링크·파생값 공개 가능성 검토 |
+| 정제 | `consensus_vintage.csv` | 당시 이용 가능했던 전문가 CPI 컨센서스 | 공급원 이용조건에 따라 결정 |
 | 정제 | `asset_minute_bars.csv` | Alpaca 사건·자산·분별 OHLCV와 가용시각 | 로컬 연구 전용, 재배포 금지 |
 | 분석 | `event_asset_panel.csv` | 확률·최초 발표·자산 구간 수익률 공통 입력 | 원시 가격 이용조건 검토 후 결정 |
 
@@ -39,6 +41,33 @@
 | `brier_loss_difference` | 실수 | 시장 손실−기준 손실 | 음수이면 시장 우세 |
 
 ## 다음 결합 스키마
+
+### 다중 임계값 곡선 보고서
+
+| 필드 | 의미 | 품질 규칙 |
+|---|---|---|
+| `event_ticker`, `as_of` | CPI 사건과 발표 전 확률 기준시각 | UTC이며 실제 발표보다 이전 |
+| `thresholds` | 엄격한 `CPI MoM > c`의 오름차순 임계값 | 중복 금지, 단위 `%p` |
+| `raw_probabilities_above` | 유효 호가 중간값 원본 | 0~1, 원본 해시 보존 |
+| `probabilities_above` | 비가중 등위회귀 단조 투영값 | 최대 조정 0.05 초과 시 보고 중단 |
+| `bin_probabilities` | `[1-q1, q1-q2, ..., qk]` | 음수 금지, 합 1 |
+| `raw_monotone` | 원본부터 무차익 순서를 만족했는지 | 거짓이면 조정량 함께 확인 |
+| `max_isotonic_adjustment` | 임계값별 최대 절대 조정량 | 확률점 단위 |
+| `quote_status_counts` | 임계값별 포함·제외 합계 | 후보 계약 수와 대조 |
+
+### `consensus_vintage.csv`
+
+| 필드 | 의미 | 누수·품질 규칙 |
+|---|---|---|
+| `event_id` | Kalshi·BLS와 연결할 CPI 사건 | 사건당 사용할 빈티지 명시 |
+| `expected_mom` | 전문가 컨센서스 CPI 전월비 | `%p`, 0.1 격자 여부 검사 |
+| `available_at` | 해당 컨센서스가 이용 가능해진 UTC 시각 | 확률 `as_of` 이하여야 함 |
+| `source` | 공급원·릴리스 식별자 | 현재 승인 공급원 미연결 |
+| `raw_hash` | 원본 SHA-256 | 현재 값으로 과거 덮어쓰기 금지 |
+
+컨센서스 `c`와 보고 간격 `d=0.1`에 대해 `c-d`, `c` 임계값이 모두 있을 때만
+하회 `1-q(c-d)`, 부합 `q(c-d)-q(c)`, 상회 `q(c)`를 계산한다. 결측 경계는
+보간하지 않는다.
 
 ### `release_vintage.csv`
 

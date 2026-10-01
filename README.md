@@ -6,8 +6,8 @@ ShockGraph AI는 거시 이벤트를 기반으로 포트폴리오 위험을 연�
 
 ## 현재 구현 상태
 
-1~18일차 작업에서 데이터 계약, 발표 단위 기준 모델 비교, Kalshi CPI 실데이터 감사,
-BLS 최초 발표 빈티지 검증과 미국 ETF 분봉 수집 경로까지 구현했다.
+1~35일차 작업에서 데이터 계약, 발표 단위 기준 모델 비교, Kalshi CPI 실데이터 감사,
+BLS 최초 발표 빈티지 검증, 미국 ETF 분봉 수집과 다중 임계값 CPI 분포 계층까지 구현했다.
 
 - API, 웹, 수집기, 분석 패키지, 인프라의 저장소 구조
 - Kalshi API 계약 검증용 고정 응답 자료
@@ -33,6 +33,8 @@ BLS 최초 발표 빈티지 검증과 미국 ETF 분봉 수집 경로까지 구�
 - 정규화 입력과 결과 체크섬을 포함한 재현 리포트 CLI 및 합성 실행 예제
 - Kalshi 공식 호환 운영 URL을 이용한 현재·과거 KXCPI 1분 캔들 수집
 - 결과 확정 `T0.3` 55개 사건의 유동성·신선도 감사와 29개 유효 확률 확인
+- 한 CPI 사건의 전체 방향성 임계값 호가 수집, 단조 투영과 배타적 확률구간 생성
+- 정확한 인접 계약이 있을 때만 컨센서스 하회·부합·상회 확률을 계산하는 누수 방지 계약
 - 24개 동일 사건에서 원시 시장확률과 누적 과거비율의 시간순 Brier 비교
 - 논문용 사건 자료 CSV와 계보 메타데이터의 내용 해시 기반 내보내기
 - BLS 공식 보도자료 아카이브의 최초 발표값·발표시각 수집과 원본 해시 보존
@@ -55,7 +57,8 @@ FastAPI와 Next.js·Chakra UI 조회 화면은 연결했으며, 실제 데이터
 배포 API 단계는 [검증 결과 조회 API 리뷰](docs/reviews/day-21-release-review.md),
 접근 문제는 [Alpaca API 트러블슈팅](docs/troubleshooting/alpaca-api-access.md),
 재접속 후 상태는 [연동·재검증 기록](docs/reviews/analytics-sync-checkpoint.md), 목표 구조는
-[아키텍처 문서](docs/architecture.md)에서 확인할 수 있다.
+[아키텍처 문서](docs/architecture.md), 최근 분포 계층은
+[다중 임계값·컨센서스 리뷰](docs/reviews/day-34-35-review.md)에서 확인할 수 있다.
 
 ## 학습과 제품 설계
 
@@ -90,6 +93,17 @@ python scripts/run_event_research.py --input data/fixtures/analytics/synthetic_c
 ```
 
 결과는 `artifacts/event-research/`에 저장되며 합성 결과는 금융 성능 근거가 아니다.
+
+한 CPI 사건에서 발표 전 다중 임계값 확률곡선을 감사하려면 다음처럼 실행한다.
+
+```bash
+make research-audit-cpi-curve \
+  CPI_EVENT=KXCPI-26AUG \
+  CPI_AS_OF=2026-09-11T12:25:00Z
+```
+
+결과는 `artifacts/kalshi-cpi-curves/`에 내용 해시별로 저장된다. 이는 CPI 분포 품질
+감사이며 아직 전문가 컨센서스나 ETF 수익률 예측을 실행하는 명령은 아니다.
 
 검증된 연구 메타데이터로 API와 웹 화면을 각각 실행한다.
 
