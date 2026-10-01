@@ -202,6 +202,13 @@ def test_cpi_candle_diagnostic_keeps_relaxation_candidates() -> None:
     assert outcome["event_exclusion_reason"] == "spread_above_0_10"
 
 
+def test_cpi_candle_diagnostic_names_empty_response() -> None:
+    prediction = datetime(2026, 9, 11, 12, 30, tzinfo=UTC)
+    outcome = inspect_pre_release_candles({"candlesticks": []}, prediction)
+    assert outcome["candidate_candles"] == 0
+    assert outcome["event_exclusion_reason"] == "no_candles_returned"
+
+
 def test_old_candle_and_ex_post_volume_do_not_choose_a_favorable_contract() -> None:
     release = datetime(2026, 9, 11, 12, 30, tzinfo=UTC)
     old = int((release - timedelta(minutes=55)).timestamp())

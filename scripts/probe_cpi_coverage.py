@@ -123,6 +123,8 @@ def inspect_pre_release_candles(payload: dict[str, Any], prediction_at: datetime
             event_exclusion_reason = sorted(
                 primary_exclusions, key=lambda reason: (-primary_exclusions[reason], reason)
             )[0]
+        elif not candles:
+            event_exclusion_reason = "no_candles_returned"
     return {
         "candidate_candles": len(candles),
         "eligible_candles": len(valid_quotes),
