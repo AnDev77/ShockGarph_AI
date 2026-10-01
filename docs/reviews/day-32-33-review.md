@@ -17,7 +17,8 @@
   가장 가까운 분봉의 주 실패 사유를 한 번만 세므로 합계가 탈락 사건 수와 일치한다.
 - `scripts/evaluate_cpi_kalshi_sensitivity.py`: 실제 BLS 발표시각 이전 후보만 대상으로
   F0~F4를 각각 적용한다. 후보별 전체 표본 평가와 F0 공통 시험 사건 평가를 분리하고,
-  CRPS와 사건 대응 재표집 구간만 집계 파일에 기록한다.
+  CRPS와 사건 대응 재표집 구간만 집계 파일에 기록한다. Kalshi 감사 전체 사건과
+  BLS 53건에 매칭된 탈락 사유도 분리한다.
 - `packages/event_study/shockgraph_analytics/kalshi_ablation.py`: 30분 신선도 후보도 동일한
   누수 방지 검사를 통과하도록 사건별 허용 관측 나이를 명시한다.
 - GitHub Actions: `kalshi_filter_sensitivity.json`을 실행 요약과 14일 보관 산출물에 추가한다.
@@ -53,9 +54,9 @@
 
 ## 결과를 볼 때 확인할 사항
 
-1. `audit_no_eligible_event_reasons` 합계와 `no_eligible_candles` 사건 수가 일치하는지
-   확인한다. `audit_candle_primary_exclusion_counts`와 복수 실패 합계는 분봉 단위라
-   사건 수보다 클 수 있다.
+1. 분석 표본은 `release_matched_no_eligible_event_reasons` 합계와 BLS 입력의
+   `no_eligible_candles` 사건 수가 일치하는지 확인한다. `audit_no_eligible_event_reasons`는
+   BLS에 없는 Kalshi 사건을 포함할 수 있다. 분봉 실패 합계는 사건 수보다 클 수 있다.
 2. 각 필터의 `selection_counts`에서 입력 사건 수가 채택과 모든 제외 사유의 합인지 본다.
 3. `common_events` 증가는 독립 사건을 새로 만든 것이 아니라 기존 후보의 채택 범위를
    넓힌 결과다. 기간·YES/NO 구성 변화도 함께 확인해야 한다.

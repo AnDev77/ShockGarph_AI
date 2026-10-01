@@ -146,6 +146,8 @@ def test_group_evaluation_preserves_independent_samples_and_threshold(tmp_path: 
             {
                 "event_ticker": probability["event_ticker"],
                 "outcome": probability["outcome"],
+                "status": "no_eligible_candles" if index >= 13 else "eligible",
+                "event_exclusion_reason": "synthetic_filter_failure" if index >= 13 else None,
                 "quote_candidates": [
                     {
                         "end_at": f"{release_day}T{quote_time}:00+00:00",
@@ -182,6 +184,9 @@ def test_group_evaluation_preserves_independent_samples_and_threshold(tmp_path: 
     )
     assert sensitivity["audit_candle_failure_counts"] == {"spread_above_0_10": 2}
     assert sensitivity["audit_no_eligible_event_reasons"] == {"spread_above_0_10": 2}
+    assert sensitivity["release_matched_no_eligible_event_reasons"] == {
+        "synthetic_filter_failure": 4
+    }
     assert "return_value" not in sensitivity_path.read_text()
     assert "train_event_ids" not in sensitivity_path.read_text()
     assert export_sensitivity(audit_path, release_path, bar_path, sensitivity_path) == (

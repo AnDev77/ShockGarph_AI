@@ -259,6 +259,12 @@ def export_report(audit: Path, releases: Path, bars: Path, output: Path) -> Path
         if name != "F0"
     }
     audit_payload = _load_audit(audit)
+    release_tickers = {release.event_ticker for release in _load_releases(releases)}
+    matched_no_eligible_reasons = Counter(
+        str(row.get("event_exclusion_reason") or "unknown")
+        for row in audit_payload["events"]
+        if row.get("event_ticker") in release_tickers and row.get("status") == "no_eligible_candles"
+    )
     report = {
         "schema_version": "cpi-kalshi-filter-sensitivity-v1",
         "scope": "exploratory_filter_sensitivity_not_macro_benchmark",
@@ -272,6 +278,9 @@ def export_report(audit: Path, releases: Path, bars: Path, output: Path) -> Path
         ),
         "audit_no_eligible_event_reasons": audit_payload.get(
             "no_eligible_candle_event_reasons", {}
+        ),
+        "release_matched_no_eligible_event_reasons": dict(
+            sorted(matched_no_eligible_reasons.items())
         ),
         "policies": policies,
         "shared_with_f0": shared,
