@@ -69,3 +69,10 @@ def test_missing_scenario_and_invalid_inputs():
     with pytest.raises(ValueError, match="duplicate event"):
         walk_forward([e, e], min_train=5)
     assert summarize([], min_train=20).comparison == {}
+    sensitivity = e.model_copy(
+        update={
+            "quote_at": e.release_at - timedelta(minutes=30),
+            "quote_age_limit_minutes": 30,
+        }
+    )
+    assert sensitivity.quote_age_limit_minutes == 30

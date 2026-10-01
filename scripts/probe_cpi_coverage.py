@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -40,39 +41,88 @@ def inspect_pre_release_candles(payload: dict[str, Any], prediction_at: datetime
     if not isinstance(candles, list):
         raise ValueError("candlesticks must be a list")
     valid_quotes: list[dict[str, Any]] = []
+    quote_candidates: list[dict[str, Any]] = []
+    primary_exclusions: Counter[str] = Counter()
+    quality_failures: Counter[str] = Counter()
+    timed_exclusions: list[tuple[int, str]] = []
     earliest = int((prediction_at - timedelta(hours=1)).timestamp())
     latest = int(prediction_at.timestamp())
     for candle in candles:
         if not isinstance(candle, dict):
+            primary_exclusions["invalid_candle"] += 1
+            quality_failures["invalid_candle"] += 1
             continue
         end = candle.get("end_period_ts")
-        if isinstance(end, bool) or not isinstance(end, int) or not earliest <= end <= latest:
+        if isinstance(end, bool) or not isinstance(end, int):
+            primary_exclusions["invalid_end_time"] += 1
+            quality_failures["invalid_end_time"] += 1
+            continue
+        if end < earliest:
+            primary_exclusions["before_query_window"] += 1
+            quality_failures["before_query_window"] += 1
+            timed_exclusions.append((end, "before_query_window"))
+            continue
+        if end > latest:
+            primary_exclusions["after_prediction_time"] += 1
+            quality_failures["after_prediction_time"] += 1
+            timed_exclusions.append((end, "after_prediction_time"))
             continue
         bid = candle.get("yes_bid")
         ask = candle.get("yes_ask")
         if not isinstance(bid, dict) or not isinstance(ask, dict):
+            primary_exclusions["missing_bid_or_ask"] += 1
+            quality_failures["missing_bid_or_ask"] += 1
+            timed_exclusions.append((end, "missing_bid_or_ask"))
             continue
         buy = _valid_decimal(bid.get("close_dollars", bid.get("close")))
         sell = _valid_decimal(ask.get("close_dollars", ask.get("close")))
-        volume = _valid_decimal(candle.get("volume_fp", candle.get("volume")))
-        if (
-            buy is not None
-            and sell is not None
-            and volume is not None
-            and Decimal(0) <= buy <= sell <= Decimal(1)
-            and sell - buy <= Decimal("0.10")
-            and volume > 0
-        ):
-            valid_quotes.append(
-                {
-                    "end": end,
-                    "end_at": datetime.fromtimestamp(end, UTC).isoformat(),
-                    "yes_midpoint": float((buy + sell) / 2),
-                    "spread": float(sell - buy),
-                    "volume": float(volume),
-                }
-            )
+        if buy is None or sell is None:
+            primary_exclusions["nonfinite_bid_or_ask"] += 1
+            quality_failures["nonfinite_bid_or_ask"] += 1
+            timed_exclusions.append((end, "nonfinite_bid_or_ask"))
+            continue
+        if not Decimal(0) <= buy <= sell <= Decimal(1):
+            primary_exclusions["invalid_bid_ask_order"] += 1
+            quality_failures["invalid_bid_ask_order"] += 1
+            timed_exclusions.append((end, "invalid_bid_ask_order"))
+            continue
+        raw_volume = candle.get("volume_fp", candle.get("volume"))
+        volume = _valid_decimal(raw_volume) if raw_volume is not None else None
+        if volume is not None and volume < 0:
+            primary_exclusions["invalid_volume"] += 1
+            quality_failures["invalid_volume"] += 1
+            timed_exclusions.append((end, "invalid_volume"))
+            continue
+        quote = {
+            "end": end,
+            "end_at": datetime.fromtimestamp(end, UTC).isoformat(),
+            "yes_midpoint": float((buy + sell) / 2),
+            "spread": float(sell - buy),
+            "volume": float(volume) if volume is not None else None,
+        }
+        quote_candidates.append(quote)
+        failures = []
+        if sell - buy > Decimal("0.10"):
+            failures.append("spread_above_0_10")
+        if volume is None:
+            failures.append("volume_missing")
+        elif volume <= 0:
+            failures.append("volume_not_positive")
+        quality_failures.update(failures)
+        if failures:
+            primary_exclusions[failures[0]] += 1
+            timed_exclusions.append((end, failures[0]))
+        else:
+            valid_quotes.append(quote)
     latest_quote = max(valid_quotes, key=lambda quote: quote["end"]) if valid_quotes else None
+    event_exclusion_reason = None
+    if latest_quote is None:
+        if timed_exclusions:
+            event_exclusion_reason = max(timed_exclusions, key=lambda item: item[0])[1]
+        elif primary_exclusions:
+            event_exclusion_reason = sorted(
+                primary_exclusions, key=lambda reason: (-primary_exclusions[reason], reason)
+            )[0]
     return {
         "candidate_candles": len(candles),
         "eligible_candles": len(valid_quotes),
@@ -83,6 +133,13 @@ def inspect_pre_release_candles(payload: dict[str, Any], prediction_at: datetime
             if latest_quote
             else None
         ),
+        "quote_candidates": [
+            {key: value for key, value in quote.items() if key != "end"}
+            for quote in sorted(quote_candidates, key=lambda row: row["end"], reverse=True)
+        ],
+        "primary_exclusion_counts": dict(sorted(primary_exclusions.items())),
+        "quality_failure_counts": dict(sorted(quality_failures.items())),
+        "event_exclusion_reason": event_exclusion_reason,
         "screen": "pre_release_end,positive_volume,valid_bid_ask,spread_at_most_0.10",
     }
 

@@ -115,6 +115,12 @@ jobs:
             --asset-bars "$asset_dir/asset_minute_bars.csv" \
             --output artifacts/ci-summary/kalshi_ablation.json
 
+          python scripts/evaluate_cpi_kalshi_sensitivity.py \
+            --audit "$audit_report" \
+            --releases "$release_dir/release_vintage.csv" \
+            --asset-bars "$asset_dir/asset_minute_bars.csv" \
+            --output artifacts/ci-summary/kalshi_filter_sensitivity.json
+
       - name: 검증 요약 게시
         shell: bash
         run: |
@@ -135,6 +141,10 @@ jobs:
             echo '```json'
             cat artifacts/ci-summary/kalshi_ablation.json
             echo '```'
+            echo '## Kalshi 필터 F0~F4 민감도 분석'
+            echo '```json'
+            cat artifacts/ci-summary/kalshi_filter_sensitivity.json
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 집계 결과 보관
@@ -147,5 +157,6 @@ jobs:
             artifacts/ci-summary/event_loss_diagnostic.json
             artifacts/ci-summary/asset_group_baseline.json
             artifacts/ci-summary/kalshi_ablation.json
+            artifacts/ci-summary/kalshi_filter_sensitivity.json
           if-no-files-found: error
           retention-days: 14

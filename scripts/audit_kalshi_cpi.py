@@ -6,6 +6,7 @@ import json
 import math
 import sys
 import time
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -247,6 +248,15 @@ def audit_cpi(
         status: sum(event["status"] == status for event in events)
         for status in ("eligible", "stale", "no_eligible_candles", "access_error")
     }
+    failure_counts: Counter[str] = Counter()
+    primary_failure_counts: Counter[str] = Counter()
+    no_eligible_event_reasons: Counter[str] = Counter()
+    for event in events:
+        failure_counts.update(event.get("quality_failure_counts", {}))
+        primary_failure_counts.update(event.get("primary_exclusion_counts", {}))
+        if event["status"] == "no_eligible_candles":
+            reason = event.get("event_exclusion_reason")
+            no_eligible_event_reasons[str(reason or "unknown")] += 1
     return {
         "schema_version": AUDIT_SCHEMA_VERSION,
         "checked_at": datetime.now(UTC).isoformat(),
@@ -255,6 +265,9 @@ def audit_cpi(
         "market_counts": {"historical": len(historical), "recent": len(recent)},
         "settled_fixed_threshold_events": len(candidates),
         "status_counts": counts,
+        "candle_failure_counts": dict(sorted(failure_counts.items())),
+        "candle_primary_exclusion_counts": dict(sorted(primary_failure_counts.items())),
+        "no_eligible_candle_event_reasons": dict(sorted(no_eligible_event_reasons.items())),
         "quality_rule": "one_minute,cutoff_or_earlier,positive_volume,spread<=0.10,fresh<=15m",
         "event_probability_comparison": score_event_probabilities(events),
         "events": events,

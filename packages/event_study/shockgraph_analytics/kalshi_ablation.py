@@ -24,13 +24,18 @@ class AblationEvent(BaseModel):
     probability: float = Field(ge=0, le=1)
     outcome: bool
     returns: dict[str, float]
+    quote_age_limit_minutes: Literal[15, 30] = Field(default=15, exclude=True)
 
     @model_validator(mode="after")
     def validate_event(self) -> Self:
         times = (self.release_at, self.quote_at, self.label_available_at)
         if any(t.tzinfo is None or t.utcoffset() != timedelta(0) for t in times):
             raise ValueError("timestamps must be UTC")
-        if not timedelta(0) < self.release_at - self.quote_at <= timedelta(minutes=15):
+        if (
+            not timedelta(0)
+            < self.release_at - self.quote_at
+            <= timedelta(minutes=self.quote_age_limit_minutes)
+        ):
             raise ValueError("quote must be fresh and strictly before release")
         if self.label_available_at < self.release_at + timedelta(minutes=30):
             raise ValueError("label availability must cover the longest outcome window")

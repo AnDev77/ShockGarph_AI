@@ -140,6 +140,66 @@ def test_cpi_candle_gate_rejects_late_and_untradable_prices() -> None:
         "spread": pytest.approx(0.02),
         "volume": pytest.approx(2),
     }
+    assert len(outcome["quote_candidates"]) == 2
+    assert outcome["primary_exclusion_counts"] == {
+        "after_prediction_time": 1,
+        "invalid_bid_ask_order": 1,
+        "volume_not_positive": 1,
+    }
+    assert outcome["quality_failure_counts"] == {
+        "after_prediction_time": 1,
+        "invalid_bid_ask_order": 1,
+        "volume_not_positive": 1,
+    }
+    assert outcome["event_exclusion_reason"] is None
+
+
+def test_cpi_candle_diagnostic_keeps_relaxation_candidates() -> None:
+    prediction = datetime(2026, 9, 11, 12, 30, tzinfo=UTC)
+    ts = int(prediction.timestamp())
+    rows = [
+        {
+            "end_period_ts": ts - 60,
+            "yes_bid": {"close_dollars": "0.30"},
+            "yes_ask": {"close_dollars": "0.44"},
+        },
+        {
+            "end_period_ts": ts - 120,
+            "yes_bid": {"close_dollars": "0.51"},
+            "yes_ask": {"close_dollars": "0.55"},
+            "volume_fp": "0",
+        },
+        {"end_period_ts": ts - 180, "yes_bid": {}, "yes_ask": {}, "volume_fp": "1"},
+    ]
+    outcome = inspect_pre_release_candles({"candlesticks": rows}, prediction)
+    assert outcome["eligible_candles"] == 0
+    assert outcome["latest_quote"] is None
+    assert outcome["quote_candidates"] == [
+        {
+            "end_at": datetime.fromtimestamp(ts - 60, UTC).isoformat(),
+            "yes_midpoint": pytest.approx(0.37),
+            "spread": pytest.approx(0.14),
+            "volume": None,
+        },
+        {
+            "end_at": datetime.fromtimestamp(ts - 120, UTC).isoformat(),
+            "yes_midpoint": pytest.approx(0.53),
+            "spread": pytest.approx(0.04),
+            "volume": pytest.approx(0),
+        },
+    ]
+    assert outcome["primary_exclusion_counts"] == {
+        "nonfinite_bid_or_ask": 1,
+        "spread_above_0_10": 1,
+        "volume_not_positive": 1,
+    }
+    assert outcome["quality_failure_counts"] == {
+        "nonfinite_bid_or_ask": 1,
+        "spread_above_0_10": 1,
+        "volume_missing": 1,
+        "volume_not_positive": 1,
+    }
+    assert outcome["event_exclusion_reason"] == "spread_above_0_10"
 
 
 def test_old_candle_and_ex_post_volume_do_not_choose_a_favorable_contract() -> None:

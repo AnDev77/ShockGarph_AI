@@ -56,6 +56,8 @@ def test_audit_uses_correct_candle_tier_and_reports_quality(tmp_path) -> None:
     assert report["settled_fixed_threshold_events"] == 1
     assert report["schema_version"] == "kalshi-cpi-audit-v2"
     assert report["status_counts"]["eligible"] == 1
+    assert report["candle_failure_counts"] == {}
+    assert report["no_eligible_candle_event_reasons"] == {}
     assert report["event_probability_comparison"]["eligible_events"] == 1
     assert (
         report["event_probability_comparison"]["raw_market_brier_all_eligible"] == (0.415 - 1) ** 2

@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from evaluate_cpi_asset_groups import evaluate_groups  # noqa: E402
 from evaluate_cpi_kalshi_ablation import export_report  # noqa: E402
+from evaluate_cpi_kalshi_sensitivity import export_report as export_sensitivity  # noqa: E402
 
 
 def _csv(path: Path, rows: list[dict[str, object]]) -> Path:
@@ -129,6 +130,63 @@ def test_group_evaluation_preserves_independent_samples_and_threshold(tmp_path: 
     assert view["comparison"] is not None
     assert view["research_test_events"] == 0
     assert export_report(release_path, probability_path, bar_path, ablation_path) == ablation_path
+    audit_events = []
+    policy_cases = {
+        13: ("13:10", 0.08, 10),
+        14: ("13:20", 0.14, 10),
+        15: ("13:20", 0.08, 0),
+        16: ("13:10", 0.14, None),
+    }
+    for index, (release, probability) in enumerate(
+        zip(releases, probabilities, strict=True), start=1
+    ):
+        quote_time, spread, volume = policy_cases.get(index, ("13:29", 0.02, 10))
+        release_day = str(release["release_at"])[:10]
+        audit_events.append(
+            {
+                "event_ticker": probability["event_ticker"],
+                "outcome": probability["outcome"],
+                "quote_candidates": [
+                    {
+                        "end_at": f"{release_day}T{quote_time}:00+00:00",
+                        "yes_midpoint": probability["probability_yes"],
+                        "spread": spread,
+                        "volume": volume,
+                    }
+                ],
+            }
+        )
+    audit_path = tmp_path / "audit.json"
+    audit_path.write_text(
+        json.dumps(
+            {
+                "series_ticker": "KXCPI",
+                "events": audit_events,
+                "candle_failure_counts": {"spread_above_0_10": 2},
+                "candle_primary_exclusion_counts": {"spread_above_0_10": 2},
+                "no_eligible_candle_event_reasons": {"spread_above_0_10": 2},
+            }
+        ),
+        encoding="utf-8",
+    )
+    sensitivity_path = tmp_path / "sensitivity.json"
+    sensitivity = json.loads(
+        export_sensitivity(audit_path, release_path, bar_path, sensitivity_path).read_text()
+    )
+    assert {
+        name: details["common_events"] for name, details in sensitivity["policies"].items()
+    } == {"F0": 12, "F1": 13, "F2": 13, "F3": 13, "F4": 16}
+    assert sensitivity["policies"]["F4"]["diagnostic"]["status"] == "exploratory"
+    assert sensitivity["shared_with_f0"]["F4"]["diagnostic"]["status"] == (
+        "insufficient_test_events"
+    )
+    assert sensitivity["audit_candle_failure_counts"] == {"spread_above_0_10": 2}
+    assert sensitivity["audit_no_eligible_event_reasons"] == {"spread_above_0_10": 2}
+    assert "return_value" not in sensitivity_path.read_text()
+    assert "train_event_ids" not in sensitivity_path.read_text()
+    assert export_sensitivity(audit_path, release_path, bar_path, sensitivity_path) == (
+        sensitivity_path
+    )
     # Contract-cutoff eligibility must not override actual BLS release timing.
     for index, quote_time in enumerate(("13:14", "13:30", "13:31", "13:15")):
         probabilities[index]["quote_end_at"] = str(probabilities[index]["quote_end_at"]).replace(
