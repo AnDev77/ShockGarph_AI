@@ -59,6 +59,12 @@ FastAPI와 Next.js·Chakra UI 조회 화면은 연결했으며, 실제 데이터
 재접속 후 상태는 [연동·재검증 기록](docs/reviews/analytics-sync-checkpoint.md), 목표 구조는
 [아키텍처 문서](docs/architecture.md), 최근 분포 계층은
 [다중 임계값·컨센서스 리뷰](docs/reviews/day-34-35-review.md)에서 확인할 수 있다.
+최신 구현은 [CPI 사건별 확률곡선 커버리지 감사](docs/reviews/kalshi-cpi-history-coverage-review.md)다.
+새 리뷰 파일명은 개발 일차 대신 핵심 기능을 사용한다.
+
+2026-10-06 공식 이용조건 점검 후 실제 Kalshi 자료의 추가 수집·분석은 이용 허가
+확인 전까지 보류한다. 과거 실측 기록은 이번 실행 결과가 아니다.
+[접근과 이용 허가의 차이](docs/troubleshooting/kalshi-data-use-authorization.md)를 확인한다.
 
 ## 학습과 제품 설계
 
@@ -94,7 +100,17 @@ python scripts/run_event_research.py --input data/fixtures/analytics/synthetic_c
 
 결과는 `artifacts/event-research/`에 저장되며 합성 결과는 금융 성능 근거가 아니다.
 
-한 CPI 사건에서 발표 전 다중 임계값 확률곡선을 감사하려면 다음처럼 실행한다.
+API와 비밀키 없이 사건별 누락·단조 보정·컨센서스 경계를 점검하려면 실행한다.
+
+```bash
+make research-cpi-curve-history-demo
+```
+
+이는 독립적으로 만든 합성 자료이며 예측 성능이나 실제 확보 표본 수를 입증하지 않는다.
+GitHub push는 품질 검사·테스트·합성 감사만 실행한다. 실제 수집 작업은 수동 실행과
+제공자 이용 허가 확인을 모두 요구한다.
+
+실제 연구 이용 허가를 확보한 이후 한 CPI 사건의 확률곡선을 수집하는 명령은 다음과 같다.
 
 ```bash
 make research-audit-cpi-curve \

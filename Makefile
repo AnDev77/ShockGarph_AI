@@ -32,6 +32,10 @@ research-audit-cpi-curve:
 	@test -n "$(CPI_AS_OF)" || (echo "CPI_AS_OF에 발표 전 UTC 기준시각을 지정하세요" && exit 2)
 	$(PYTHON) scripts/audit_kalshi_cpi_curve.py --event "$(CPI_EVENT)" --as-of "$(CPI_AS_OF)" --request-interval 0.3
 
+.PHONY: research-cpi-curve-history-demo
+research-cpi-curve-history-demo:
+	$(PYTHON) scripts/audit_cpi_curve_history.py --demo
+
 research-paper-data:
 	@test -n "$(PAPER_REPORT)" || (echo "PAPER_REPORT에 report.json 경로를 지정하세요" && exit 2)
 	$(PYTHON) scripts/export_paper_dataset.py --input "$(PAPER_REPORT)"
