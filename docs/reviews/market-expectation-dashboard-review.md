@@ -61,6 +61,8 @@ ETF 네 조합 모두 CRPS 차이 `Kalshi − 과거비율`가 양수이고 Boot
 - `make PYTHON=.venv/bin/python test`: **153개 통과**, Starlette의 기존 폐기 예정 경고 1건.
 - `npm --prefix apps/web run typecheck`: 통과.
 - `npm --prefix apps/web run build`: 통과.
+- `npm --prefix apps/web ci --dry-run --ignore-scripts --offline --no-audit --no-fund`: 통과.
+- 첫 원격 CI의 API 검사 통과. 웹 검사는 기존 원격 잠금파일 오류를 발견해 후속 수정했다.
 - API 준비 상태와 Next.js 개발 서버의 HTTP 200 및 화면 제목 확인.
 - 미리보기의 네 조합 선택: 별도 Node 점검에서 보고서 수치·표시 자산·선택 상태 일치.
 - 미리보기 생성: 실제 React 컴포넌트 렌더링 성공, 외부 API 호출 없음.
@@ -90,3 +92,12 @@ ETF 네 조합 모두 CRPS 차이 `Kalshi − 과거비율`가 양수이고 Boot
 현재 호가를 제품에 사용할 수 있는 이용 권한과 공급 경계를 확인한 뒤, 기준시각·만료·오래된
 호가 상태를 포함한 시장 브리핑을 연결한다. 사용자 화면 검토 후 Nginx 개발·운영 분리와
 기존 컨테이너 경로의 배포 확인을 진행한다. DNN·곡률·채팅방은 이번 배포 범위 밖에 둔다.
+
+## 웹 CI에서 발견한 기존 설치 문제
+
+첫 푸시의 Actions 실행 `37423791581`에서 `validate`는 통과했지만 `web`의 `npm ci`가
+EUSAGE로 실패했다. 기존 원격 `package-lock.json`은 JSON으로 읽히지 않는 내용이었다.
+원격 파일을 처음에는 보존했으나 신규 웹 CI가 문제를 드러냈다. 로컬에서 검증한
+lockfileVersion 3의 JSON 잠금파일을 UTF-8로 정상 반영한다. 설치 기준이 되는 버전은
+Next.js 16.3.6, Chakra UI 3.37.0, React 19.3.0이며 현재 manifest 범위에 들어간다.
+별도 원인은 [웹 설치 트러블슈팅](../troubleshooting/web-dependency-lockfile.md)에 정리했다.
