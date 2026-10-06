@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "preview:export": "node scripts/export-preview.cjs"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.28.1",

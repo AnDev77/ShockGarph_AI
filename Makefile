@@ -67,6 +67,12 @@ api-dev:
 	@test -n "$${SHOCKGRAPH_RESEARCH_METADATA}" || (echo "SHOCKGRAPH_RESEARCH_METADATA를 지정하세요" && exit 2)
 	$(PYTHON) -m uvicorn shockgraph_api.app:app --app-dir apps/api --host 127.0.0.1 --port 8000
 
+.PHONY: api-review
+api-review:
+	SHOCKGRAPH_RECORDED_CPI_SUMMARY=docs/paper/results/cpi-probability-recorded-2026-09-26.json \
+	SHOCKGRAPH_ABLATION_REPORT=docs/paper/results/cpi-kalshi-ablation-2026-09-30.json \
+	$(PYTHON) -m uvicorn shockgraph_api.app:app --app-dir apps/api --host 127.0.0.1 --port 8000
+
 web-dev:
 	npm --prefix apps/web run dev
 

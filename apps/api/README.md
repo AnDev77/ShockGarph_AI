@@ -37,3 +37,23 @@ Windows PowerShell에서는 `$env:SHOCKGRAPH_ABLATION_REPORT = "C:\\경로\\kals
 손상되거나 표본 게이트와 상태가 맞지 않으면 전용 조회는 503을 반환한다.
 
 API 문서는 실행 후 `http://127.0.0.1:8000/docs`에서 확인한다.
+
+## 기존 보고서로 화면 확인
+
+```bash
+make PYTHON=.venv/bin/python api-review
+```
+
+이 명령은 저장소의 두 기존 집계 파일을 읽는다. CPI 집계는 연구 문서의 소수 4자리
+기록으로 `provenance.kind=recorded_aggregate`, `recomputed=false`를 반환한다.
+원본에서 산출한 `SHOCKGRAPH_RESEARCH_METADATA`가 유효하면 해당 스냅샷을 우선한다.
+`/health/ready`의 `scope=historical_review`는 과거 평가 조회가 준비됐다는 뜻이며,
+현재 시장 호가나 모든 자산 보고서의 준비 완료를 뜻하지 않는다.
+
+- `GET /v1/market-expectations/cpi`: 현재는 `pending`. 확률·호가시각·발표시각을
+  `null`로 반환한다. 기존 Brier 점수를 현재 CPI 발생확률로 사용하지 않는다.
+- `/v1/research/cpi-probability`의 요약은 실제 점수 차이와 Bootstrap 구간으로 결정한다.
+  음수 차이·음수 구간이면 시장확률의 낮은 오차, 양수 차이·양수 구간이면 과거비율의
+  낮은 오차를 표시한다. 0을 포함하는 구간은 차이 확인 보류다. 인과효과나 상용 성능
+  보증을 뜻하지 않는다.
+- 비유한 값, 뒤집힌 구간, 사건 수 역전, 점수와 맞지 않는 차이는 로딩을 거부한다.

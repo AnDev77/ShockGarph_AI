@@ -1,0 +1,15 @@
+{
+  "schema_version": "cpi-probability-recorded-v1",
+  "as_of": "2026-09-26",
+  "source_document": "docs/cpi-coverage-review.md",
+  "decimal_places": 4,
+  "recomputed": false,
+  "metrics": {
+    "eligible_events": 29,
+    "comparable_events": 24,
+    "raw_market_brier": 0.1005,
+    "expanding_historical_brier": 0.2342,
+    "mean_brier_difference": -0.1337,
+    "paired_event_bootstrap95": [-0.1876, -0.0857]
+  }
+}

@@ -17,6 +17,9 @@ on:
     paths:
       - .github/workflows/alpaca-cpi-validation.yml
       - apps/collector/**
+      - apps/api/**
+      - apps/web/**
+      - docs/paper/results/**
       - packages/**
       - scripts/**
       - tests/**
@@ -56,6 +59,25 @@ jobs:
           path: artifacts/cpi-curve-history/**/report.json
           if-no-files-found: error
           retention-days: 14
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: 웹 의존성 설치
+        run: npm --prefix apps/web ci
+      - name: 웹 타입 검사와 빌드
+        run: |
+          npm --prefix apps/web run typecheck
+          npm --prefix apps/web run build
 
   research:
     needs: validate
