@@ -1,7 +1,7 @@
 # API 영역
 
-검증된 연구 스냅샷만 읽는 FastAPI 경계를 구현한다. 요청 처리 중 수집·학습·금융 계산을
-실행하지 않는다.
+검증된 연구·시나리오 스냅샷과 합성 데모를 읽는 FastAPI 경계를 구현한다.
+요청 비중의 포트폴리오 분포는 적재된 공동수익률로 계산한다. 요청 중 외부 수집·학습은 실행하지 않는다.
 
 현재 엔드포인트:
 
@@ -57,3 +57,21 @@ make PYTHON=.venv/bin/python api-review
   낮은 오차를 표시한다. 0을 포함하는 구간은 차이 확인 보류다. 인과효과나 상용 성능
   보증을 뜻하지 않는다.
 - 비유한 값, 뒤집힌 구간, 사건 수 역전, 점수와 맞지 않는 차이는 로딩을 거부한다.
+
+## 포트폴리오 리스크 시뮬레이터
+
+`make PYTHON=.venv/bin/python api-demo`로 합성 데모를 실행한다.
+
+- `GET /v1/portfolios/cpi`: `spy_weight=0.6`, `tlt_weight=0.4`, `horizon=m30`,
+  `source=actual`이 기본이다. 비중은 각각 0–1이며 정확히 합계 1이어야 한다.
+- `source=demo`는 합성 사건의 공동수익률과 합성 계약 확률로 계산한다.
+- 선택적 `portfolio_value`는 USD·0–1조 범위다. 없으면 금액 변화는 null이다.
+- `source=actual`은 `SHOCKGRAPH_SCENARIO_DATASET`에 연결된 검증된 사건별 입력을 사용한다.
+  자료가 없으면 `pending`·`result=null`이며 실제 추정치 대신 데모를 쓰지 않는다.
+- 양의 확률을 가진 시나리오 표본이 10건 미만이면 `insufficient_data`·`result=null`이다.
+- 보고서에 평균·상승/하락/보합 확률·공동 혼합분포 분위수·자산별 평균 기여·
+  시나리오별 포트폴리오 분위수·표본·자료 시각·해시를 포함한다. 사건별 원본은 공개하지 않는다.
+- `performance_status=not_established`는 실측 예측 성능이 입증되지 않았음을 뜻한다.
+- 기존 `GET /v1/scenarios/cpi`의 자산별 기술통계 조회는 유지한다.
+
+[포트폴리오 구현 리뷰](../../docs/reviews/portfolio-risk-simulator-review.md)에 계산 정의와 검증 결과가 있다.

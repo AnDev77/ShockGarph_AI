@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "check:contract": "node scripts/check-portfolio-contract.cjs",
     "preview:export": "node scripts/export-preview.cjs"
   },
   "dependencies": {

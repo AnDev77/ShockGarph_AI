@@ -1,0 +1,16 @@
+# 공개 첫 배포는 독립 합성 자료를 제공하는 데모 API다.
+services:
+  - type: web
+    name: shockgraph-scenario-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: checksPass
+    healthCheckPath: /health/ready
+    envVars:
+      - key: SHOCKGRAPH_SERVICE_MODE
+        value: demo
+      - key: PORT
+        value: "8000"

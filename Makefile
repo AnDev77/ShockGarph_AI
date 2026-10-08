@@ -64,8 +64,14 @@ research-cpi-asset-pipeline:
 	$(PYTHON) scripts/run_cpi_asset_pipeline.py --releases "$(RELEASE_CSV)" --probabilities "$(PROBABILITY_CSV)"
 
 api-dev:
-	@test -n "$${SHOCKGRAPH_RESEARCH_METADATA}" || (echo "SHOCKGRAPH_RESEARCH_METADATA를 지정하세요" && exit 2)
 	$(PYTHON) -m uvicorn shockgraph_api.app:app --app-dir apps/api --host 127.0.0.1 --port 8000
+
+.PHONY: api-demo demo-containers
+api-demo:
+	SHOCKGRAPH_SERVICE_MODE=demo $(PYTHON) -m uvicorn shockgraph_api.app:app --app-dir apps/api --host 127.0.0.1 --port 8000
+
+demo-containers:
+	docker compose -f compose.demo.yml up --build -d
 
 .PHONY: api-review
 api-review:

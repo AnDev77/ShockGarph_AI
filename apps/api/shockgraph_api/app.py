@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from shockgraph_analytics.kalshi_ablation import AblationReport
+from shockgraph_analytics.portfolio import PortfolioWeights, portfolio_report
+from shockgraph_analytics.scenarios import ScenarioDataset, demo_dataset, scenario_report
 
 ASSETS = ("SPY", "TLT", "GLD")
 HORIZONS = ("m5", "m30")
@@ -86,7 +88,28 @@ def create_app(
     research_metadata_path: Path | None = None,
     ablation_report_path: Path | None = None,
     recorded_summary_path: Path | None = None,
+    scenario_dataset_path: Path | None = None,
+    service_mode: Literal["demo", "historical"] | None = None,
 ) -> FastAPI:
+    mode = service_mode or os.environ.get("SHOCKGRAPH_SERVICE_MODE", "historical")
+    if mode not in ("demo", "historical"):
+        raise ValueError("unsupported SHOCKGRAPH_SERVICE_MODE")
+    demo = demo_dataset()
+    scenario_path = scenario_dataset_path
+    if scenario_path is None and os.environ.get("SHOCKGRAPH_SCENARIO_DATASET"):
+        scenario_path = Path(os.environ["SHOCKGRAPH_SCENARIO_DATASET"])
+    scenario_dataset = None
+    scenario_error = "authorized_scenario_dataset_not_loaded"
+    if scenario_path is not None:
+        try:
+            scenario_dataset = ScenarioDataset.model_validate_json(
+                scenario_path.read_text(encoding="utf-8")
+            )
+            if scenario_dataset.source_kind != "licensed_historical":
+                raise ValueError("actual input cannot be synthetic")
+        except (OSError, ValidationError, ValueError):
+            scenario_dataset = None
+            scenario_error = "invalid_scenario_dataset"
     configured_path = research_metadata_path
     if configured_path is None and os.environ.get("SHOCKGRAPH_RESEARCH_METADATA"):
         configured_path = Path(os.environ["SHOCKGRAPH_RESEARCH_METADATA"])
@@ -115,7 +138,7 @@ def create_app(
     app = FastAPI(
         title="ShockGraph AI API",
         version="0.1.0",
-        description="검증된 연구 스냅샷을 제공하는 읽기 전용 API",
+        description="시장 내재확률과 과거 시나리오 반응 분포를 제공하는 읽기 전용 API",
     )
     allowed_origins = [
         origin.strip()
@@ -138,6 +161,13 @@ def create_app(
 
     @app.get("/health/ready", response_model=None)
     def ready() -> dict[str, str] | JSONResponse:
+        if mode == "demo":
+            return {"status": "ready", "scope": "synthetic_scenario_demo"}
+        if scenario_dataset is not None:
+            return {
+                "status": "ready", "scope": "historical_scenario_analysis",
+                "snapshot_checked_at": scenario_dataset.as_of.isoformat(),
+            }
         if snapshot is None and recorded is None:
             return JSONResponse(
                 status_code=503,
@@ -277,6 +307,46 @@ def create_app(
         if ablation is None:
             raise HTTPException(status_code=503, detail={"reason": ablation_error})
         return ablation.model_dump(mode="json")
+
+    @app.get("/v1/scenarios/cpi")
+    def cpi_scenarios(
+        asset_id: Literal["SPY", "TLT"] = "SPY",
+        horizon: Literal["m5", "m30"] = "m30",
+        source: Literal["demo", "actual"] = "actual",
+    ) -> dict[str, Any]:
+        dataset = demo if source == "demo" else scenario_dataset
+        if dataset is None:
+            return {
+                "status": "pending", "reason": scenario_error,
+                "asset_id": asset_id, "horizon": horizon, "scenarios": [],
+                "interpretation": "historical_distribution_not_forecast",
+            }
+        return scenario_report(dataset, asset_id=asset_id, horizon=horizon)
+
+    @app.get("/v1/portfolios/cpi")
+    def cpi_portfolio(
+        spy_weight: float = Query(default=0.6, ge=0, le=1),
+        tlt_weight: float = Query(default=0.4, ge=0, le=1),
+        horizon: Literal["m5", "m30"] = "m30",
+        source: Literal["demo", "actual"] = "actual",
+        portfolio_value: float | None = Query(default=None, ge=0, le=1e12),
+    ) -> dict[str, Any]:
+        try:
+            weights = PortfolioWeights(spy=spy_weight, tlt=tlt_weight)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422, detail="weights must be finite and sum to one"
+            ) from exc
+        dataset = demo if source == "demo" else scenario_dataset
+        if dataset is None:
+            return {
+                "schema_version": "cpi-portfolio-report-v1", "status": "pending",
+                "reason": scenario_error, "horizon": horizon,
+                "weights": {"SPY": weights.spy, "TLT": weights.tlt},
+                "result": None, "assets": [], "scenarios": [],
+            }
+        return portfolio_report(dataset, weights=weights, horizon=horizon,
+                                portfolio_value=portfolio_value)
 
     return app
 

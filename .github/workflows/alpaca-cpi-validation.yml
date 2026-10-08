@@ -14,6 +14,9 @@ on:
   push:
     branches:
       - feat/analytics
+      - feat/scenario-risk
+      - feat/portfolio-risk
+      - main
     paths:
       - .github/workflows/alpaca-cpi-validation.yml
       - apps/collector/**
@@ -24,6 +27,10 @@ on:
       - scripts/**
       - tests/**
       - pyproject.toml
+      - uv.lock
+      - infra/**
+      - compose.demo.yml
+      - render.yaml
 
 permissions:
   contents: read
@@ -78,6 +85,62 @@ jobs:
         run: |
           npm --prefix apps/web run typecheck
           npm --prefix apps/web run build
+      - name: 포트폴리오 계약 검사용 Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 합성 응답 계약 검증
+        env:
+          PREVIEW_PYTHON: python
+        run: |
+          python -m pip install -e ".[dev]"
+          npm --prefix apps/web run check:contract
+
+  containers:
+    needs: [validate, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+      - name: API와 웹 컨테이너 빌드
+        run: docker compose -f compose.demo.yml build
+      - name: 합성 서비스 기동
+        run: docker compose -f compose.demo.yml up -d --wait --wait-timeout 90
+      - name: Nginx 경로 설정 검사
+        run: docker compose -f compose.demo.yml exec -T gateway nginx -t
+      - name: 동일 출처 API 경로와 데모 출처 확인
+        run: |
+          python - <<'PY'
+          import json, time, urllib.request
+          from urllib.error import URLError
+          base = "http://127.0.0.1:8080"
+          for _ in range(30):
+              try:
+                  urllib.request.urlopen(base, timeout=3)
+                  break
+              except URLError:
+                  time.sleep(1)
+          response = urllib.request.urlopen(base + "/api/v1/scenarios/cpi?source=demo", timeout=10)
+          data = json.load(response)
+          assert data["provenance"]["source_kind"] == "synthetic"
+          assert len(data["scenarios"]) == 3
+          actual = json.load(urllib.request.urlopen(base + "/api/v1/scenarios/cpi?source=actual", timeout=10))
+          assert actual["status"] == "pending" and actual["scenarios"] == []
+          for horizon in ("m5", "m30"):
+              for spy, tlt in ((0, 1), (0.6, 0.4), (1, 0)):
+                  query = f"?source=demo&horizon={horizon}&spy_weight={spy}&tlt_weight={tlt}"
+                  portfolio = json.load(urllib.request.urlopen(base + "/api/v1/portfolios/cpi" + query, timeout=10))
+                  assert portfolio["status"] == "ready"
+                  assert portfolio["provenance"]["source_kind"] == "synthetic"
+                  assert portfolio["result"]["quantiles"]["q10"] <= portfolio["result"]["quantiles"]["q90"]
+          pending = json.load(urllib.request.urlopen(base + "/api/v1/portfolios/cpi", timeout=10))
+          assert pending["status"] == "pending" and pending["result"] is None
+          assert urllib.request.urlopen(base + "/methodology", timeout=10).status == 200
+          PY
+      - name: 컨테이너 종료
+        if: always()
+        run: docker compose -f compose.demo.yml down
 
   research:
     needs: validate

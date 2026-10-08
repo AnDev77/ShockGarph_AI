@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ShockGraph AI",
-  description: "거시 이벤트 확률과 자산 반응을 분리해 읽는 금융 리서치",
+  description: "시장 내재확률과 과거 시나리오별 ETF 반응 분포를 살펴보는 거시경제 이벤트 기반 자산 리스크 분석 도구",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

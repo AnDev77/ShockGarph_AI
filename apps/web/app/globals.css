@@ -137,3 +137,66 @@ a:focus-visible,button:focus-visible,summary:focus-visible { outline:3px solid #
 .cpi-result strong,.score-heading,.selected-asset strong span,.note-card strong { font-size:12px; }
 .segment { min-height:32px!important; font-size:11px!important; }
 @media(pointer:coarse) { .segment,.refresh-button { min-height:44px!important; } .side-nav a,.note-link { min-height:44px; } }
+
+/* 시나리오 분석: 확률과 기술통계를 분리하고 같은 축으로 자산을 비교한다. */
+.scenario-content { max-width:1390px; }
+.scenario-content .page-heading h1 { font-size:32px; line-height:1.4; }
+.scenario-toolbar { margin:26px 0 12px; }
+.source-tag { color:#78614a; background:#fff1de; padding:7px 10px; border-radius:6px; font-size:11px; }
+.source-tag.actual { color:#626b87; background:#eaf0fb; }
+.data-notice { padding:13px 16px; margin-bottom:25px; background:#fffbf2; border:1px solid #f1e5cb; border-radius:9px; color:#887552; font-size:12px; line-height:1.8; }
+.data-notice.actual { background:#f2f5fb; border-color:#e1e7f2; color:#6b7896; }
+.scenario-top-grid { grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:22px; margin-bottom:28px; }
+.scenario-events h2 { font-size:21px; }
+.scenario-events .panel-description { font-size:12px; }
+.scenario-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:26px; }
+.scenario-tab { text-align:left; padding:17px 16px; min-height:130px; border:1px solid #e9e8f0; background:#fbfbfd; border-radius:12px; cursor:pointer; transition:background .15s,border-color .15s; }
+.scenario-tab:hover { border-color:#ada2ee; }
+.scenario-tab.active { background:#f0edff; border:1px solid #8677ec; box-shadow:0 3px 13px #7260d411; }
+.scenario-tab > span { color:#727485; font-size:13px; font-weight:600; display:block; }
+.scenario-tab > strong { font-size:32px; letter-spacing:-1px; color:#4a475e; font-weight:600; display:block; margin:9px 0; }
+.scenario-tab.active > strong,.scenario-tab.active > span { color:#6250d8; }
+.scenario-tab > small { font-size:11px; color:#9a96ab; }
+.probability-caption { display:flex; align-items:center; gap:7px; color:#8e8a9c; font-size:11px; margin-top:20px; flex-wrap:wrap; }
+.probability-caption > span:last-child { margin-left:auto; color:#a3a0ad; font-size:10px; }
+.scenario-context .market-description { max-width:none; line-height:1.95; font-size:12px; margin-top:17px; }
+.scenario-context h2 { margin-top:14px; font-size:23px; }
+.scenario-context dl { display:grid; grid-template-columns:1fr; gap:4px; }
+.scenario-context dt { color:#9994af; font-size:10px; margin-top:6px; }
+.scenario-context dd { margin:0; color:#d5d0e8; font-size:12px; }
+.scenario-distribution-heading { gap:18px; margin-bottom:19px; }
+.scenario-distribution-heading h2 { font-size:20px; font-weight:600; letter-spacing:-.7px; line-height:1.5; }
+.scenario-asset-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:22px; }
+.scenario-asset-card h3 { font-size:17px; font-weight:700; }
+.scenario-asset-card h3 span { font-size:11px; color:#9295a3; margin-left:9px; font-weight:400; }
+.sample-pill { margin-left:auto; color:#8d889b; background:#f4f2f8; padding:5px 8px; border-radius:5px; font-size:10px; }
+.historical-range { margin:27px 0 18px; }
+.historical-range > span { display:block; color:#92909f; font-size:11px; }
+.historical-range > strong { display:block; font-size:28px; color:#3b374e; font-weight:600; letter-spacing:-1px; margin-top:9px; white-space:nowrap; }
+.historical-range i { font-style:normal; color:#bcbbc6; margin:0 5px; }
+.quantile-plot { display:block; width:100%; height:auto; }
+.quantile-legend { display:flex; gap:16px; color:#a3a0b0; font-size:10px; margin:8px 0 19px; justify-content:center; }
+.quantile-legend .legend { margin-right:5px; }
+.quantile-details { background:#f8f7fb; border-radius:8px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); padding:13px; gap:6px; }
+.quantile-details > span { font-size:10px; color:#a3a0b2; }
+.quantile-details strong { display:block; margin-top:5px; color:#635a83; font-size:13px; font-weight:600; }
+.distribution-provenance { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; padding-top:17px; margin-top:18px; border-top:1px solid #eeedf3; color:#a09daa; font-size:10px; }
+.interpretation-card { display:flex; align-items:center; gap:14px; margin-top:24px; border:1px solid #e8e7ef; background:#f0f0f6; border-radius:10px; padding:18px; }
+.interpretation-card > svg { color:#8d83b6; flex-shrink:0; }
+.interpretation-card strong { font-size:12px; color:#787087; }
+.interpretation-card p { font-size:11px; line-height:1.8; color:#9690a1; margin-top:4px; }
+.interpretation-card > a { font-size:11px; color:#7c6bae; white-space:nowrap; margin-left:auto; }
+.scenario-state { display:flex; flex-direction:column; gap:14px; align-items:center; justify-content:center; text-align:center; border:1px solid var(--sg-line); border-radius:14px; min-height:340px; background:#fff; color:#8a849c; padding:35px; font-size:13px; }
+.scenario-state h2 { font-size:22px; line-height:1.5; color:#61596f; }
+.scenario-state p { font-size:13px; line-height:1.8; }
+@media(max-width:1100px) { .scenario-top-grid { grid-template-columns:1fr; } .scenario-context { padding:25px; } .scenario-context dl { grid-template-columns:1fr 1fr; } .scenario-context dt { margin-top:0; } .historical-range > strong { font-size:24px; } .scenario-distribution-heading { align-items:start; } }
+@media(max-width:600px) { .scenario-content .page-heading h1 { font-size:27px; } .scenario-toolbar { flex-wrap:wrap; } .source-tag { font-size:10px; } .scenario-tabs { gap:7px; } .scenario-tab { padding:15px 11px; min-height:125px; } .scenario-tab > strong { font-size:28px; } .scenario-events h2 { font-size:19px; } .probability-caption { font-size:10px; line-height:1.8; } .scenario-asset-grid { grid-template-columns:1fr; gap:17px; } .scenario-distribution-heading { flex-direction:column; gap:13px; align-items:stretch; } .scenario-distribution-heading h2 { font-size:20px; } .scenario-distribution-heading .segmented { align-self:flex-start; min-width:150px; } .interpretation-card { flex-wrap:wrap; } .interpretation-card > svg { display:none; } .interpretation-card > a { margin-left:0; } .historical-range > strong { font-size:29px; } .scenario-context dl { grid-template-columns:1fr; } }
+/* 포트폴리오 입력과 결과를 중심으로 한 화면 */
+.portfolio-top-grid{grid-template-columns:minmax(300px,1fr) minmax(300px,1fr);gap:24px;margin-top:22px}
+.portfolio-input-panel,.portfolio-event-panel{padding:28px}.portfolio-input-panel h2,.portfolio-event-panel h2{font-size:23px;margin:7px 0 8px}
+.allocation-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px}.allocation-row label,.allocation-row>span{display:flex;align-items:center;gap:10px;font-weight:650}.allocation-row small{color:#717585;font-size:12px;font-weight:400}.allocation-row>div{display:flex;align-items:center;gap:8px}.allocation-row input{width:76px;text-align:right;padding:8px;border:1px solid #d9dce6;border-radius:9px;background:#fff}.allocation-row .ticker-icon{width:32px;height:32px;font-size:15px}.allocation-slider{width:100%;margin-top:16px;accent-color:#5d50e8;cursor:pointer}.allocation-help{font-size:12px;color:#717585;margin-top:12px}.allocation-presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}.allocation-presets button{font-size:12px;padding:7px 10px;border:1px solid #e4e4ec;border-radius:8px;background:white;color:#666c7c;cursor:pointer}.allocation-presets button.active{background:#eeeaff;color:#5d50e8;border-color:#b6abed}.valuation-label{display:block;font-weight:600;font-size:13px;margin-top:24px}.valuation-label span{font-weight:400;color:#717585;margin-left:8px}.valuation-field{display:flex;align-items:center;gap:10px;border:1px solid #d9dce6;border-radius:10px;margin-top:9px;padding:9px 13px}.valuation-field input{width:100%;background:transparent;outline:none;font-size:15px}.input-error{color:#b54051;font-size:13px;margin-top:12px}
+.event-options{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 20px}.event-options span{font-size:12px;padding:7px 10px;border:1px solid #ffffff30;border-radius:8px;color:#bcb8d7}.event-options .active{background:#ffffff20;color:#fff}.portfolio-event-panel .segmented{background:#ffffff15;border-color:#ffffff30}.portfolio-event-panel .segment{color:#d1cdec}.portfolio-event-panel .segment.selected{color:#403576;background:#fff}.portfolio-event-panel dl{display:grid;grid-template-columns:auto 1fr;gap:12px;font-size:12px}.portfolio-event-panel dt{color:#bcb8d7}.portfolio-event-panel dd{text-align:right;color:#eeeafd}
+.portfolio-metrics{grid-template-columns:1.25fr 1fr 1fr;gap:18px}.portfolio-metric{padding:24px}.portfolio-metric p{font-size:13px;color:#717585}.portfolio-metric>strong{display:block;font-size:34px;letter-spacing:-1px;margin:13px 0 8px;color:#403576}.portfolio-metric>span{font-size:12px;color:#717585}.portfolio-metric .negative{color:#b64f66}.portfolio-metric .positive{color:#347b69}.portfolio-range{padding:28px;margin:20px 0}.portfolio-range h3{font-size:30px;letter-spacing:-1px;margin:8px 0}.portfolio-range h3 span{color:#9c9dac;font-weight:400}.portfolio-range .quantile-plot{height:140px}.portfolio-asset-summary{padding:24px}.portfolio-asset-summary h3{font-size:20px}.asset-summary-values{display:flex;justify-content:space-between;gap:16px;margin-top:22px;font-size:12px;color:#717585}.asset-summary-values strong{display:block;color:#343446;font-size:19px;margin-top:6px}.portfolio-method{padding:22px 28px;margin-top:24px}.portfolio-method summary{cursor:pointer;font-weight:650;color:#373443}.portfolio-method summary>span{font-size:12px;font-weight:400;color:#858495;margin-left:10px}.portfolio-method>p{font-size:13px;color:#717585;line-height:1.8;margin-top:18px}.portfolio-method>a{display:inline-block;margin-top:14px;font-size:13px;color:#5d50e8}.portfolio-scenarios{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.portfolio-scenarios>div{background:#f6f4ff;border-radius:12px;padding:17px;display:flex;flex-direction:column;gap:6px}.portfolio-scenarios span,.portfolio-scenarios small{font-size:12px;color:#717585}.portfolio-scenarios strong{font-size:22px;color:#5146ad}
+input:focus-visible,summary:focus-visible{outline:2px solid #8273e9;outline-offset:3px}
+@media(max-width:1000px){.portfolio-top-grid{grid-template-columns:1fr}.portfolio-metrics{grid-template-columns:1fr 1fr}.portfolio-metric:first-child{grid-column:1/-1}}
+@media(max-width:600px){.portfolio-input-panel,.portfolio-event-panel,.portfolio-range{padding:22px}.portfolio-metrics{gap:12px}.portfolio-metric{padding:18px}.portfolio-metric>strong{font-size:28px}.portfolio-scenarios{grid-template-columns:1fr}.portfolio-method summary>span{display:block;margin-left:0;margin-top:5px}.asset-summary-values{flex-wrap:wrap}.portfolio-event-panel dl{grid-template-columns:1fr}.portfolio-event-panel dd{text-align:left}.portfolio-range h3{font-size:25px}}
