@@ -22,6 +22,7 @@ export interface PortfolioReport {
 export type PortfolioReply = PortfolioReport | {
   schema_version: "cpi-portfolio-report-v1"; status: "pending"; reason: string;
   horizon: Horizon; weights: { SPY: number; TLT: number }; result: null; assets: []; scenarios: [];
+  blockers?: { code: string; label: string }[];
 };
 export interface RequestContext { source: Source; horizon: Horizon; spyPercent: number; valuation: number | null }
 const object = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -40,6 +41,7 @@ export function readPortfolioReport(value: unknown, context: RequestContext): Po
   if (!object(value) || value.schema_version !== "cpi-portfolio-report-v1" || value.horizon !== context.horizon || !object(value.weights) || value.weights.SPY !== context.spyPercent / 100 || value.weights.TLT !== (100 - context.spyPercent) / 100) throw new Error("mismatched portfolio");
   if (value.status === "pending") {
     if (typeof value.reason !== "string" || value.result !== null || !Array.isArray(value.assets) || value.assets.length || !Array.isArray(value.scenarios) || value.scenarios.length || "provenance" in value) throw new Error("invalid pending state");
+    if (value.blockers !== undefined && (!Array.isArray(value.blockers) || value.blockers.length > 20 || !value.blockers.every(b => object(b) && typeof b.code === "string" && /^[a-z_]+$/.test(b.code) && typeof b.label === "string" && b.label.length > 0 && b.label.length <= 200))) throw new Error("invalid connection blockers");
     return value as PortfolioReply;
   }
   if (!["ready", "insufficient_data"].includes(value.status as string) || value.currency !== "USD" || value.portfolio_value_usd !== context.valuation || value.interpretation !== "market_weighted_historical_joint_distribution" || value.performance_status !== "not_established" || !object(value.provenance) || value.provenance.source_kind !== (context.source === "demo" ? "synthetic" : "licensed_historical") || typeof value.provenance.dataset_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(value.provenance.dataset_sha256) || !time(value.as_of) || !time(value.release_at) || Date.parse(value.as_of) >= Date.parse(value.release_at) || !finite(value.consensus_mom) || !count(value.minimum_sample_count) || value.minimum_sample_count < 2 || !count(value.total_event_count) || !Array.isArray(value.scenarios) || value.scenarios.length !== 3 || !probability(value.unavailable_probability_mass) || !Array.isArray(value.assets)) throw new Error("invalid report");

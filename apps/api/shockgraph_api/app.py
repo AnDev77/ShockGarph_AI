@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -10,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from shockgraph_analytics.connection import ConnectionAudit, blocker
 from shockgraph_analytics.kalshi_ablation import AblationReport
 from shockgraph_analytics.portfolio import PortfolioWeights, portfolio_report
 from shockgraph_analytics.scenarios import ScenarioDataset, demo_dataset, scenario_report
@@ -89,6 +91,7 @@ def create_app(
     ablation_report_path: Path | None = None,
     recorded_summary_path: Path | None = None,
     scenario_dataset_path: Path | None = None,
+    connection_audit_path: Path | None = None,
     service_mode: Literal["demo", "historical"] | None = None,
 ) -> FastAPI:
     mode = service_mode or os.environ.get("SHOCKGRAPH_SERVICE_MODE", "historical")
@@ -99,17 +102,48 @@ def create_app(
     if scenario_path is None and os.environ.get("SHOCKGRAPH_SCENARIO_DATASET"):
         scenario_path = Path(os.environ["SHOCKGRAPH_SCENARIO_DATASET"])
     scenario_dataset = None
+    scenario_digest = None
     scenario_error = "authorized_scenario_dataset_not_loaded"
     if scenario_path is not None:
         try:
-            scenario_dataset = ScenarioDataset.model_validate_json(
-                scenario_path.read_text(encoding="utf-8")
-            )
+            scenario_bytes = scenario_path.read_bytes()
+            scenario_dataset = ScenarioDataset.model_validate_json(scenario_bytes)
+            scenario_digest = hashlib.sha256(scenario_bytes).hexdigest()
             if scenario_dataset.source_kind != "licensed_historical":
                 raise ValueError("actual input cannot be synthetic")
         except (OSError, ValidationError, ValueError):
             scenario_dataset = None
             scenario_error = "invalid_scenario_dataset"
+    audit_path = connection_audit_path
+    if audit_path is None and os.environ.get("SHOCKGRAPH_CPI_READINESS"):
+        audit_path = Path(os.environ["SHOCKGRAPH_CPI_READINESS"])
+    connection_audit = None
+    audit_invalid = False
+    if audit_path is not None:
+        try:
+            connection_audit = ConnectionAudit.model_validate_json(audit_path.read_bytes())
+            if connection_audit.source_kind != "licensed_historical":
+                raise ValueError("actual audit cannot be synthetic")
+            if scenario_dataset is not None and (
+                connection_audit.status != "snapshot_built"
+                or connection_audit.snapshot_sha256 != scenario_digest
+            ):
+                raise ValueError("audit and snapshot differ")
+        except (OSError, ValueError):
+            connection_audit = None
+            audit_invalid = True
+            # An explicitly configured audit must match the loaded actual snapshot.
+            scenario_dataset = None
+            scenario_error = "invalid_scenario_dataset"
+
+    def connection_blockers() -> list[dict[str, str]]:
+        issues = list(connection_audit.blockers) if connection_audit else []
+        if audit_invalid:
+            issues.append(blocker("readiness_invalid"))
+        if scenario_dataset is None:
+            issues.append(blocker("snapshot_invalid" if scenario_error == "invalid_scenario_dataset"
+                                  else "snapshot_missing"))
+        return [item.model_dump() for item in issues]
     configured_path = research_metadata_path
     if configured_path is None and os.environ.get("SHOCKGRAPH_RESEARCH_METADATA"):
         configured_path = Path(os.environ["SHOCKGRAPH_RESEARCH_METADATA"])
@@ -208,6 +242,28 @@ def create_app(
                 }
                 for asset in ASSETS
             ]
+        }
+
+    @app.get("/v1/data-readiness/cpi")
+    def cpi_data_readiness() -> dict[str, Any]:
+        issues = connection_blockers()
+        status = "pending"
+        if scenario_dataset is not None:
+            report = portfolio_report(scenario_dataset, weights=PortfolioWeights(spy=0.6, tlt=0.4),
+                                      horizon="m30")
+            status = report["status"]
+            if status == "insufficient_data":
+                issues.append(blocker("scenario_sample_shortfall").model_dump())
+        return {
+            "schema_version": "cpi-data-readiness-v1", "status": status,
+            "source_kind": "licensed_historical", "blockers": issues,
+            "checked_at": connection_audit.checked_at.isoformat() if connection_audit else None,
+            "input_status": [i.model_dump() for i in connection_audit.inputs]
+                            if connection_audit else [],
+            "event_counts": connection_audit.event_counts if connection_audit else {},
+            "audit_status": connection_audit.status if connection_audit else None,
+            "snapshot_sha256": scenario_digest if scenario_dataset else None,
+            "performance_status": "not_established",
         }
 
     @app.get("/v1/research/cpi-probability")
@@ -344,6 +400,7 @@ def create_app(
                 "reason": scenario_error, "horizon": horizon,
                 "weights": {"SPY": weights.spy, "TLT": weights.tlt},
                 "result": None, "assets": [], "scenarios": [],
+                "blockers": connection_blockers(),
             }
         return portfolio_report(dataset, weights=weights, horizon=horizon,
                                 portfolio_value=portfolio_value)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const allowed = new Set([
-  "v1/portfolios/cpi", "v1/scenarios/cpi", "v1/research/cpi-probability", "v1/research/cpi-kalshi-ablation",
+  "v1/data-readiness/cpi", "v1/portfolios/cpi", "v1/scenarios/cpi", "v1/research/cpi-probability", "v1/research/cpi-kalshi-ablation",
   "v1/analysis", "v1/market-expectations/cpi", "health/ready",
 ]);
 

@@ -98,3 +98,14 @@ dev:
 	@echo "API와 웹을 별도 터미널에서 make api-dev, make web-dev로 실행하세요"
 
 build: web-build
+
+.PHONY: serving-demo serving-audit serving-build
+serving-demo:
+	$(PYTHON) scripts/build_cpi_serving_snapshot.py --demo
+
+serving-audit:
+	$(PYTHON) scripts/build_cpi_serving_snapshot.py --check-only $(if $(SERVING_MANIFEST),--manifest "$(SERVING_MANIFEST)",)
+
+serving-build:
+	@test -n "$(SERVING_MANIFEST)" || (echo "SERVING_MANIFEST에 이용 범위가 확인된 자료 연결 설정을 지정하세요" && exit 2)
+	$(PYTHON) scripts/build_cpi_serving_snapshot.py --manifest "$(SERVING_MANIFEST)"

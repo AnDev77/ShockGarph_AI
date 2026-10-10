@@ -200,3 +200,5 @@ a:focus-visible,button:focus-visible,summary:focus-visible { outline:3px solid #
 input:focus-visible,summary:focus-visible{outline:2px solid #8273e9;outline-offset:3px}
 @media(max-width:1000px){.portfolio-top-grid{grid-template-columns:1fr}.portfolio-metrics{grid-template-columns:1fr 1fr}.portfolio-metric:first-child{grid-column:1/-1}}
 @media(max-width:600px){.portfolio-input-panel,.portfolio-event-panel,.portfolio-range{padding:22px}.portfolio-metrics{gap:12px}.portfolio-metric{padding:18px}.portfolio-metric>strong{font-size:28px}.portfolio-scenarios{grid-template-columns:1fr}.portfolio-method summary>span{display:block;margin-left:0;margin-top:5px}.asset-summary-values{flex-wrap:wrap}.portfolio-event-panel dl{grid-template-columns:1fr}.portfolio-event-panel dd{text-align:left}.portfolio-range h3{font-size:25px}}
+
+.connection-blockers { text-align: left; max-width: 620px; margin: 16px auto; padding-left: 24px; line-height: 1.8; }

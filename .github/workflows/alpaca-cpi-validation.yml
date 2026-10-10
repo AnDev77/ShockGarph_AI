@@ -16,6 +16,7 @@ on:
       - feat/analytics
       - feat/scenario-risk
       - feat/portfolio-risk
+      - feat/data-serving
       - main
     paths:
       - .github/workflows/alpaca-cpi-validation.yml
@@ -59,6 +60,8 @@ jobs:
           make test
       - name: 합성 사건의 전체 커버리지 감사
         run: make research-cpi-curve-history-demo
+      - name: 합성 원본의 서비스 스냅샷 변환
+        run: make serving-demo
       - name: 합성 감사 결과 보관
         uses: actions/upload-artifact@v4
         with:
@@ -134,6 +137,8 @@ jobs:
                   assert portfolio["status"] == "ready"
                   assert portfolio["provenance"]["source_kind"] == "synthetic"
                   assert portfolio["result"]["quantiles"]["q10"] <= portfolio["result"]["quantiles"]["q90"]
+          readiness = json.load(urllib.request.urlopen(base + "/api/v1/data-readiness/cpi", timeout=10))
+          assert readiness["status"] == "pending" and readiness["snapshot_sha256"] is None
           pending = json.load(urllib.request.urlopen(base + "/api/v1/portfolios/cpi", timeout=10))
           assert pending["status"] == "pending" and pending["result"] is None
           assert urllib.request.urlopen(base + "/methodology", timeout=10).status == 200

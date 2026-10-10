@@ -32,4 +32,11 @@ for (const corrupt of [
   const malformed = structuredClone(valid); corrupt(malformed);
   assert.throws(() => loaded.exports.readPortfolioReport(malformed, context)); checked++;
 }
+const pending = data.portfolio_views.actual.m30[60].portfolio;
+for (const blockers of [[{ code: 'snapshot_missing', label: '자료 연결 대기' }], []]) {
+  loaded.exports.readPortfolioReport({ ...pending, blockers }, { ...context, source: 'actual' }); checked++;
+}
+for (const blockers of [[{ code: '../private/path', label: '잘못된 코드' }], [{ code: 'snapshot_missing', label: 123 }]]) {
+  assert.throws(() => loaded.exports.readPortfolioReport({ ...pending, blockers }, { ...context, source: 'actual' })); checked++;
+}
 console.log(`포트폴리오 응답 계약 ${checked}개 상태 확인`);

@@ -3,23 +3,33 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
+from build_cpi_serving_snapshot import inspect_inputs
 from fastapi.testclient import TestClient
 from shockgraph_api.app import create_app
 
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    client = TestClient(
-        create_app(
+    _, _, audit, _ = inspect_inputs(
+        root / "data/clean/cpi-serving-manifest.json", datetime.now(UTC)
+    )
+    # Export only sanitized missing-input labels, never private paths or source rows.
+    with TemporaryDirectory() as directory:
+        audit_path = Path(directory) / "readiness.json"
+        audit_path.write_text(audit.model_dump_json(), encoding="utf-8")
+        app = create_app(
+            connection_audit_path=audit_path,
             service_mode="demo",
             recorded_summary_path=(
                 root / "docs/paper/results/cpi-probability-recorded-2026-09-26.json"
             ),
             ablation_report_path=root / "docs/paper/results/cpi-kalshi-ablation-2026-09-30.json",
         )
-    )
+    client = TestClient(app)
     endpoints = {
         "research": "/v1/research/cpi-probability",
         "analysis": "/v1/analysis?asset_id=SPY&event_category=CPI&horizon=m5",
@@ -37,9 +47,10 @@ def main() -> None:
         for horizon in ("m5", "m30"):
             views[source][horizon] = {}
             for asset in ("SPY", "TLT"):
-                result = client.get("/v1/scenarios/cpi", params={
-                    "source": source, "horizon": horizon, "asset_id": asset
-                })
+                result = client.get(
+                    "/v1/scenarios/cpi",
+                    params={"source": source, "horizon": horizon, "asset_id": asset},
+                )
                 result.raise_for_status()
                 views[source][horizon][asset.lower()] = result.json()
     data["scenario_views"] = views
@@ -49,11 +60,16 @@ def main() -> None:
         for horizon in ("m5", "m30"):
             portfolios[source][horizon] = {}
             for share in (0, 25, 50, 60, 75, 100):
-                response = client.get("/v1/portfolios/cpi", params={
-                    "source": source, "horizon": horizon,
-                    "spy_weight": share / 100, "tlt_weight": (100 - share) / 100,
-                    "portfolio_value": 10000,
-                })
+                response = client.get(
+                    "/v1/portfolios/cpi",
+                    params={
+                        "source": source,
+                        "horizon": horizon,
+                        "spy_weight": share / 100,
+                        "tlt_weight": (100 - share) / 100,
+                        "portfolio_value": 10000,
+                    },
+                )
                 response.raise_for_status()
                 portfolios[source][horizon][str(share)] = {"portfolio": response.json()}
     data["portfolio_views"] = portfolios

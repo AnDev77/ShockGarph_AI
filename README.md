@@ -9,6 +9,8 @@
 포트폴리오 결과 중심 화면을 구현했으며, FOMC·EIA 원유재고·유가는 후속 확장 대상이다.
 [실행 전략](docs/portfolio-event-expansion-strategy.md)에 순서·계산 방법·완료 기준을 정리했다.
 [구현 리뷰](docs/reviews/portfolio-risk-simulator-review.md)에 검증 범위와 사용자 점검표가 있다.
+[실제 데이터 연결 안내](docs/cpi-serving-data-guide.md)와 [연결 기능 리뷰](docs/reviews/cpi-data-serving-review.md)에
+원본 변환·누락 진단·API 적재 절차를 정리했다.
 
 - `/`: SPY 비중 입력·나머지 TLT 비중, 선택적 평가액, 포트폴리오 평균 변화·상승/하락/보합 확률·
   혼합분포 분위수·자산 평균 기여. 시나리오별 확률과 표본은 펼치는 근거 영역에 둔다.
@@ -24,6 +26,9 @@
   자동 주문·개인화된 매수·매도 권유·로그인 기반 포트폴리오 저장은 구현하지 않았다.
 - `GET /v1/portfolios/cpi`: 비중 합 1, 지원 구간, 자료 모드를 검증한다. 실제 자료가 없으면
   `pending`, 양의 확률을 가진 시나리오의 표본이 부족하면 `insufficient_data`와 `result=null`이다.
+
+- `GET /v1/data-readiness/cpi`: 실제 입력 누락·검증된 스냅샷 적재·시나리오 표본 부족을 구분한다.
+  `make serving-demo`는 합성 원본 변환을, `make serving-audit`는 파일 연결 상태를 검사한다.
 
 ## 빠른 실행
 
