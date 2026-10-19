@@ -94,3 +94,24 @@ def test_asian_session_date_may_be_next_utc_calendar_day() -> None:
     )
 
     assert price.session_date == date(2026, 9, 22)
+
+
+def test_adjusted_price_availability_requires_utc_and_follows_observation() -> None:
+    fields = dict(
+        source="synthetic-fixture",
+        symbol="TLT",
+        venue="XNAS",
+        observed_at=utc(20),
+        session_date=date(2026, 9, 17),
+        currency="USD",
+        close=Decimal("100"),
+        adjusted_close=Decimal("100"),
+        raw_payload_hash="d" * 64,
+    )
+    with pytest.raises(ValidationError, match="available_at cannot precede"):
+        AssetPriceRecord.model_validate({**fields, "available_at": utc(19)})
+    with pytest.raises(ValidationError, match="UTC"):
+        AssetPriceRecord.model_validate({
+            **fields,
+            "available_at": datetime(2026, 9, 18, 5, tzinfo=timezone(timedelta(hours=9))),
+        })

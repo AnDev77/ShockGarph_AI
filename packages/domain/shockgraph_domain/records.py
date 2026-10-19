@@ -108,6 +108,9 @@ class AssetPriceRecord(IngestionRecord):
     symbol: str = Field(min_length=1)
     venue: str = Field(min_length=1)
     observed_at: datetime
+    # Exact adjusted price version's first usable time. Legacy event records may omit it,
+    # but daily risk calculations require it rather than inferring it from the session date.
+    available_at: datetime | None = None
     session_date: date
     currency: str = Field(pattern=r"^[A-Z]{3}$")
     close: Annotated[Decimal, Field(gt=0)]
@@ -115,10 +118,16 @@ class AssetPriceRecord(IngestionRecord):
     volume: NonNegativeDecimal | None = None
     raw_payload_hash: PayloadHash
 
-    @field_validator("observed_at")
+    @field_validator("observed_at", "available_at")
     @classmethod
-    def require_utc(cls, value: datetime) -> datetime:
-        return _as_utc(value)
+    def require_utc(cls, value: datetime | None) -> datetime | None:
+        return _as_utc(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def validate_price_availability(self) -> Self:
+        if self.available_at is not None and self.available_at < self.observed_at:
+            raise ValueError("available_at cannot precede observed_at")
+        return self
 
 class FeatureSnapshotRecord(IngestionRecord):
     event_id: str = Field(min_length=1)

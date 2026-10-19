@@ -2,6 +2,22 @@
 
 결정일: 2026-09-22
 
+## 2026-10-19 일별 위험 데이터 적용 상태
+
+기존 공급원 후보 검토를 새 TLT 기준선에 적용했다. 현재 **실자료 어댑터는 승인하지 않았다.**
+Alpha Vantage의 [수정 일봉 문서](https://www.alphavantage.co/documentation/)는
+`TIME_SERIES_DAILY_ADJUSTED`를 Premium으로 표시하며, [이용약관](https://www.alphavantage.co/terms_of_service/)은
+상업적 이용의 별도 문의를 안내한다. 실자료 공개·파생 결과 표시까지 허용됐다는
+증거가 없으므로 테스트는 합성 가격만 사용한다.
+
+EIA [Open Data](https://www.eia.gov/opendata/)에는 일별 원유 가격 후보가 있고,
+FRED [관측 API](https://fred.stlouisfed.org/docs/api/fred/series_observations.html)는
+자료 빈티지 조회를 지원한다. 관측 날짜를 실제 게시 시각으로 간주하지 않는다.
+브렌트·금리·VIX는 API 응답의 수집 시각과 게시 가능 시각, 공급원별 재배포 범위를
+확인한 뒤 입력에 넣는다. 수정 종가는 기업행동에 따라 과거 값이 바뀔 수 있으므로
+`available_at`은 관측 날짜가 아닌 **그 가격 버전이 실제 사용 가능해진 시각**이다.
+독립적인 거래소 세션 달력과 공급원 원본 계보가 없으면 실제 위험 평가를 중단한다.
+
 ## 결론
 
 | 데이터 | 후보 | 판정 | MVP 사용 방식 |

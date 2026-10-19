@@ -1,6 +1,6 @@
 version: 2
 daily_risk:
-  status: planned
+  status: synthetic_baseline_only
   horizons_trading_days:
     - 5
     - 20
