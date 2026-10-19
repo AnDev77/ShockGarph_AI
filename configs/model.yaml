@@ -1,4 +1,18 @@
-version: 1
+version: 2
+daily_risk:
+  status: planned
+  horizons_trading_days:
+    - 5
+    - 20
+  primary_target: forward_realized_volatility
+  primary_baselines:
+    - trailing_realized_volatility
+    - ewma
+  primary_metrics:
+    - mae
+    - qlike
+  split_strategy: chronological_asof_with_label_purge
+# 아래 이벤트 연구 설정은 기존 코드와 연구 결과의 재현을 위해 유지한다.
 calibration:
   primary_metric: brier_score
   split_strategy: chronological_grouped_by_event_id
