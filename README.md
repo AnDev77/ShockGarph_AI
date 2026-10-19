@@ -1,10 +1,18 @@
 # ShockGraph AI
 
-ShockGraph AI는 거시 이벤트를 기반으로 포트폴리오 위험을 연구하는 MVP다.
-예측시장 확률을 보정하고, 자산 반응의 시차를 추정하며, 시나리오별 위험이 사용자의 포트폴리오에 어떻게 전달되는지 설명한다.
-거래 실행과 개인화된 매수·매도 권유는 제공하지 않는다.
+ShockGraph AI는 브렌트유·금리·변동성 등 일별 시장 상태로 ETF와 포트폴리오의
+향후 위험 범위를 분석하는 제품을 목표로 한다. 첫 대상은 TLT의 5·20거래일 변동성이며,
+SPY·XLE와 포트폴리오는 데이터와 표본 외 성능을 확인한 뒤 확장한다.
+CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으로 종목 보유 인증을
+거친 채팅방을 검토한다. 거래 실행과 개인화된 매수·매도 권유는 제공하지 않는다.
 
-## 현재 구현 상태
+**2026-10-19 방향 전환 단계:** 아래의 기존 Kalshi CPI 코드는 연구 이력이다.
+일별 위험 데이터 연결·실증 모델·웹 화면·주주 인증과 채팅은 아직 구현되지 않았다.
+새 범위는 [프로젝트 명세](shockgraph-ai-project-spec.md),
+[일별 위험 방법론](docs/daily-risk-methodology.md),
+[주주 인증 채팅 후속 설계](docs/shareholder-community-roadmap.md)에 기록했다.
+
+## 기존 이벤트 연구 구현 상태
 
 1~12일차 작업에서 데이터 계약, 발표 단위 기준 모델 비교와 Kalshi CPI 실데이터
 감사까지 구현했다.
@@ -43,16 +51,16 @@ Kalshi 정산확률의 첫 실데이터 기준 비교는 완료했지만 SPY·TL
 재접속 후 상태는 [연동·재검증 기록](docs/reviews/analytics-sync-checkpoint.md), 목표 구조는
 [아키텍처 문서](docs/architecture.md)에서 확인할 수 있다.
 
-## 학습과 제품 설계
+## 연구 이력과 제품 설계
 
 - [이벤트 분석 파이프라인 학습 가이드](docs/study-guide-analytics.md): 실행 방법, 시간 누수, 경험적 분포, CRPS, 지속 학습과의 연결
 - [이번 CPI·ETF 커버리지 점검](docs/cpi-coverage-review.md): CPI 확률 실데이터와 ETF 연결 조건
 - [논문 연구 패키지](docs/paper/README.md): 연구 프로토콜, 데이터 사전, 분석 계획, 논문 구성과 선행연구
 - [데이터 파이프라인·확률 평가 학습 가이드](docs/study-guide-day-03-04.md): 6회 학습 순서, 코드 읽기, 실습, 금융 예제, 구현 한계
-- [제품·Chakra UI 화면 설계](docs/product-ui-direction.md): 사용자 종목 선택, 이벤트 분석, 모바일 화면, 결과 표시 기준
+- [제품·Chakra UI 화면 설계](docs/product-ui-direction.md): 일별 위험 홈, 근거·시나리오, 후속 종목방의 화면 계약
 
 설정 파일의 자산 목록은 분석 후보이며 학습 완료 목록이 아니다.
-사용자는 지원되는 자산·이벤트·기간 조합에서 선택하게 된다. 예측 API와 Next.js·Chakra UI 화면은 구현 예정이다.
+새 위험 분석 API와 Next.js·Chakra UI 화면은 구현 예정이다.
 
 ## 로컬 실행
 
@@ -82,7 +90,7 @@ python scripts/run_event_research.py --input data/fixtures/analytics/synthetic_c
 - `packages/domain`: 금융 데이터·포트폴리오 계약
 - `packages/data_pipeline`: 원본 계약, 객체 저장, 멱등 정규화, 계보 추적, 거래시각 정렬, 누수 방지
 - `packages/calibration`: 이벤트별 데이터셋과 시장확률 기준 모델·Brier 평가
-- `packages/*`: 후속 이벤트 연구, 전이 분석, 위험 계산 영역
+- `packages/*`: 기존 이벤트 연구와 후속 일별 위험 계산 영역
 - `docs/data-feasibility.md`: 1일차 데이터 가용성 검토와 범위 결정
 - `docs/data-source-gate-b.md`: 미국 자산·환율·국내 자산 공급원 검토
 - `docs/architecture.md`: 원본 우선 수집과 데이터·모델·서빙 계층의 목표 구조
