@@ -16,7 +16,7 @@
 | `scripts/run_daily_risk_demo.py`, `Makefile` | 합성 가격만 사용하는 `make risk-demo` |
 | `tests/unit/test_daily_risk.py`, `tests/unit/test_ingestion_records.py` | 미래 가격 변경, 늦은 공개, 결측 거래일, 정답 만료, UTC·분할·표본 수 검증 |
 | `docs/data-source-gate-b.md`, `docs/daily-risk-methodology.md`, `README.md` | 새 코드의 경계와 공급원 권리 보류 상태 표시 |
-| `docs/project-flow.md`, `docs/architecture.md` | 새 데이터·제품 경로와 실제 구현 상태를 흐름도로 구분 |
+| `docs/project-flow.md`, `docs/architecture.md` | 새 데이터·제품 경로, 모델·API·조건부 메시지 큐 구성과 실제 구현 상태를 흐름도로 구분 |
 
 `make risk-demo`는 150개의 **합성 평일 세션**을 생성한다. 미국 거래소 휴장일과
 서머타임을 재현하지 않으므로 실제 TLT 데이터 또는 성능으로 해석할 수 없다.
