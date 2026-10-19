@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo risk-demo research-probe research-audit-cpi research-paper-data
+.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -23,6 +23,9 @@ research-demo:
 
 risk-demo:
 	$(PYTHON) scripts/run_daily_risk_demo.py
+
+portfolio-demo:
+	$(PYTHON) scripts/run_portfolio_risk_demo.py
 
 research-probe:
 	$(PYTHON) scripts/probe_cpi_coverage.py --max-pages 10

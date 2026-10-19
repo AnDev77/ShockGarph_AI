@@ -7,11 +7,12 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 거친 채팅방을 검토한다. 거래 실행과 개인화된 매수·매도 권유는 제공하지 않는다.
 
 **2026-10-19 방향 전환 단계:** 아래의 기존 Kalshi CPI 코드는 연구 이력이다.
-일별 위험은 이용 가능 시각을 검증하는 가격 계약과 합성 데이터 기준선만 구현했다.
+일별 위험은 이용 가능 시각을 검증하는 가격 계약과 단일 ETF·복수 ETF의 합성 데이터 기준선만 구현했다.
 실제 데이터 연결·실증 모델·웹 화면·주주 인증과 채팅은 아직 구현되지 않았다.
 새 범위는 [프로젝트 명세](shockgraph-ai-project-spec.md),
 [현재 상태가 표시된 프로젝트 흐름도](docs/project-flow.md),
 [일별 위험 방법론](docs/daily-risk-methodology.md),
+[연준 연구를 검토한 포트폴리오 위험 방법론](docs/portfolio-risk-methodology.md),
 [주주 인증 채팅 후속 설계](docs/shareholder-community-roadmap.md)에 기록했다.
 
 ## 일별 위험 기준선 실행
@@ -20,7 +21,9 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 최근 변동성/EWMA 기준선을 평가한다. 출력의 `DEMO` 수치는 실제 TLT 성과가 아니다.
 정답에는 미래 가격의 `available_at`이 지나야 접근하며, 명시된 세션이 빠지면 계산을
 거부한다. 실제 공급원과 거래소 달력의 권리·게시 지연을 확인하기 전에는 제품 수치를
-제공하지 않는다. 구현 범위와 게이트는 [15~16일차 리뷰](docs/reviews/day-15-16-review.md)를 따른다.
+제공하지 않는다. 다자산 공동 수익률 기준선은 `make portfolio-demo`로 별도 시험하며
+실제 투자 성과가 아니다. 구현 범위는 [15~16일차 리뷰](docs/reviews/day-15-16-review.md)와
+[17~18일차 리뷰](docs/reviews/day-17-18-review.md)를 따른다.
 
 ## 기존 이벤트 연구 구현 상태
 
@@ -100,7 +103,8 @@ python scripts/run_event_research.py --input data/fixtures/analytics/synthetic_c
 - `packages/domain`: 금융 데이터·포트폴리오 계약
 - `packages/data_pipeline`: 원본 계약, 객체 저장, 멱등 정규화, 계보 추적, 거래시각 정렬, 누수 방지
 - `packages/calibration`: 이벤트별 데이터셋과 시장확률 기준 모델·Brier 평가
-- `packages/*`: 기존 이벤트 연구와 후속 일별 위험 계산 영역
+- `packages/risk_engine`: 단일 ETF 및 공동 포트폴리오 합성 변동성 기준선·평가
+- `packages/*`: 나머지 이벤트 연구 영역
 - `docs/data-feasibility.md`: 1일차 데이터 가용성 검토와 범위 결정
 - `docs/data-source-gate-b.md`: 미국 자산·환율·국내 자산 공급원 검토
 - `docs/architecture.md`: 원본 우선 수집과 데이터·모델·서빙 계층의 목표 구조
