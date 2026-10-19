@@ -10,6 +10,7 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 일별 위험은 이용 가능 시각을 검증하는 가격 계약과 합성 데이터 기준선만 구현했다.
 실제 데이터 연결·실증 모델·웹 화면·주주 인증과 채팅은 아직 구현되지 않았다.
 새 범위는 [프로젝트 명세](shockgraph-ai-project-spec.md),
+[현재 상태가 표시된 프로젝트 흐름도](docs/project-flow.md),
 [일별 위험 방법론](docs/daily-risk-methodology.md),
 [주주 인증 채팅 후속 설계](docs/shareholder-community-roadmap.md)에 기록했다.
 
