@@ -18,6 +18,23 @@ FRED [관측 API](https://fred.stlouisfed.org/docs/api/fred/series_observations.
 `available_at`은 관측 날짜가 아닌 **그 가격 버전이 실제 사용 가능해진 시각**이다.
 독립적인 거래소 세션 달력과 공급원 원본 계보가 없으면 실제 위험 평가를 중단한다.
 
+## 2026-10-19 TLT 로컬 입력 게이트
+
+`packages/data_pipeline/shockgraph_data_pipeline/market_calendar.py`는
+[Nasdaq의 공식 미국 주식시장 2026 일정](https://www.nasdaq.com/market-activity/stock-market-holiday-schedule)의
+휴장일·조기 폐장을 2026-10-19에 확인한 **예정 세션** 스냅샷이다. 미국 동부시간
+16시, 조기 폐장은 13시를 `America/New_York`에서 UTC로 변환한다. 일정 밖 날짜와
+파일에 없는 예정 거래일, 일치하지 않는 종가 시각은 검사에서 걸러진다. 거래소의
+임시 휴장·일정 수정은 자동 수집하지 않으므로 공급원 원장과 재확인이 필요하다.
+
+`daily_price_import.py`는 사용자가 적법하게 보유한 TLT 가격 CSV를 로컬에서
+원본 바이트 그대로 불변 저장하고 SHA-256 계보를 `AssetPriceRecord`에 연결한다.
+과거 수정종가 CSV에 날짜만 있다면 그 날짜를 게시 시각으로 채우지 않는다. 버전별
+`available_at`이 없으면 거부하고, 여러 버전이 겹치면 중복으로 보고한다. 공급원별
+배당 조정 방식, **과거 시점에 보였던 가격 버전**의 증거, 연구·공개·파생 결과의
+이용 권리는 여전히 미확인이다. `structurally_ready=true`는 이 확인을 대체하지
+않으며 실자료 홀드아웃 평가·화면 공개는 보류한다.
+
 ## 결론
 
 | 데이터 | 후보 | 판정 | MVP 사용 방식 |

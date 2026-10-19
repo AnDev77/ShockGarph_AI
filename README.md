@@ -7,8 +7,9 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 거친 채팅방을 검토한다. 거래 실행과 개인화된 매수·매도 권유는 제공하지 않는다.
 
 **2026-10-19 방향 전환 단계:** 아래의 기존 Kalshi CPI 코드는 연구 이력이다.
-일별 위험은 이용 가능 시각을 검증하는 가격 계약과 단일 ETF·복수 ETF의 합성 데이터 기준선만 구현했다.
-실제 데이터 연결·실증 모델·웹 화면·주주 인증과 채팅은 아직 구현되지 않았다.
+일별 위험은 이용 가능 시각을 검증하는 가격 계약, 단일 ETF·복수 ETF의 합성 데이터 기준선,
+2026년 Nasdaq 일정과 비공개 TLT CSV의 원본 보존·품질 검사 경로를 구현했다.
+허가된 실가격 파일·수정가격의 과거 버전 증거·실증 모델·웹 화면·주주 인증과 채팅은 아직 없다.
 새 범위는 [프로젝트 명세](shockgraph-ai-project-spec.md),
 [현재 상태가 표시된 프로젝트 흐름도](docs/project-flow.md),
 [일별 위험 방법론](docs/daily-risk-methodology.md),
@@ -24,6 +25,27 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 제공하지 않는다. 다자산 공동 수익률 기준선은 `make portfolio-demo`로 별도 시험하며
 실제 투자 성과가 아니다. 구현 범위는 [15~16일차 리뷰](docs/reviews/day-15-16-review.md)와
 [17~18일차 리뷰](docs/reviews/day-17-18-review.md)를 따른다.
+
+## 비공개 TLT 가격 입력 점검
+
+사용 권한이 확인된 CSV에 `session_date,observed_at,available_at,close,adjusted_close,volume`
+열을 넣는다. 각 행은 2026년 Nasdaq 정규장 세션 하나를 나타내며 `observed_at`은 해당
+정규장 종가의 UTC 시각, `available_at`은 **그 수정가격 버전이 최초로 사용 가능했던
+UTC 시각**이다. `volume`은 비울 수 있다. 파일을 받은 원래 UTC 시각을 `--captured-at`에
+넣고, 원본을 공개 저장소 밖의 `data/raw/`에 보존한다.
+
+```bash
+python scripts/import_daily_prices.py --prices /private/tlt.csv --source licensed-provider \
+  --captured-at 2026-10-19T22:00:00Z --start 2026-01-02 --end 2026-10-19
+```
+
+출력은 원본 체크섬, 휴장일을 제외한 예상 거래일 대비 누락·중복, 정규장 종가 시각,
+종가 60분 뒤 예측 기준 시각보다 늦은 버전을 보여준다. `--prediction-delay-minutes`로
+기준 시각을 명시적으로 바꿀 수 있다. 같은 파일과 `captured-at`으로 재실행하면
+불변 원본을 중복 저장하지 않는다. 현재 달력은 공식 **예정** 휴장·조기 폐장 목록의
+2026년 스냅샷으로, 임시 휴장 등은 별도 확인해야 한다. `structurally_ready`는 기계적
+입력 점검 결과이며 공급 계약·과거 버전 진위를 승인하거나 실자료 성능을 산출하지 않는다.
+자세한 제한과 다음 검증은 [19~20일차 리뷰](docs/reviews/day-19-20-review.md)에 적었다.
 
 ## 기존 이벤트 연구 구현 상태
 
