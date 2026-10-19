@@ -9,7 +9,8 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 **2026-10-19 방향 전환 단계:** 아래의 기존 Kalshi CPI 코드는 연구 이력이다.
 일별 위험은 이용 가능 시각을 검증하는 가격 계약, 단일 ETF·복수 ETF의 합성 데이터 기준선,
 2026년 Nasdaq 일정과 비공개 TLT CSV의 원본 보존·품질 검사 경로,
-보관된 전체 수정가격 스냅샷을 예측 당시 시각으로 선택하는 합성 기준선을 구현했다.
+보관된 전체 수정가격 스냅샷을 예측 당시 시각으로 선택하는 합성 기준선과
+보관 파일을 입력으로 받는 비공개 5·20일 시간순 평가 보고 경로를 구현했다.
 허가된 실가격 파일·수정가격의 과거 버전 증거·실증 모델·웹 화면·주주 인증과 채팅은 아직 없다.
 새 범위는 [프로젝트 명세](shockgraph-ai-project-spec.md),
 [현재 상태가 표시된 프로젝트 흐름도](docs/project-flow.md),
@@ -69,6 +70,51 @@ prices=imported.prices)`를 만들고 `build_snapshot_forecasts`에 **캡처 순
 사용한다. 최종 평가의 정답은 별도 스냅샷으로 계산한다. 공급원의 실제 권리와
 과거 수신·버전 증거가 없으면 이 기능 역시 합성 데이터 검증에만 사용한다.
 [수정가격 스냅샷 리뷰](docs/reviews/price-vintage-asof-review.md)에 시점 규칙을 정리했다.
+
+### 보관 파일의 시간순 평가
+
+공개 저장소 밖에 `manifest.json`과 각 시점에 **실제로 보관한 전체 이력 CSV**를 둔다.
+입력의 최소 형식은 다음과 같다. 실제 점수를 얻으려면 `start`부터 `end`까지
+예측을 평가할 각 거래일마다 예측 시각 전에 받은 완전한 파일과 충분한
+미래 정답 구간이 필요하다.
+
+```json
+{
+  "schema_version": 1,
+  "source": "licensed-provider",
+  "start": "2026-01-05",
+  "end": "2026-01-05",
+  "holdout_start": "2026-01-05",
+  "evaluation_at": "2026-01-05T21:10:00Z",
+  "prediction_delay_minutes": 10,
+  "snapshots": [
+    {
+      "path": "capture-2026-01-05.csv",
+      "captured_at": "2026-01-05T21:05:00Z",
+      "end": "2026-01-05"
+    }
+  ]
+}
+```
+
+`path`는 manifest 파일이 있는 디렉터리를 기준으로 해석한다. 위 한 거래일 예시는
+입력 형식을 보여줄 뿐 5·20일 성과를 낼 표본은 없다. `holdout_start`는 고정된
+거래일이며 해당일의 정규장 종가와 `prediction_delay_minutes`를 합친 시각부터
+비교한다. `evaluation_at`은 적어도 마지막 예측 시각 이후여야 한다.
+
+```bash
+python scripts/evaluate_snapshot_holdout.py --manifest /private/manifest.json \
+  --raw-root data/raw --output artifacts/tlt-holdout.json
+# 또는: make risk-evaluate SNAPSHOT_MANIFEST=/private/manifest.json
+```
+
+보고서에는 manifest·원본 해시, 예정 거래소 달력 버전, 기간별 입력 지문,
+예측·정답 행 수와 비중첩 구간 수를 남긴다. 2개 비중첩 구간보다 적으면
+`blocked`와 이유만 내고 점수를 숨긴다. 그 이상이어도
+`evaluated_research_only`의 MAE·QLIKE·짝지은 블록 재표집 구간은 **비공개 연구 결과**다.
+원본 수신 시각의 진위, 공급원 이용 권리, 임시 휴장과 배당·분할 조정의 정의는
+자동 확인되지 않으므로 실제 TLT 성과나 공개 서비스 승인으로 해석할 수 없다.
+[보관 스냅샷 홀드아웃 리뷰](docs/reviews/snapshot-holdout-review.md)에 검증 범위를 기록했다.
 
 ## 기존 이벤트 연구 구현 상태
 

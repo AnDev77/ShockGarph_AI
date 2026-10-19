@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
+.PHONY: setup quality test test-fast collect train evaluate risk-evaluate report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -42,6 +42,10 @@ train:
 
 evaluate:
 	@echo "Not implemented before the Day 5 model baseline" && exit 2
+
+risk-evaluate:
+	@test -n "$(SNAPSHOT_MANIFEST)" || (echo "SNAPSHOT_MANIFEST에 비공개 manifest.json 경로를 지정하세요" && exit 2)
+	$(PYTHON) scripts/evaluate_snapshot_holdout.py --manifest "$(SNAPSHOT_MANIFEST)"
 
 report:
 	@echo "Not implemented before validated model artifacts exist" && exit 2

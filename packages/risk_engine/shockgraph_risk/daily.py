@@ -53,6 +53,36 @@ class BaselineReport:
     bootstrap_block_length: int
 
 
+@dataclass(frozen=True, slots=True)
+class HoldoutHorizonReport:
+    horizon: int
+    status: str
+    reason: str | None
+    first_missing_session: date | None
+    forecast_count: int
+    holdout_forecast_count: int
+    labeled_holdout_count: int
+    nonoverlapping_window_count: int
+    forecast_input_sha256: str | None
+    label_snapshot_hash: str | None
+    metrics: BaselineReport | None
+
+
+@dataclass(frozen=True, slots=True)
+class SnapshotHoldoutReport:
+    schema_version: int
+    symbol: str
+    source: str
+    holdout_start: datetime
+    evaluation_at: datetime
+    snapshot_count: int
+    snapshot_raw_hashes: tuple[str, ...]
+    horizons: tuple[HoldoutHorizonReport, ...]
+    rights_review_required: bool = True
+    price_vintage_review_required: bool = True
+    public_performance_allowed: bool = False
+
+
 def _utc(value: datetime, name: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() != timedelta(0):
         raise ValueError(f"{name} must be timezone-aware UTC")
@@ -423,4 +453,109 @@ def score_baselines(
             differences, block_length=horizon, repeats=bootstrap_repeats, seed=0
         ),
         bootstrap_block_length=horizon,
+    )
+
+
+def evaluate_snapshot_holdout(
+    snapshots: Sequence[PriceSnapshot],
+    expected_sessions: Sequence[date],
+    prediction_times: Mapping[date, datetime],
+    *,
+    holdout_start: datetime,
+    evaluation_at: datetime,
+    horizons: tuple[int, ...] = (5, 20),
+) -> SnapshotHoldoutReport:
+    """Reproduce a private chronological comparison from archived full-history captures."""
+    holdout_start = _utc(holdout_start, "holdout_start")
+    evaluation_at = _utc(evaluation_at, "evaluation_at")
+    sessions = tuple(expected_sessions)
+    ordered = _validated_snapshots(snapshots, sessions)
+    if set(prediction_times) != set(sessions):
+        raise ValueError("one explicit prediction time is required for every expected session")
+    times = tuple(_utc(prediction_times[day], "prediction_at") for day in sessions)
+    if any(later <= earlier for earlier, later in zip(times, times[1:], strict=False)):
+        raise ValueError("prediction times must increase with sessions")
+    if holdout_start not in times or evaluation_at < times[-1]:
+        raise ValueError(
+            "holdout_start must be a prediction time and evaluation must follow the range"
+        )
+    if ordered[-1].captured_at > evaluation_at:
+        raise ValueError("all supplied snapshots must be captured by evaluation_at")
+    if not horizons or len(set(horizons)) != len(horizons) or any(h < 2 for h in horizons):
+        raise ValueError("horizons must be unique and at least two sessions")
+
+    results = []
+    for horizon in horizons:
+        missing = None
+        for index in range(horizon, len(sessions)):
+            available = tuple(
+                snapshot for snapshot in ordered if snapshot.captured_at <= times[index]
+            )
+            if not available or len(available[-1].prices) != index + 1:
+                missing = sessions[index]
+                break
+        if missing is not None:
+            results.append(
+                HoldoutHorizonReport(
+                    horizon=horizon,
+                    status="blocked",
+                    reason="missing_complete_asof_snapshot",
+                    first_missing_session=missing,
+                    forecast_count=0,
+                    holdout_forecast_count=0,
+                    labeled_holdout_count=0,
+                    nonoverlapping_window_count=0,
+                    forecast_input_sha256=None,
+                    label_snapshot_hash=None,
+                    metrics=None,
+                )
+            )
+            continue
+
+        forecasts = build_snapshot_forecasts(ordered, sessions, prediction_times, horizon=horizon)
+        holdout = tuple(row for row in forecasts if row.prediction_at >= holdout_start)
+        labels = label_snapshot_forecasts(forecasts, ordered, sessions, evaluation_at=evaluation_at)
+        eligible = tuple(row for row in labels if row.forecast.prediction_at >= holdout_start)
+        count = len(eligible)
+        # Consecutive holdout origins share future returns; each h-window is one
+        # conservative effective observation for the minimum sample gate.
+        nonoverlap = count // horizon
+        status = "evaluated_research_only" if nonoverlap >= 2 else "blocked"
+        reason = None if nonoverlap >= 2 else "insufficient_nonoverlapping_windows"
+        fingerprint = (
+            hashlib.sha256(
+                "\n".join(
+                    f"{row.prediction_at.isoformat()}:{row.input_fingerprint}" for row in holdout
+                ).encode("utf-8")
+            ).hexdigest()
+            if holdout else None
+        )
+        results.append(
+            HoldoutHorizonReport(
+                horizon=horizon,
+                status=status,
+                reason=reason,
+                first_missing_session=None,
+                forecast_count=len(forecasts),
+                holdout_forecast_count=len(holdout),
+                labeled_holdout_count=count,
+                nonoverlapping_window_count=nonoverlap,
+                forecast_input_sha256=fingerprint,
+                label_snapshot_hash=eligible[0].label_snapshot_hash if eligible else None,
+                metrics=(
+                    score_baselines(eligible, holdout_start=holdout_start)
+                    if nonoverlap >= 2
+                    else None
+                ),
+            )
+        )
+    return SnapshotHoldoutReport(
+        schema_version=1,
+        symbol=ordered[0].prices[0].symbol,
+        source=ordered[0].prices[0].source,
+        holdout_start=holdout_start,
+        evaluation_at=evaluation_at,
+        snapshot_count=len(ordered),
+        snapshot_raw_hashes=tuple(snapshot.prices[0].raw_payload_hash for snapshot in ordered),
+        horizons=tuple(results),
     )
