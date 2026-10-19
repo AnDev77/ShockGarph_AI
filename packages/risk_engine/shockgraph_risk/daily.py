@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import math
 import random
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 
 from shockgraph_domain.records import AssetPriceRecord
@@ -17,6 +18,7 @@ class VolatilityForecast:
     horizon: int
     trailing_volatility: float
     ewma_volatility: float
+    input_fingerprint: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +27,15 @@ class LabeledForecast:
     label_end_at: datetime
     label_available_at: datetime
     realized_volatility: float
+    label_snapshot_hash: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PriceSnapshot:
+    """One archived full-history adjustment basis, captured from one raw provider response."""
+
+    captured_at: datetime
+    prices: tuple[AssetPriceRecord, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +73,10 @@ def _ordered_prices(
     first = ordered[0]
     for index, row in enumerate(ordered):
         if (row.symbol, row.venue, row.currency, row.source) != (
-            first.symbol, first.venue, first.currency, first.source
+            first.symbol,
+            first.venue,
+            first.currency,
+            first.source,
         ):
             raise ValueError("a daily price series must have one asset, currency, and source")
         if row.adjusted_close is None or row.available_at is None:
@@ -140,6 +154,112 @@ def build_baseline_forecasts(
     return tuple(forecasts)
 
 
+def _validated_snapshots(
+    snapshots: Sequence[PriceSnapshot], expected_sessions: Sequence[date]
+) -> tuple[PriceSnapshot, ...]:
+    sessions = tuple(expected_sessions)
+    if not sessions or tuple(sorted(set(sessions))) != sessions:
+        raise ValueError("expected_sessions must be nonempty, unique, and increasing")
+    if not snapshots:
+        raise ValueError("at least one archived price snapshot is required")
+    first_asset: tuple[str, str, str, str] | None = None
+    previous_capture: datetime | None = None
+    previous_count = 0
+    for snapshot in snapshots:
+        captured = _utc(snapshot.captured_at, "captured_at")
+        if previous_capture is not None and captured <= previous_capture:
+            raise ValueError("snapshot capture times must increase uniquely")
+        previous_capture = captured
+        rows = snapshot.prices
+        if (
+            not rows
+            or len(rows) > len(sessions)
+            or (tuple(row.session_date for row in rows) != sessions[: len(rows)])
+        ):
+            raise ValueError("each snapshot needs one complete calendar prefix")
+        if len(rows) < previous_count:
+            raise ValueError("archived snapshots cannot lose previously covered sessions")
+        previous_count = len(rows)
+        raw_hash = rows[0].raw_payload_hash
+        for row in rows:
+            asset = (row.symbol, row.venue, row.currency, row.source)
+            if first_asset is not None and asset != first_asset:
+                raise ValueError("all snapshots must use one asset, currency, and source")
+            first_asset = asset
+            if row.adjusted_close is None or row.available_at is None:
+                raise ValueError("snapshot prices need adjusted_close and exact available_at")
+            if row.available_at > captured:
+                raise ValueError("a price version cannot follow its archived capture")
+            if row.raw_payload_hash != raw_hash:
+                raise ValueError("one snapshot must come from one immutable raw response")
+        if any(
+            later.observed_at <= earlier.observed_at
+            for earlier, later in zip(rows, rows[1:], strict=False)
+        ):
+            raise ValueError("snapshot observation times must increase with sessions")
+    return tuple(snapshots)
+
+
+def _snapshot_as_of(snapshots: Sequence[PriceSnapshot], cutoff: datetime) -> PriceSnapshot:
+    available = [snapshot for snapshot in snapshots if snapshot.captured_at <= cutoff]
+    if not available:
+        raise ValueError("no complete price snapshot available at prediction_at")
+    return available[-1]
+
+
+def build_snapshot_forecasts(
+    snapshots: Sequence[PriceSnapshot],
+    expected_sessions: Sequence[date],
+    prediction_times: Mapping[date, datetime],
+    *,
+    horizon: int,
+) -> tuple[VolatilityForecast, ...]:
+    """Recompute each forecast on a single complete archived adjustment basis."""
+    if horizon < 2:
+        raise ValueError("horizon must be at least 2 trading days")
+    ordered = _validated_snapshots(snapshots, expected_sessions)
+    sessions = tuple(expected_sessions)
+    if set(prediction_times) != set(sessions):
+        raise ValueError("one explicit prediction time is required for every expected session")
+    times = tuple(_utc(prediction_times[day], "prediction_at") for day in sessions)
+    if any(later <= earlier for earlier, later in zip(times, times[1:], strict=False)):
+        raise ValueError("prediction times must increase with sessions")
+
+    forecasts = []
+    alpha = 2 / (horizon + 1)
+    for index in range(horizon, len(sessions)):
+        snapshot = _snapshot_as_of(ordered, times[index])
+        # A snapshot containing a later session would expose future data, even if its capture
+        # timestamp had been supplied incorrectly. Do not silently slice it to today's date.
+        if len(snapshot.prices) != index + 1:
+            raise ValueError("no complete price snapshot available at prediction_at")
+        squares = _squared_log_returns(snapshot.prices)
+        ewma_variance = math.fsum(squares[:horizon]) / horizon
+        for offset in range(horizon + 1, index + 1):
+            ewma_variance = alpha * squares[offset - 1] + (1 - alpha) * ewma_variance
+        trailing_variance = math.fsum(squares[index - horizon : index]) / horizon
+        provenance = "\n".join(
+            [snapshot.captured_at.isoformat()]
+            + [
+                f"{row.session_date}:{row.adjusted_close}:{_available(row).isoformat()}:"
+                f"{row.raw_payload_hash}"
+                for row in snapshot.prices
+            ]
+        )
+        forecasts.append(
+            VolatilityForecast(
+                symbol=snapshot.prices[0].symbol,
+                session_date=sessions[index],
+                prediction_at=times[index],
+                horizon=horizon,
+                trailing_volatility=math.sqrt(trailing_variance),
+                ewma_volatility=math.sqrt(ewma_variance),
+                input_fingerprint=hashlib.sha256(provenance.encode("utf-8")).hexdigest(),
+            )
+        )
+    return tuple(forecasts)
+
+
 def label_forecasts(
     forecasts: Sequence[VolatilityForecast],
     prices: Sequence[AssetPriceRecord],
@@ -178,6 +298,38 @@ def label_forecasts(
             )
         )
     return tuple(labeled)
+
+
+def label_snapshot_forecasts(
+    forecasts: Sequence[VolatilityForecast],
+    snapshots: Sequence[PriceSnapshot],
+    expected_sessions: Sequence[date],
+    *,
+    evaluation_at: datetime,
+) -> tuple[LabeledForecast, ...]:
+    """Use one complete evaluation snapshot; its capture is the earliest label-use time."""
+    evaluation_at = _utc(evaluation_at, "evaluation_at")
+    ordered = _validated_snapshots(snapshots, expected_sessions)
+    snapshot = _snapshot_as_of(ordered, evaluation_at)
+    sessions = tuple(expected_sessions)[: len(snapshot.prices)]
+    labels = label_forecasts(
+        tuple(
+            row
+            for row in forecasts
+            if row.session_date in sessions and row.prediction_at <= evaluation_at
+        ),
+        snapshot.prices,
+        sessions,
+        evaluation_at=evaluation_at,
+    )
+    return tuple(
+        replace(
+            row,
+            label_available_at=max(row.label_available_at, snapshot.captured_at),
+            label_snapshot_hash=snapshot.prices[0].raw_payload_hash,
+        )
+        for row in labels
+    )
 
 
 def purged_training_rows(

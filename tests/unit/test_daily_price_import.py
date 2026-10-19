@@ -32,7 +32,7 @@ def price_csv(*, late: date | None = None, omit: date | None = None) -> bytes:
     return "".join(lines).encode()
 
 
-def do_import(csv_bytes: bytes, tmp_path: Path) -> DailyPriceImport:
+def do_import(csv_bytes: bytes, tmp_path: Path, *, full_snapshot: bool = False) -> DailyPriceImport:
     return import_daily_prices(
         csv_bytes,
         store=ImmutableRawStore(tmp_path),
@@ -41,6 +41,7 @@ def do_import(csv_bytes: bytes, tmp_path: Path) -> DailyPriceImport:
         start=START,
         end=END,
         prediction_delay=timedelta(minutes=10),
+        full_snapshot=full_snapshot,
     )
 
 
@@ -115,3 +116,14 @@ def test_rejects_missing_vintage_or_future_price_and_bad_input(tmp_path: Path) -
         do_import(raw.replace(b"2026-03-30T20:05:00+00:00", b"2026-04-08T20:05:00+00:00"), tmp_path)
     with pytest.raises(ValueError, match="six columns"):
         do_import(b"session_date,close\n2026-03-30,100\n", tmp_path)
+
+
+def test_full_snapshot_mode_accepts_late_revisions_without_backdating_them(tmp_path: Path) -> None:
+    raw = price_csv().replace(b"2026-03-30T20:05:00+00:00", b"2026-04-07T20:09:00+00:00")
+    assert not do_import(raw, tmp_path).quality.structurally_ready
+
+    imported = do_import(raw, tmp_path, full_snapshot=True)
+    assert imported.quality.mode == "full_snapshot"
+    assert imported.quality.late_sessions == ("2026-03-30",)
+    assert imported.quality.structurally_ready
+    assert imported.captured_at == CAPTURED

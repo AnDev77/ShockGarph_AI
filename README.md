@@ -8,7 +8,8 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 
 **2026-10-19 방향 전환 단계:** 아래의 기존 Kalshi CPI 코드는 연구 이력이다.
 일별 위험은 이용 가능 시각을 검증하는 가격 계약, 단일 ETF·복수 ETF의 합성 데이터 기준선,
-2026년 Nasdaq 일정과 비공개 TLT CSV의 원본 보존·품질 검사 경로를 구현했다.
+2026년 Nasdaq 일정과 비공개 TLT CSV의 원본 보존·품질 검사 경로,
+보관된 전체 수정가격 스냅샷을 예측 당시 시각으로 선택하는 합성 기준선을 구현했다.
 허가된 실가격 파일·수정가격의 과거 버전 증거·실증 모델·웹 화면·주주 인증과 채팅은 아직 없다.
 새 범위는 [프로젝트 명세](shockgraph-ai-project-spec.md),
 [현재 상태가 표시된 프로젝트 흐름도](docs/project-flow.md),
@@ -46,6 +47,28 @@ python scripts/import_daily_prices.py --prices /private/tlt.csv --source license
 2026년 스냅샷으로, 임시 휴장 등은 별도 확인해야 한다. `structurally_ready`는 기계적
 입력 점검 결과이며 공급 계약·과거 버전 진위를 승인하거나 실자료 성능을 산출하지 않는다.
 자세한 제한과 다음 검증은 [19~20일차 리뷰](docs/reviews/day-19-20-review.md)에 적었다.
+
+### 과거 수정가격 스냅샷
+
+배당이나 분할로 과거 `adjusted_close`가 달라질 때는 당시 보관한 **전체 가격 이력
+파일을 날짜별로 별도 보존**해야 한다. 한 파일에 동일 세션을 중복 입력하지 않는다.
+각 파일을 수신 시각의 `--captured-at`과 그 파일의 마지막 세션을 `--end`로 지정하고
+`--full-snapshot`으로 검사할 수 있다.
+
+```bash
+python scripts/import_daily_prices.py --prices /private/tlt-snapshot.csv \
+  --source licensed-provider --captured-at 2026-04-07T20:10:00Z \
+  --start 2026-03-30 --end 2026-04-07 --prediction-delay-minutes 10 --full-snapshot
+```
+
+`full_snapshot`에서는 과거 행의 수정본이 원래 거래일 예측보다 늦게 나온 사실을
+`late_sessions`에 남기되, 전체 스냅샷의 구조 검사에서 이를 오류로 취급하지 않는다.
+실제 기준선 함수는 파일마다 `PriceSnapshot(captured_at=imported.captured_at,
+prices=imported.prices)`를 만들고 `build_snapshot_forecasts`에 **캡처 순서대로**
+전달한다. 각 예측은 그때까지 캡처됐고 해당일까지 완전한 최신 파일 **한 개**만
+사용한다. 최종 평가의 정답은 별도 스냅샷으로 계산한다. 공급원의 실제 권리와
+과거 수신·버전 증거가 없으면 이 기능 역시 합성 데이터 검증에만 사용한다.
+[수정가격 스냅샷 리뷰](docs/reviews/price-vintage-asof-review.md)에 시점 규칙을 정리했다.
 
 ## 기존 이벤트 연구 구현 상태
 

@@ -67,9 +67,9 @@ flowchart TB
 
 | 실행 영역 | 저장소 위치와 현재 상태 | 다음 연결 |
 |---|---|---|
-| 수집·정규화 | `apps/collector`, `packages/data_pipeline`: 기존 Kalshi 수집·원본 저장 및 정규화 계약 | 허가된 TLT 공급원, 실제 세션 달력, `available_at`, 일별 패널 영속화 |
+| 수집·정규화 | `apps/collector`, `packages/data_pipeline`: 기존 Kalshi 수집·원본 저장 계약, TLT 로컬 CSV 보존과 2026년 예정 세션 검사 | 허가된 TLT 공급원, 임시 휴장 확인, 과거 전체 파일 캡처 및 일별 패널 영속화 |
 | 메시지 큐 | `infra/postgres/migrations/0002_day03_04.sql`: 아웃박스 **스키마만** 존재. RabbitMQ·발행기·소비자는 미구현 | 객체 저장 완료 뒤 메타·아웃박스의 단일 DB 트랜잭션, 멱등 소비 및 재시도 검증 뒤 도입 |
-| 모델·평가 | `packages/risk_engine`: 합성 가격의 TLT 단일 자산 및 복수 ETF 공동 수익률 5·20일 기준선·시점 검사 구현 | 실자료 표본 외 검증, 시장 변수 증분 비교, 일별 모델 등록·스냅샷 스키마 |
+| 모델·평가 | `packages/risk_engine`: 합성 가격의 단일 자산·복수 ETF 기준선 및 TLT 전체 수정가격 스냅샷의 시점 선택·정답 검사 | 과거 실가격 파일로 표본 외 검증, 시장 변수 증분 비교, 일별 모델 등록·스냅샷 스키마 |
 | API·화면 | `apps/api`, `apps/web`: 자리만 있음 | 승인된 스냅샷을 읽는 FastAPI와 Next.js 화면 연결 |
 | 캐시 | Redis 미연결 | 조회 지연 측정 뒤 검증된 API 응답에만 적용 |
 

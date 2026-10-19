@@ -27,6 +27,8 @@ class DailyPriceQuality:
     source: str
     symbol: str
     venue: str
+    mode: str
+    captured_at: str
     calendar_source: str
     calendar_version: str
     file_sha256: str
@@ -47,6 +49,7 @@ class DailyPriceQuality:
 
 @dataclass(frozen=True, slots=True)
 class DailyPriceImport:
+    captured_at: datetime
     prices: tuple[AssetPriceRecord, ...]
     expected_sessions: tuple[date, ...]
     prediction_times: dict[date, datetime]
@@ -87,6 +90,7 @@ def import_daily_prices(
     end: date,
     prediction_delay: timedelta = timedelta(hours=1),
     symbol: str = "TLT",
+    full_snapshot: bool = False,
 ) -> DailyPriceImport:
     """Preserve the supplied file and check its timestamps against Nasdaq's 2026 schedule.
 
@@ -189,11 +193,15 @@ def import_daily_prices(
             }
         )
     )
-    ready = not (missing or unexpected or duplicates or off_close or late)
+    # Historical revised prices can be late relative to their original session but still
+    # usable at a later archived capture. The snapshot evaluator gates on captured_at.
+    ready = not (missing or unexpected or duplicates or off_close or (late and not full_snapshot))
     quality = DailyPriceQuality(
         source=source,
         symbol=symbol,
         venue="XNAS",
+        mode="full_snapshot" if full_snapshot else "single_series",
+        captured_at=captured_at.isoformat(),
         calendar_source=NASDAQ_2026_SOURCE,
         calendar_version=NASDAQ_2026_VERSION,
         file_sha256=file_hash,
@@ -209,6 +217,7 @@ def import_daily_prices(
         structurally_ready=ready,
     )
     return DailyPriceImport(
+        captured_at=captured_at,
         prices=tuple(prices),
         expected_sessions=tuple(session.session_date for session in sessions),
         prediction_times=prediction_times,

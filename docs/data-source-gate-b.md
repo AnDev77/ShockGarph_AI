@@ -35,6 +35,21 @@ FRED [관측 API](https://fred.stlouisfed.org/docs/api/fred/series_observations.
 이용 권리는 여전히 미확인이다. `structurally_ready=true`는 이 확인을 대체하지
 않으며 실자료 홀드아웃 평가·화면 공개는 보류한다.
 
+## 보관 시각을 기준으로 한 전체 가격 스냅샷
+
+과거 수정가격이 다시 계산된 경우, 원본 파일을 **캡처 시각별로 따로 보관**한다.
+파일 하나에는 시작일부터 해당 캡처일의 마지막 거래일까지 세션별 가격이 한 행씩
+있어야 한다. `--full-snapshot`은 이전 날짜 가격의 늦은 수정 사실을 보고하되
+수정이 있었다는 이유만으로 파일을 거부하지 않는다. 기준선은 `captured_at`이
+예측 시각 이전인 최신 **전체 파일 한 개**를 사용한다. 후속 평가의 정답도 평가
+시점의 전체 파일에서 계산하고, 그 파일을 언제 받았는지 보존한다. 공급원에서
+현재 내려받은 과거 이력 한 파일은 과거 날짜에 보관한 파일들을 대신하지 못한다.
+
+[조정계수의 전체 과거 적용 예제](https://databento.com/docs/examples/adjustment-factors/applying-adjustment-factors)와
+[자료형별 분할·배당 조정 차이](https://www.interactivebrokers.com/docs/tws-api/doc/md/historical-bars)를
+참고해 공급원의 정의를 확인한다. 이 구현은 공급원 이용권이나 과거 파일의
+진위를 자동 인증하지 않으며, 2026년 Nasdaq 예정 일정의 임시 휴장도 보정하지 않는다.
+
 ## 결론
 
 | 데이터 | 후보 | 판정 | MVP 사용 방식 |

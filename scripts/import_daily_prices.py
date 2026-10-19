@@ -22,6 +22,9 @@ def main() -> int:
     parser.add_argument("--start", type=date.fromisoformat, required=True)
     parser.add_argument("--end", type=date.fromisoformat, required=True)
     parser.add_argument("--prediction-delay-minutes", type=int, default=60)
+    parser.add_argument(
+        "--full-snapshot", action="store_true", help="전체 수정가격 스냅샷의 재게시를 허용"
+    )
     parser.add_argument("--raw-root", type=Path, default=ROOT / "data/raw")
     args = parser.parse_args()
     try:
@@ -33,6 +36,7 @@ def main() -> int:
             start=args.start,
             end=args.end,
             prediction_delay=timedelta(minutes=args.prediction_delay_minutes),
+            full_snapshot=args.full_snapshot,
         )
     except (OSError, ValueError) as error:
         print(json.dumps({"status": "invalid_input", "reason": str(error)}, ensure_ascii=False))
