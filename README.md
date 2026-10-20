@@ -157,6 +157,8 @@ python scripts/evaluate_exploratory_history.py --input artifacts/tlt-private.csv
 
 실제 가격의 탐색 비교와 계산 검증은 [기준선 리뷰](docs/reviews/tlt-exploratory-baseline-review.md),
 [첫 모델 비교 리뷰](docs/reviews/tlt-price-only-model-review.md)에 기록했다.
+후속 GARCH(1,1)·HAR-RV와 시장 변수의 실험 순서는
+[논문 기반 TLT 모델 설계](docs/tlt-volatility-model-design.md)에 정리했다.
 
 ## 기존 이벤트 연구 구현 상태
 

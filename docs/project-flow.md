@@ -86,6 +86,7 @@ CPI/FOMC와 Kalshi의 기존 확률 분석은 별도 연구로 유지한다. **�
 기준선을 넘지 못하더라도 실패 분석을 기록하고 성능을 과장하지 않는다.
 
 관련 상세 문서: [일별 위험 방법론](daily-risk-methodology.md),
+[논문 기반 TLT 모델 설계](tlt-volatility-model-design.md),
 [포트폴리오 위험 방법론](portfolio-risk-methodology.md),
 [모델·API·메시지 큐 프로그램 구조도](architecture.md#새-프로그램-구조-일별-etf-위험),
 [제품 화면](product-ui-direction.md),
