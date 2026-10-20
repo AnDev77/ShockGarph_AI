@@ -11,9 +11,11 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 2026년 Nasdaq 일정과 비공개 TLT CSV의 원본 보존·품질 검사 경로,
 보관된 전체 수정가격 스냅샷을 예측 당시 시각으로 선택하는 합성 기준선과
 보관 파일을 입력으로 받는 비공개 5·20일 시간순 평가 보고 경로를 구현했다.
-허가된 실가격 파일·수정가격의 과거 버전 증거·실증 모델·웹 화면·주주 인증과 채팅은 아직 없다.
-**예측 실증은 HOLD:** [데이터 가능성 판정](docs/data-source-gate-b.md#2026-10-20-예측-실증-가능성-판정)에서
-실가격·이용권 부재, 2026년 달력의 짧은 20일 홀드아웃, 원시 종가와 기업행동을
+공급 계약이 확인된 실가격 파일·수정가격의 과거 버전 증거·실증 모델·웹 화면·주주 인증과 채팅은 아직 없다.
+현재 내려받은 실제 TLT 수정종가 한 벌로 **비공개 탐색 평가**는 수행했다.
+이는 과거 예측 당시의 가격 버전을 증명하지 않으므로 엄격한 **예측 실증은 HOLD**다.
+[데이터 가능성 판정](docs/data-source-gate-b.md#2026-10-20-예측-실증-가능성-판정)에서
+과거 버전·이용권 부재, 2026년 달력의 짧은 20일 홀드아웃, 원시 종가와 기업행동을
 시점별로 재구성하는 대안을 구분했다. 합성 시험 수치를 제품 성능으로 사용하지 않는다.
 새 범위는 [프로젝트 명세](shockgraph-ai-project-spec.md),
 [현재 상태가 표시된 프로젝트 흐름도](docs/project-flow.md),
@@ -118,6 +120,27 @@ python scripts/evaluate_snapshot_holdout.py --manifest /private/manifest.json \
 원본 수신 시각의 진위, 공급원 이용 권리, 임시 휴장과 배당·분할 조정의 정의는
 자동 확인되지 않으므로 실제 TLT 성과나 공개 서비스 승인으로 해석할 수 없다.
 [보관 스냅샷 홀드아웃 리뷰](docs/reviews/snapshot-holdout-review.md)에 검증 범위를 기록했다.
+
+### 현재 수정종가 한 벌로 하는 탐색 평가
+
+비공개 CSV에 `session_date,adjusted_close` 두 열을 날짜순으로 적는다.
+예를 들어 직접 내려받은 TLT 수정종가를 `artifacts/tlt-private.csv`에 둔 뒤
+다음 명령으로 두 기준선의 5·20일 미래 변동성 오차를 계산한다.
+
+```bash
+python scripts/evaluate_exploratory_history.py --input artifacts/tlt-private.csv \
+  --source "가격 공급원과 내려받은 날짜" --holdout-start 2024-01-02 \
+  --output artifacts/tlt-private-evaluation.json
+# 또는: make risk-explore PRICE_HISTORY=artifacts/tlt-private.csv \
+#   PRICE_SOURCE=licensed-provider HOLDOUT_START=2024-01-02
+```
+
+입력 파일과 결과 JSON은 `.gitignore`에 포함된 비공개 위치에 보관한다. 현재 내려받은
+한 벌의 수정종가에는 과거 날짜마다 언제 그 값이 공개·정정됐는지 기록되지 않는다.
+평가기는 날짜가 늘어나는 순서와 숫자 형식만 검사하고 **거래소 달력 전체와 과거
+수정가격 버전은 검증하지 않는다.** 결과는 과거 5·20개 **입력 행**으로 미래 같은
+수의 행을 예측한 탐색 결과이며, 상품 성능이나 AI 모델의 개선 근거가 아니다.
+정확한 자료 범위와 검사는 [탐색 평가 리뷰](docs/reviews/tlt-exploratory-baseline-review.md)에 기록했다.
 
 ## 기존 이벤트 연구 구현 상태
 

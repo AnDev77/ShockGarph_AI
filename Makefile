@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate risk-evaluate report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
+.PHONY: setup quality test test-fast collect train evaluate risk-evaluate risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -46,6 +46,12 @@ evaluate:
 risk-evaluate:
 	@test -n "$(SNAPSHOT_MANIFEST)" || (echo "SNAPSHOT_MANIFEST에 비공개 manifest.json 경로를 지정하세요" && exit 2)
 	$(PYTHON) scripts/evaluate_snapshot_holdout.py --manifest "$(SNAPSHOT_MANIFEST)"
+
+risk-explore:
+	@test -n "$(PRICE_HISTORY)" || (echo "PRICE_HISTORY에 비공개 수정종가 CSV 경로를 지정하세요" && exit 2)
+	@test -n "$(PRICE_SOURCE)" || (echo "PRICE_SOURCE에 공급원 이름을 지정하세요" && exit 2)
+	@test -n "$(HOLDOUT_START)" || (echo "HOLDOUT_START에 YYYY-MM-DD를 지정하세요" && exit 2)
+	$(PYTHON) scripts/evaluate_exploratory_history.py --input "$(PRICE_HISTORY)" --source "$(PRICE_SOURCE)" --holdout-start "$(HOLDOUT_START)"
 
 report:
 	@echo "Not implemented before validated model artifacts exist" && exit 2
