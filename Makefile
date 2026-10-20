@@ -51,7 +51,7 @@ risk-explore:
 	@test -n "$(PRICE_HISTORY)" || (echo "PRICE_HISTORY에 비공개 수정종가 CSV 경로를 지정하세요" && exit 2)
 	@test -n "$(PRICE_SOURCE)" || (echo "PRICE_SOURCE에 공급원 이름을 지정하세요" && exit 2)
 	@test -n "$(HOLDOUT_START)" || (echo "HOLDOUT_START에 YYYY-MM-DD를 지정하세요" && exit 2)
-	$(PYTHON) scripts/evaluate_exploratory_history.py --input "$(PRICE_HISTORY)" --source "$(PRICE_SOURCE)" --holdout-start "$(HOLDOUT_START)"
+	$(PYTHON) scripts/evaluate_exploratory_history.py --input "$(PRICE_HISTORY)" --source "$(PRICE_SOURCE)" --holdout-start "$(HOLDOUT_START)" $(if $(COMPARE_MODEL),--compare-model,)
 
 report:
 	@echo "Not implemented before validated model artifacts exist" && exit 2

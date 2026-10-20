@@ -11,8 +11,9 @@ CPI/FOMC와 Kalshi 확률은 별도 이벤트 연구로 보존하고, 후속으�
 2026년 Nasdaq 일정과 비공개 TLT CSV의 원본 보존·품질 검사 경로,
 보관된 전체 수정가격 스냅샷을 예측 당시 시각으로 선택하는 합성 기준선과
 보관 파일을 입력으로 받는 비공개 5·20일 시간순 평가 보고 경로를 구현했다.
-공급 계약이 확인된 실가격 파일·수정가격의 과거 버전 증거·실증 모델·웹 화면·주주 인증과 채팅은 아직 없다.
+공급 계약이 확인된 실가격 파일·수정가격의 과거 버전 증거·승인된 예측 모델·웹 화면·주주 인증과 채팅은 아직 없다.
 현재 내려받은 실제 TLT 수정종가 한 벌로 **비공개 탐색 평가**는 수행했다.
+가격 이력만 학습한 첫 비교 모델은 기존 기준선보다 오차가 커서 승인하지 않았다.
 이는 과거 예측 당시의 가격 버전을 증명하지 않으므로 엄격한 **예측 실증은 HOLD**다.
 [데이터 가능성 판정](docs/data-source-gate-b.md#2026-10-20-예측-실증-가능성-판정)에서
 과거 버전·이용권 부재, 2026년 달력의 짧은 20일 홀드아웃, 원시 종가와 기업행동을
@@ -140,7 +141,22 @@ python scripts/evaluate_exploratory_history.py --input artifacts/tlt-private.csv
 평가기는 날짜가 늘어나는 순서와 숫자 형식만 검사하고 **거래소 달력 전체와 과거
 수정가격 버전은 검증하지 않는다.** 결과는 과거 5·20개 **입력 행**으로 미래 같은
 수의 행을 예측한 탐색 결과이며, 상품 성능이나 AI 모델의 개선 근거가 아니다.
-정확한 자료 범위와 검사는 [탐색 평가 리뷰](docs/reviews/tlt-exploratory-baseline-review.md)에 기록했다.
+같은 비공개 자료에서 비교 모델을 실행하려면 `--compare-model`을 추가한다.
+이 모델은 과거 1·5·20행의 변동성을 입력으로 쓰고, **시험 시작일 전에 미래 결과까지
+확정된 행**으로 한 번 학습한다. 시험 기간 중 모델을 재학습하거나 시험 성능으로
+설정을 고르지 않는다. 최근 변동성·EWMA와 같은 시작 날짜·미래 정답에서 오차를
+비교한다.
+
+```bash
+python scripts/evaluate_exploratory_history.py --input artifacts/tlt-private.csv \
+  --source "가격 공급원과 내려받은 날짜" --holdout-start 2024-01-02 \
+  --compare-model --output artifacts/tlt-private-model.json
+# 또는: make risk-explore PRICE_HISTORY=artifacts/tlt-private.csv \
+#   PRICE_SOURCE=licensed-provider HOLDOUT_START=2024-01-02 COMPARE_MODEL=1
+```
+
+실제 가격의 탐색 비교와 계산 검증은 [기준선 리뷰](docs/reviews/tlt-exploratory-baseline-review.md),
+[첫 모델 비교 리뷰](docs/reviews/tlt-price-only-model-review.md)에 기록했다.
 
 ## 기존 이벤트 연구 구현 상태
 

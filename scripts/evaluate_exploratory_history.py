@@ -21,9 +21,12 @@ from shockgraph_risk.exploratory_history import (  # noqa: E402
     HistoryPrice,
     evaluate_adjusted_history,
 )
+from shockgraph_risk.exploratory_model import compare_price_only_model  # noqa: E402
 
 
-def run_history(path: Path, *, holdout_start: date, source: str) -> dict[str, Any]:
+def run_history(
+    path: Path, *, holdout_start: date, source: str, compare_model: bool = False
+) -> dict[str, Any]:
     if not source.strip():
         raise ValueError("source must be named")
     try:
@@ -49,7 +52,7 @@ def run_history(path: Path, *, holdout_start: date, source: str) -> dict[str, An
     except (UnicodeDecodeError, csv.Error) as error:
         raise ValueError("CSV must be valid UTF-8 with two columns") from error
     reports = evaluate_adjusted_history(rows, holdout_start=holdout_start)
-    return {
+    result = {
         "status": "exploratory_current_history_only",
         "source": source,
         "source_file_sha256": hashlib.sha256(data).hexdigest(),
@@ -63,6 +66,19 @@ def run_history(path: Path, *, holdout_start: date, source: str) -> dict[str, An
         "public_performance_allowed": False,
         "horizons": [asdict(report) for report in reports],
     }
+    if compare_model:
+        result["candidate_model"] = {
+            "name": "price_only_log_volatility_ridge",
+            "feature_windows": [1, 5, 20],
+            "training_minimum_rows": 100,
+            "ridge_penalty": 10.0,
+            "fit": "once before holdout, labels end before holdout starts",
+            "horizons": [
+                asdict(report)
+                for report in compare_price_only_model(rows, holdout_start=holdout_start)
+            ],
+        }
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -70,10 +86,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--holdout-start", type=date.fromisoformat, required=True)
     parser.add_argument("--source", required=True)
+    parser.add_argument("--compare-model", action="store_true")
     parser.add_argument("--output", type=Path, help="비공개 JSON 경로, 생략하면 표준 출력")
     args = parser.parse_args(argv)
     try:
-        report = run_history(args.input, holdout_start=args.holdout_start, source=args.source)
+        report = run_history(
+            args.input, holdout_start=args.holdout_start, source=args.source,
+            compare_model=args.compare_model,
+        )
         encoded = json.dumps(report, ensure_ascii=False, indent=2, default=date.isoformat) + "\n"
         if args.output is None:
             print(encoded, end="")

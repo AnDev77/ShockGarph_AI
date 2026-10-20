@@ -27,6 +27,14 @@ def test_private_csv_report_records_provenance_and_limits(tmp_path: Path) -> Non
     assert not report["public_performance_allowed"]
     assert report["horizons"][1]["sample_size"] == 49
 
+    model_report = run_history(
+        source, source="private-test", holdout_start=date(2024, 2, 1), compare_model=True
+    )
+    assert model_report["source_file_sha256"] == report["source_file_sha256"]
+    assert model_report["candidate_model"]["horizons"][1]["status"] == (
+        "insufficient_training_or_holdout"
+    )
+
     source.write_text("session_date,adjusted_close\n2024-01-01,nan\n", encoding="utf-8")
     with pytest.raises(ValueError, match="positive and finite"):
         run_history(source, source="private-test", holdout_start=date(2024, 1, 1))
