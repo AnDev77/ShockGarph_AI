@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate risk-evaluate risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
+.PHONY: setup quality test test-fast collect train evaluate risk-evaluate risk-compare risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -46,6 +46,11 @@ evaluate:
 risk-evaluate:
 	@test -n "$(SNAPSHOT_MANIFEST)" || (echo "SNAPSHOT_MANIFEST에 비공개 manifest.json 경로를 지정하세요" && exit 2)
 	$(PYTHON) scripts/evaluate_snapshot_holdout.py --manifest "$(SNAPSHOT_MANIFEST)"
+
+risk-compare:
+	@test -n "$(SNAPSHOT_MANIFEST)" || (echo "SNAPSHOT_MANIFEST에 비공개 manifest.json 경로를 지정하세요" && exit 2)
+	@test -n "$(INDICATOR_HISTORY)" || (echo "INDICATOR_HISTORY에 비공개 지표 CSV 경로를 지정하세요" && exit 2)
+	$(PYTHON) scripts/evaluate_traditional_holdout.py --manifest "$(SNAPSHOT_MANIFEST)" --indicators "$(INDICATOR_HISTORY)"
 
 risk-explore:
 	@test -n "$(PRICE_HISTORY)" || (echo "PRICE_HISTORY에 비공개 수정종가 CSV 경로를 지정하세요" && exit 2)

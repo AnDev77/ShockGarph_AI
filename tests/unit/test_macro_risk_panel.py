@@ -190,3 +190,25 @@ def test_rejects_ambiguous_vintages_or_missing_price_lineage() -> None:
     with pytest.raises(ValueError, match="UTC"):
         MarketIndicatorObservation("US10Y", "synthetic", clock(5).replace(tzinfo=None),
                                    clock(5), 2.0, "b" * 64)
+
+
+def test_traditional_only_rows_do_not_require_any_probability_event() -> None:
+    result = build_macro_risk_panel(
+        (baseline(5), baseline(6)),
+        [indicator("US10Y", 5), indicator("US10Y", 6)], [], [],
+        required_indicators=("US10Y",),
+        max_indicator_age=DAY * 2,
+        max_probability_age=DAY,
+        max_release_lead=DAY,
+        include_probability_research=False,
+    )
+    assert result.coverage.traditional_count == 2
+    assert result.coverage.probability_count == 0
+    assert result.coverage.exclusions == ()
+    with pytest.raises(ValueError, match="probability research inputs must be empty"):
+        build_macro_risk_panel(
+            (baseline(5),), [indicator("US10Y", 5)], [event()], [],
+            required_indicators=("US10Y",), max_indicator_age=DAY,
+            max_probability_age=DAY, max_release_lead=DAY,
+            include_probability_research=False,
+        )

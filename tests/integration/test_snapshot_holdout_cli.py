@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from shockgraph_data_pipeline.market_calendar import nasdaq_2026_sessions
 
 from scripts.evaluate_snapshot_holdout import main
+from scripts.evaluate_traditional_holdout import main as traditional_main
 
 
 def _manifest(tmp_path: Path) -> Path:
@@ -79,3 +80,31 @@ def test_cli_fails_closed_on_missing_history(
     assert result["status"] == "invalid_input"
     assert "incomplete or invalid calendar coverage" in result["reason"]
     assert str(tmp_path) not in result["reason"]
+
+
+def test_traditional_cli_uses_private_indicator_csv_and_blocks_too_short_holdout(
+    tmp_path: Path,
+) -> None:
+    manifest = _manifest(tmp_path)
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    indicators = tmp_path / "indicators.csv"
+    lines = ["name,source,observed_at,available_at,value"]
+    for index, item in enumerate(data["snapshots"]):
+        captured = datetime.fromisoformat(item["captured_at"])
+        lines.append(
+            f"DGS10,synthetic,{(captured - timedelta(minutes=5)).isoformat()},"
+            f"{(captured - timedelta(minutes=2)).isoformat()},{3 + index / 100}"
+        )
+    indicators.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    output = tmp_path / "traditional.json"
+    args = ["--manifest", str(manifest), "--indicators", str(indicators),
+            "--raw-root", str(tmp_path / "raw"), "--output", str(output)]
+    assert traditional_main(args) == 0
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["public_performance_allowed"] is False
+    assert report["indicator_names"] == ["DGS10"]
+    assert len(report["indicator_file_sha256"]) == 64
+    assert report["horizons"][0]["status"] == "blocked"
+    assert report["horizons"][0]["metrics"] is None
+    assert str(tmp_path) not in output.read_text(encoding="utf-8")
+    assert traditional_main(args) == 2  # Do not overwrite an existing private report.

@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import json
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -42,7 +42,18 @@ def _iso(value: date | datetime) -> str:
     return value.isoformat()
 
 
-def run_manifest(manifest_path: Path, raw_root: Path) -> dict[str, Any]:
+@dataclass(frozen=True, slots=True)
+class LoadedSnapshotManifest:
+    manifest_sha256: str
+    sessions: tuple[date, ...]
+    prediction_times: dict[date, datetime]
+    snapshots: tuple[PriceSnapshot, ...]
+    holdout_start: datetime
+    evaluation_at: datetime
+    provenance: tuple[dict[str, Any], ...]
+
+
+def load_snapshot_manifest(manifest_path: Path, raw_root: Path) -> LoadedSnapshotManifest:
     try:
         manifest_bytes = manifest_path.read_bytes()
     except OSError as error:
@@ -105,15 +116,25 @@ def run_manifest(manifest_path: Path, raw_root: Path) -> dict[str, Any]:
             "session_count": len(imported.prices),
         })
 
+    return LoadedSnapshotManifest(
+        manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+        sessions=tuple(prediction_times), prediction_times=prediction_times,
+        snapshots=tuple(snapshots), holdout_start=prediction_times[holdout_date],
+        evaluation_at=evaluation_at, provenance=tuple(provenance),
+    )
+
+
+def run_manifest(manifest_path: Path, raw_root: Path) -> dict[str, Any]:
+    inputs = load_snapshot_manifest(manifest_path, raw_root)
     report = evaluate_snapshot_holdout(
-        snapshots, tuple(prediction_times), prediction_times,
-        holdout_start=prediction_times[holdout_date], evaluation_at=evaluation_at,
+        inputs.snapshots, inputs.sessions, inputs.prediction_times,
+        holdout_start=inputs.holdout_start, evaluation_at=inputs.evaluation_at,
     )
     return {
-        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "manifest_sha256": inputs.manifest_sha256,
         "calendar_source": NASDAQ_2026_SOURCE,
         "calendar_version": NASDAQ_2026_VERSION,
-        "snapshot_provenance": provenance,
+        "snapshot_provenance": inputs.provenance,
         "report": asdict(report),
     }
 

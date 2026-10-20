@@ -23,6 +23,8 @@ TLT/금리 관측을 시점별로 자동 결합한 리포트가 수동 조사보
 2026년 Nasdaq 일정과 비공개 TLT CSV의 원본 보존·품질 검사 경로,
 보관된 전체 수정가격 스냅샷을 예측 당시 시각으로 선택하는 합성 기준선과
 보관 파일을 입력으로 받는 비공개 5·20일 시간순 평가 보고 경로를 구현했다.
+보관 가격과 이용 가능 시각이 적힌 전통 지표를 결합하는 A/B 비교기도 합성
+자료로 검증했다. 실제 시점별 가격·금리 공통 표본의 성능은 아직 없다.
 공급 계약이 확인된 실가격 파일·수정가격의 과거 버전 증거·승인된 예측 모델·웹 화면·주주 인증과 채팅은 아직 없다.
 현재 내려받은 실제 TLT 수정종가 한 벌로 **비공개 탐색 평가**는 수행했다.
 가격 이력만 학습한 첫 비교 모델은 5·20일 MAE가 EWMA보다 커서 승인하지 않았다.
@@ -38,6 +40,43 @@ TLT/금리 관측을 시점별로 자동 결합한 리포트가 수동 조사보
 [제품 목표와 예측 성과별 커뮤니티 경로](docs/product-goal-and-fallback.md),
 [연준 연구를 검토한 포트폴리오 위험 방법론](docs/portfolio-risk-methodology.md),
 [주주 인증 채팅 후속 설계](docs/shareholder-community-roadmap.md)에 기록했다.
+
+## 전통 지표 A/B 비공개 비교
+
+`make risk-evaluate`에서 쓰는 **보관 전체 수정가격 스냅샷 manifest**와
+별도의 전통 지표 CSV가 필요하다. 지표 파일은 저장소 밖 또는 무시된 비공개
+경로에 두고 `name,source,observed_at,available_at,value` 열을 사용한다.
+`observed_at`과 `available_at`은 UTC 시각이며, 예를 들어 `DGS10`의 관측일
+이름만 적고 장 마감 전 공개된 것처럼 만들지 않는다. 원본 자료나 별도 기록으로
+해당 과거 게시 시각을 확인하지 못하면 입력 시각의 진위는 **미확인**이다.
+
+```bash
+make risk-compare SNAPSHOT_MANIFEST=/private/manifest.json \
+  INDICATOR_HISTORY=/private/indicators.csv PYTHON=.venv/bin/python
+# 기본 지표 DGS10 외 복수 지표를 시험할 때는 다음 CLI에서 --indicator를 반복한다.
+.venv/bin/python scripts/evaluate_traditional_holdout.py \
+  --manifest /private/manifest.json --indicators /private/indicators.csv \
+  --indicator DGS10 --indicator VIXCLS --output artifacts/private-ab.json
+```
+
+비교기는 A의 최근 변동성·EWMA와 B의 가격 변동성 두 항·지표 수준을 같은
+홀드아웃 날짜에서 채점한다. B는 훈련 기간에서만 표준화한 고정 패널티 Ridge이고
+훈련 정답은 **홀드아웃 시작 전에 받은 가격 스냅샷**에서, 시험 정답은 평가 시점의
+스냅샷에서 만든다. 기본 학습 최소 100행과 기간별 정답의 비중첩 구간 최소 2개가
+없으면 점수를 숨긴다. 결과는 입력 파일 해시·결측·표본 수·MAE·QLIKE·불확실성
+구간을 담는 **비공개 연구 보고**이며 `public_performance_allowed=false`다.
+현재 로더의 거래소 달력은 2026년 예정 일정에 한정된다.
+
+[FRED의 DGS10](https://fred.stlouisfed.org/series/DGS10)과
+[VIXCLS](https://fred.stlouisfed.org/series/VIXCLS)는 후보 지표지만, FRED의
+[과거 버전 API](https://fred.stlouisfed.org/docs/api/fred/series_observations.html)는
+날짜별 빈티지를 제공할 뿐 일중 게시 시각이나 가격 파일의 과거 실제 캡처를
+자동 증명하지 않는다. 특히 VIX는 원 공급원 CBOE의 저작권·표시 조건을
+별도로 확인해야 한다. 자료의 시점과 사용 권리, 새 독립 시험 기간이 없으면
+실증 성과를 주장하지 않는다.
+
+입력·평가 계약과 합성 시험 결과는
+[전통 지표 A/B 홀드아웃 리뷰](docs/reviews/traditional-risk-ab-holdout-review.md)에 기록했다.
 
 ## 일별 위험 기준선 실행
 

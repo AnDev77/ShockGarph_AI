@@ -1,4 +1,4 @@
-"""Point-in-time inputs for a price baseline, traditional model, and probability model.
+"""Point-in-time price and traditional inputs, with an optional probability research join.
 
 This joins already captured records. It does not train, score, or license a model.
 """
@@ -101,8 +101,9 @@ def build_macro_risk_panel(
     max_indicator_age: timedelta,
     max_probability_age: timedelta,
     max_release_lead: timedelta,
+    include_probability_research: bool = True,
 ) -> MacroRiskPanel:
-    """Create B rows and a strictly matched A/B/C sample without future observations.
+    """Create B rows and optionally a strictly matched A/B/C research sample.
 
     Age/lead settings and the contract for each release must be fixed before evaluation.
     Missing observations remain excluded; a missing probability never becomes zero.
@@ -115,6 +116,8 @@ def build_macro_risk_panel(
         max_indicator_age, max_probability_age, max_release_lead
     )):
         raise ValueError("age and release lead limits must be positive")
+    if not include_probability_research and (events or probabilities):
+        raise ValueError("probability research inputs must be empty when disabled")
 
     baseline = tuple(forecasts)
     if baseline:
@@ -198,6 +201,8 @@ def build_macro_risk_panel(
         else:
             b_row = TraditionalFeatureRow(forecast, tuple(selected_indicators))
             traditional.append(b_row)
+            if not include_probability_research:
+                continue
             known_events = [
                 event for event in events
                 if event.available_at <= at < event.release_at
