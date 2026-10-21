@@ -212,3 +212,53 @@ def test_traditional_only_rows_do_not_require_any_probability_event() -> None:
             max_probability_age=DAY, max_release_lead=DAY,
             include_probability_research=False,
         )
+
+
+def test_weekly_stress_and_daily_yield_have_separate_freshness_windows() -> None:
+    forecasts = (baseline(5), baseline(6), baseline(7))
+    market = [indicator("DGS10", 5), indicator("NFCI_RISK", 5)]
+    result = build_macro_risk_panel(
+        forecasts, market, [], [], required_indicators=("DGS10", "NFCI_RISK"),
+        max_indicator_age=DAY * 2,
+        indicator_max_ages={"DGS10": HOUR * 25, "NFCI_RISK": DAY * 7},
+        max_probability_age=DAY, max_release_lead=DAY,
+        include_probability_research=False,
+    )
+    assert tuple(row.forecast.session_date for row in result.traditional_rows) == (
+        date(2026, 1, 5), date(2026, 1, 6),
+    )
+    assert result.coverage.exclusions == (("stale_indicator", 1),)
+    assert result.coverage.indicator_exclusions == (("DGS10", "stale_indicator", 1),)
+
+
+def test_weekly_stress_release_cannot_be_backdated_to_its_observation_week() -> None:
+    forecasts = (baseline(5), baseline(6), baseline(7))
+    market = [indicator("DGS10", day) for day in (5, 6, 7)]
+    market.append(MarketIndicatorObservation(
+        "NFCI_RISK", "Chicago Fed", clock(5, 20), clock(6, 22), 0.4, "c" * 64,
+    ))
+    result = build_macro_risk_panel(
+        forecasts, market, [], [], required_indicators=("DGS10", "NFCI_RISK"),
+        max_indicator_age=DAY * 2, indicator_max_ages={"NFCI_RISK": DAY * 7},
+        max_probability_age=DAY, max_release_lead=DAY,
+        include_probability_research=False,
+    )
+    assert tuple(row.forecast.session_date for row in result.traditional_rows) == (
+        date(2026, 1, 7),
+    )
+    assert result.coverage.indicator_exclusions == (("NFCI_RISK", "missing_indicator", 2),)
+
+
+def test_rejects_unconfigured_or_invalid_indicator_freshness() -> None:
+    with pytest.raises(ValueError, match="unknown indicator age"):
+        build_macro_risk_panel([baseline(5)], [indicator("DGS10", 5)], [], [],
+                               required_indicators=("DGS10",), max_indicator_age=DAY,
+                               max_probability_age=DAY, max_release_lead=DAY,
+                               include_probability_research=False,
+                               indicator_max_ages={"NFCI_RISK": DAY})
+    with pytest.raises(ValueError, match="positive indicator age"):
+        build_macro_risk_panel([baseline(5)], [indicator("DGS10", 5)], [], [],
+                               required_indicators=("DGS10",), max_indicator_age=DAY,
+                               max_probability_age=DAY, max_release_lead=DAY,
+                               include_probability_research=False,
+                               indicator_max_ages={"DGS10": timedelta(0)})

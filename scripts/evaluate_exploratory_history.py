@@ -24,11 +24,8 @@ from shockgraph_risk.exploratory_history import (  # noqa: E402
 from shockgraph_risk.exploratory_model import compare_price_only_model  # noqa: E402
 
 
-def run_history(
-    path: Path, *, holdout_start: date, source: str, compare_model: bool = False
-) -> dict[str, Any]:
-    if not source.strip():
-        raise ValueError("source must be named")
+def load_history_prices(path: Path) -> tuple[tuple[HistoryPrice, ...], str]:
+    """Load the private two-column file without inventing historical availability."""
     try:
         data = path.read_bytes()
     except OSError as error:
@@ -51,11 +48,20 @@ def run_history(
             rows.append(HistoryPrice(session_date, closing))
     except (UnicodeDecodeError, csv.Error) as error:
         raise ValueError("CSV must be valid UTF-8 with two columns") from error
+    return tuple(rows), hashlib.sha256(data).hexdigest()
+
+
+def run_history(
+    path: Path, *, holdout_start: date, source: str, compare_model: bool = False
+) -> dict[str, Any]:
+    if not source.strip():
+        raise ValueError("source must be named")
+    rows, file_hash = load_history_prices(path)
     reports = evaluate_adjusted_history(rows, holdout_start=holdout_start)
     result = {
         "status": "exploratory_current_history_only",
         "source": source,
-        "source_file_sha256": hashlib.sha256(data).hexdigest(),
+        "source_file_sha256": file_hash,
         "symbol": "TLT",
         "observation_count": len(rows),
         "first_observation_date": rows[0].session_date.isoformat(),
