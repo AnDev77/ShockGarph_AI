@@ -19,7 +19,11 @@
 `include_probability_research=False`로 실행하면 Kalshi 사건 없이 A/B 입력만
 만들고 확률 부재를 B의 결측으로 세지 않는다. `shockgraph_risk.traditional_model`은
 보관 가격을 다시 시점별로 확인하고, 홀드아웃 시작 시각의 가격 빈티지로만
-학습 정답을 만들며, 동일 날짜에서 A와 B를 비교한다. 지표의 원본 시각은
+학습 정답을 만들며, 동일 날짜에서 최근 변동성·EWMA·가격 전용 Ridge(B0)·
+전통 지표 Ridge(B1)를 비교한다. `shockgraph_risk.garch`는 GARCH(1,1)을
+홀드아웃 전 수익률에만 학습하고 같은 날짜의 가격 버전으로 갱신해 별도
+통계 기준선으로 채점한다. 금리 기여는 같은 회귀 모형인 B1−B0로 구분한다.
+지표의 원본 시각은
 `scripts/evaluate_traditional_holdout.py`의 비공개 CSV로 받을 수 있다.
 합성 자료에서는 B의 계산·결측·누수 방지만 검증했다. 실제 가격·시장 지표·
 확률 공급원의 권리와 B/C의 실자료 표본 외 성능은 아직 확인하지 않았다.

@@ -105,7 +105,7 @@ def run_traditional_manifest(
         compared.append({"horizon": horizon, "coverage": asdict(panel.coverage),
                          "metrics": asdict(result)})
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "private_research_only",
         "manifest_sha256": inputs.manifest_sha256,
         "indicator_file_sha256": indicator_hash,

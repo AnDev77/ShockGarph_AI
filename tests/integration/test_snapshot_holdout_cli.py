@@ -101,6 +101,7 @@ def test_traditional_cli_uses_private_indicator_csv_and_blocks_too_short_holdout
             "--raw-root", str(tmp_path / "raw"), "--output", str(output)]
     assert traditional_main(args) == 0
     report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["schema_version"] == 2
     assert report["public_performance_allowed"] is False
     assert report["indicator_names"] == ["DGS10"]
     assert len(report["indicator_file_sha256"]) == 64
