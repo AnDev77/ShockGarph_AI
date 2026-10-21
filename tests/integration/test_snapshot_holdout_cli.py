@@ -101,7 +101,7 @@ def test_traditional_cli_uses_private_indicator_csv_and_blocks_too_short_holdout
             "--raw-root", str(tmp_path / "raw"), "--output", str(output)]
     assert traditional_main(args) == 0
     report = json.loads(output.read_text(encoding="utf-8"))
-    assert report["schema_version"] == 2
+    assert report["schema_version"] == 3
     assert report["public_performance_allowed"] is False
     assert report["indicator_names"] == ["DGS10"]
     assert len(report["indicator_file_sha256"]) == 64
@@ -109,6 +109,37 @@ def test_traditional_cli_uses_private_indicator_csv_and_blocks_too_short_holdout
     assert report["horizons"][0]["metrics"] is None
     assert str(tmp_path) not in output.read_text(encoding="utf-8")
     assert traditional_main(args) == 2  # Do not overwrite an existing private report.
+
+
+def test_traditional_cli_records_per_indicator_age_and_rejects_unknown_override(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    manifest = _manifest(tmp_path)
+    indicators = tmp_path / "indicators.csv"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    lines = ["name,source,observed_at,available_at,value"]
+    for item in data["snapshots"]:
+        captured = datetime.fromisoformat(item["captured_at"])
+        observed = captured - timedelta(minutes=5)
+        available = captured - timedelta(minutes=2)
+        lines.append(f"DGS10,synthetic,{observed.isoformat()},{available.isoformat()},3.0")
+    first = datetime.fromisoformat(data["snapshots"][0]["captured_at"])
+    lines.append(f"NFCI_RISK,synthetic,{(first - timedelta(minutes=5)).isoformat()},"
+                 f"{(first - timedelta(minutes=2)).isoformat()},0.2")
+    indicators.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    args = ["--manifest", str(manifest), "--indicators", str(indicators),
+            "--raw-root", str(tmp_path / "raw"), "--indicator", "DGS10",
+            "--indicator", "NFCI_RISK", "--indicator-age-hours", "DGS10=25",
+            "--indicator-age-hours", "NFCI_RISK=240"]
+    assert traditional_main(args) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["indicator_max_age_hours"] == {"DGS10": 25.0, "NFCI_RISK": 240.0}
+    assert result["horizons"][0]["status"] == "blocked"
+
+    assert traditional_main([*args, "--indicator-age-hours", "UNKNOWN=12"]) == 2
+    rejected = json.loads(capsys.readouterr().out)
+    assert rejected["status"] == "invalid_input"
+    assert "unknown indicator age" in rejected["reason"]
 
 
 def test_manifest_accepts_cross_year_sessions_and_rejects_false_holiday_price(
