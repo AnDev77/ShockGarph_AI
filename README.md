@@ -32,7 +32,7 @@ TLT/금리 관측을 시점별로 자동 결합한 리포트가 수동 조사보
 이 실험으로 거시 확률의 예측 가치를 부정하거나 긍정할 수는 없다.
 이는 과거 예측 당시의 가격 버전을 증명하지 않으므로 엄격한 **예측 실증은 HOLD**다.
 [데이터 가능성 판정](docs/data-source-gate-b.md#2026-10-20-예측-실증-가능성-판정)에서
-과거 버전·이용권 부재, 2026년 달력의 짧은 20일 홀드아웃, 원시 종가와 기업행동을
+과거 버전·이용권 부재, 이미 관찰한 2026년 구간의 짧은 20일 홀드아웃, 원시 종가와 기업행동을
 시점별로 재구성하는 대안을 구분했다. 합성 시험 수치를 제품 성능으로 사용하지 않는다.
 새 범위는 [프로젝트 명세](shockgraph-ai-project-spec.md),
 [현재 상태가 표시된 프로젝트 흐름도](docs/project-flow.md),
@@ -69,7 +69,9 @@ B0·B1은 훈련 기간에서만 표준화한 고정 패널티 Ridge이고
 없으면 점수를 숨긴다. GARCH는 홀드아웃 이전의 일별 수익률이 기본 100개
 미만이거나 추정이 수렴하지 않으면 해당 점수만 보류한다. 결과는 입력 파일 해시·결측·표본 수·MAE·QLIKE·불확실성
 구간을 담는 **비공개 연구 보고**이며 `public_performance_allowed=false`다.
-현재 로더의 거래소 달력은 2026년 예정 일정에 한정된다.
+현재 로더의 거래소 달력은 검토한 2024~2026년 일정에 한정된다. 2025년 1월 9일
+임시 휴장도 반영했으나 과거 수정가격 파일·이용권과 새 독립 평가 기간은 여전히 필요하다.
+달력 변경과 다년 합성 비교의 검증은 [다년 거래일 리뷰](docs/reviews/multiyear-nasdaq-risk-calendar-review.md)에 기록했다.
 
 [FRED의 DGS10](https://fred.stlouisfed.org/series/DGS10)과
 [VIXCLS](https://fred.stlouisfed.org/series/VIXCLS)는 후보 지표지만, FRED의
@@ -95,7 +97,7 @@ B0·B1은 훈련 기간에서만 표준화한 고정 패널티 Ridge이고
 ## 비공개 TLT 가격 입력 점검
 
 사용 권한이 확인된 CSV에 `session_date,observed_at,available_at,close,adjusted_close,volume`
-열을 넣는다. 각 행은 2026년 Nasdaq 정규장 세션 하나를 나타내며 `observed_at`은 해당
+열을 넣는다. 각 행은 2024~2026년 Nasdaq 정규장 세션 하나를 나타내며 `observed_at`은 해당
 정규장 종가의 UTC 시각, `available_at`은 **그 수정가격 버전이 최초로 사용 가능했던
 UTC 시각**이다. `volume`은 비울 수 있다. 파일을 받은 원래 UTC 시각을 `--captured-at`에
 넣고, 원본을 공개 저장소 밖의 `data/raw/`에 보존한다.
@@ -108,8 +110,8 @@ python scripts/import_daily_prices.py --prices /private/tlt.csv --source license
 출력은 원본 체크섬, 휴장일을 제외한 예상 거래일 대비 누락·중복, 정규장 종가 시각,
 종가 60분 뒤 예측 기준 시각보다 늦은 버전을 보여준다. `--prediction-delay-minutes`로
 기준 시각을 명시적으로 바꿀 수 있다. 같은 파일과 `captured-at`으로 재실행하면
-불변 원본을 중복 저장하지 않는다. 현재 달력은 공식 **예정** 휴장·조기 폐장 목록의
-2026년 스냅샷으로, 임시 휴장 등은 별도 확인해야 한다. `structurally_ready`는 기계적
+불변 원본을 중복 저장하지 않는다. 현재 달력은 검토한 2024~2026년 거래일이며
+이후 공지된 추가 예외 일정은 별도 확인해야 한다. `structurally_ready`는 기계적
 입력 점검 결과이며 공급 계약·과거 버전 진위를 승인하거나 실자료 성능을 산출하지 않는다.
 자세한 제한과 다음 검증은 [19~20일차 리뷰](docs/reviews/day-19-20-review.md)에 적었다.
 

@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from shockgraph_data_pipeline.market_calendar import nasdaq_2026_sessions
+from shockgraph_data_pipeline.market_calendar import nasdaq_2026_sessions, nasdaq_sessions
 
 from scripts.evaluate_snapshot_holdout import main
 from scripts.evaluate_traditional_holdout import main as traditional_main
@@ -109,3 +109,42 @@ def test_traditional_cli_uses_private_indicator_csv_and_blocks_too_short_holdout
     assert report["horizons"][0]["metrics"] is None
     assert str(tmp_path) not in output.read_text(encoding="utf-8")
     assert traditional_main(args) == 2  # Do not overwrite an existing private report.
+
+
+def test_manifest_accepts_cross_year_sessions_and_rejects_false_holiday_price(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sessions = nasdaq_sessions(date(2024, 12, 23), date(2025, 1, 15))
+    entries = []
+    for index, session in enumerate(sessions):
+        rows = ["session_date,observed_at,available_at,close,adjusted_close,volume"]
+        for offset, prior in enumerate(sessions[: index + 1]):
+            rows.append(
+                f"{prior.session_date},{prior.close_at.isoformat()},"
+                f"{(prior.close_at + timedelta(minutes=2)).isoformat()},"
+                f"{100 + offset},{100 + offset},"
+            )
+        name = f"capture-{index}.csv"
+        (tmp_path / name).write_text("\n".join(rows) + "\n", encoding="utf-8")
+        entries.append({"path": name, "end": str(session.session_date),
+                        "captured_at": (session.close_at + timedelta(minutes=5)).isoformat()})
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({
+        "schema_version": 1, "source": "synthetic", "start": str(sessions[0].session_date),
+        "end": str(sessions[-1].session_date), "holdout_start": "2025-01-10",
+        "evaluation_at": (sessions[-1].close_at + timedelta(minutes=10)).isoformat(),
+        "prediction_delay_minutes": 10, "snapshots": entries,
+    }), encoding="utf-8")
+    assert main(["--manifest", str(manifest), "--raw-root", str(tmp_path / "raw")]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["report"]["snapshot_count"] == len(sessions)
+    assert result["snapshot_provenance"][-1]["session_count"] == len(sessions)
+    assert result["calendar_version"].startswith("nasdaq-us-equities-2024-2026")
+
+    # A fabricated close on the special closure cannot be silently included as a session.
+    broken = tmp_path / entries[-1]["path"]
+    contents = broken.read_text(encoding="utf-8")
+    broken.write_text(contents + "2025-01-09,2025-01-09T21:00:00Z,"
+                      "2025-01-09T21:02:00Z,100,100,\n", encoding="utf-8")
+    assert main(["--manifest", str(manifest), "--raw-root", str(tmp_path / "raw")]) == 2
+    assert "incomplete or invalid calendar coverage" in capsys.readouterr().out

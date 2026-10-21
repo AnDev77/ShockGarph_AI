@@ -11,9 +11,9 @@ from decimal import Decimal, InvalidOperation
 from shockgraph_domain.records import AssetPriceRecord
 
 from shockgraph_data_pipeline.market_calendar import (
-    NASDAQ_2026_SOURCE,
-    NASDAQ_2026_VERSION,
-    nasdaq_2026_sessions,
+    NASDAQ_CALENDAR_SOURCE,
+    NASDAQ_CALENDAR_VERSION,
+    nasdaq_sessions,
 )
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore, RawArtifact
 
@@ -92,7 +92,7 @@ def import_daily_prices(
     symbol: str = "TLT",
     full_snapshot: bool = False,
 ) -> DailyPriceImport:
-    """Preserve the supplied file and check its timestamps against Nasdaq's 2026 schedule.
+    """Preserve the supplied file and check timestamps against the reviewed Nasdaq schedule.
 
     The caller is responsible for verifying the provider's rights and historical price vintages.
     This import does not produce a public performance claim or infer publication times.
@@ -102,7 +102,7 @@ def import_daily_prices(
         raise ValueError("the initial import supports a named source and TLT only")
     if not timedelta(0) < prediction_delay <= timedelta(days=1):
         raise ValueError("prediction_delay must be positive and at most one day")
-    sessions = nasdaq_2026_sessions(start, end)
+    sessions = nasdaq_sessions(start, end)
     if not sessions:
         raise ValueError("the calendar range has no scheduled sessions")
     prediction_times = {
@@ -202,8 +202,8 @@ def import_daily_prices(
         venue="XNAS",
         mode="full_snapshot" if full_snapshot else "single_series",
         captured_at=captured_at.isoformat(),
-        calendar_source=NASDAQ_2026_SOURCE,
-        calendar_version=NASDAQ_2026_VERSION,
+        calendar_source=NASDAQ_CALENDAR_SOURCE,
+        calendar_version=NASDAQ_CALENDAR_VERSION,
         file_sha256=file_hash,
         raw_payload_hash=artifact.payload_sha256,
         raw_created=artifact.created,

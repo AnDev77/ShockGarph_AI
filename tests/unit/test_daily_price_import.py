@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from shockgraph_data_pipeline.daily_price_import import DailyPriceImport, import_daily_prices
-from shockgraph_data_pipeline.market_calendar import nasdaq_2026_sessions
+from shockgraph_data_pipeline.market_calendar import nasdaq_2026_sessions, nasdaq_sessions
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore
 from shockgraph_risk.daily import build_baseline_forecasts
 
@@ -57,6 +57,27 @@ def test_official_schedule_accounts_for_holidays_daylight_saving_and_early_close
     )
     with pytest.raises(ValueError, match="only a valid 2026"):
         nasdaq_2026_sessions(date(2025, 12, 31), END)
+
+
+def test_reviewed_calendar_crosses_years_and_excludes_special_2025_closure() -> None:
+    sessions = nasdaq_sessions(date(2024, 12, 23), date(2025, 1, 13))
+    dates = [session.session_date for session in sessions]
+    assert date(2024, 12, 25) not in dates
+    assert date(2025, 1, 1) not in dates
+    assert date(2025, 1, 9) not in dates  # Carter national day of mourning.
+    assert dates[0] == date(2024, 12, 23)
+    assert dates[-1] == date(2025, 1, 13)
+    assert next(row.close_at for row in sessions if row.session_date == date(2024, 12, 24)) == (
+        datetime(2024, 12, 24, 18, tzinfo=UTC)
+    )
+    assert next(row.close_at for row in sessions if row.session_date == date(2025, 1, 10)) == (
+        datetime(2025, 1, 10, 21, tzinfo=UTC)
+    )
+    assert nasdaq_sessions(date(2025, 7, 3), date(2025, 7, 3))[0].close_at == (
+        datetime(2025, 7, 3, 17, tzinfo=UTC)
+    )
+    with pytest.raises(ValueError, match="2024 through 2026"):
+        nasdaq_sessions(date(2023, 12, 29), date(2024, 1, 2))
 
 
 def test_import_keeps_exact_bytes_and_connects_to_as_of_baseline(tmp_path: Path) -> None:

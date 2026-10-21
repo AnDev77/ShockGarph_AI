@@ -18,9 +18,9 @@ sys.path[:0] = [
 
 from shockgraph_data_pipeline.daily_price_import import import_daily_prices  # noqa: E402
 from shockgraph_data_pipeline.market_calendar import (  # noqa: E402
-    NASDAQ_2026_SOURCE,
-    NASDAQ_2026_VERSION,
-    nasdaq_2026_sessions,
+    NASDAQ_CALENDAR_SOURCE,
+    NASDAQ_CALENDAR_VERSION,
+    nasdaq_sessions,
 )
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore  # noqa: E402
 from shockgraph_risk.daily import PriceSnapshot, evaluate_snapshot_holdout  # noqa: E402
@@ -80,7 +80,7 @@ def load_snapshot_manifest(manifest_path: Path, raw_root: Path) -> LoadedSnapsho
     entries = data["snapshots"]
     if not isinstance(entries, list) or not entries:
         raise ValueError("snapshots must be a nonempty list")
-    sessions = nasdaq_2026_sessions(start, end)
+    sessions = nasdaq_sessions(start, end)
     prediction_times = {
         session.session_date: session.close_at + timedelta(minutes=delay) for session in sessions
     }
@@ -132,8 +132,8 @@ def run_manifest(manifest_path: Path, raw_root: Path) -> dict[str, Any]:
     )
     return {
         "manifest_sha256": inputs.manifest_sha256,
-        "calendar_source": NASDAQ_2026_SOURCE,
-        "calendar_version": NASDAQ_2026_VERSION,
+        "calendar_source": NASDAQ_CALENDAR_SOURCE,
+        "calendar_version": NASDAQ_CALENDAR_VERSION,
         "snapshot_provenance": inputs.provenance,
         "report": asdict(report),
     }

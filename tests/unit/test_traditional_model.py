@@ -5,7 +5,11 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
-from shockgraph_data_pipeline.market_calendar import nasdaq_2026_sessions
+from shockgraph_data_pipeline.market_calendar import (
+    ScheduledSession,
+    nasdaq_2026_sessions,
+    nasdaq_sessions,
+)
 from shockgraph_domain.records import AssetPriceRecord
 from shockgraph_risk.daily import (
     PriceSnapshot,
@@ -18,8 +22,9 @@ from shockgraph_risk.macro_panel import MarketIndicatorObservation, build_macro_
 from shockgraph_risk.traditional_model import evaluate_traditional_holdout
 
 
-def archive_and_panel(length: int = 75, *, missing: set[int] | None = None):
-    sessions = nasdaq_2026_sessions(date(2026, 1, 5), date(2026, 6, 30))[:length]
+def archive_and_panel(length: int = 75, *, missing: set[int] | None = None,
+                      sessions: tuple[ScheduledSession, ...] | None = None):
+    sessions = (sessions or nasdaq_2026_sessions(date(2026, 1, 5), date(2026, 6, 30)))[:length]
     days = tuple(session.session_date for session in sessions)
     times = {session.session_date: session.close_at + timedelta(minutes=10)
              for session in sessions}
@@ -86,6 +91,21 @@ def test_ab_compares_same_dates_and_only_training_vintage_before_holdout() -> No
     assert report.trailing_mae == pytest.approx(a.trailing_mae)
     assert report.ewma_mae == pytest.approx(a.ewma_mae)
     assert report.trailing_qlike == pytest.approx(a.trailing_qlike)
+
+
+def test_a_b_and_garch_run_on_same_cross_year_panel() -> None:
+    reviewed_sessions = nasdaq_sessions(date(2024, 11, 4), date(2025, 4, 30))[:75]
+    snapshots, days, times, panel = archive_and_panel(sessions=reviewed_sessions)
+    report = evaluate(snapshots, days, times, panel, min_garch_returns=30)
+    assert days[0].year == 2024 and days[-1].year == 2025
+    assert date(2025, 1, 9) not in days
+    assert report.status == "evaluated_research_only"
+    assert report.matched_holdout_count == 30
+    assert report.training_count == 31
+    assert report.garch_training_return_count == 39
+    assert report.garch_mae is not None
+    assert report.traditional_minus_price_ridge_mae_ci is not None
+    assert report.training_label_snapshot_hash == snapshots[40].prices[0].raw_payload_hash
 
 
 def test_after_holdout_revision_does_not_refit_training_coefficients() -> None:
