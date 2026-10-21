@@ -30,5 +30,6 @@
 |---|---|---|---|
 | `.venv/bin/python`을 실행할 수 없어 첫 테스트가 시작되지 않음 | 전달된 가상환경의 실행 파일이 없었음. `uv run --offline`은 필요한 패키지가 캐시에 없어서 새 환경을 만들고 설치에 실패함 | `uv sync --extra dev --extra viz`로 개발·그래프 의존성을 다시 설치. 이후 `make test`와 `make quality`로 확인 | [지표 신선도](reviews/indicator-freshness-gate-review.md) |
 | 새 환경에서 Pyright가 `matplotlib`을 찾지 못함 | 처음 복구 명령은 `dev` 추가 항목만 설치하고, 저장소의 선택적 `viz` 추가 항목은 빠뜨림 | `viz`까지 동기화해 모듈 해석 오류를 제거. 기존 저장소 의존성 선언은 그대로 유지 | [지표 신선도](reviews/indicator-freshness-gate-review.md) |
+| 로컬 커밋을 `git push`로 GitHub에 업로드할 수 없었음 | 이 작업 환경의 Git 원격에 GitHub HTTPS 인증 정보가 없어 사용자명을 읽지 못함 | 이미 승인된 GitHub 연결로 원격 기존 브랜치에서 새 기능 브랜치를 만들고, 로컬과 **동일한 파일 트리 해시**를 가진 커밋을 작성해 초안 PR을 열었음. 로컬·원격의 커밋 ID는 다르므로 후속 개발에서는 원격 트리를 대조해야 함 | [진행 기록](progress.md) |
 
 새 오류가 발생하면 해당 행의 해결 상태와 실제 재실행 결과를 갱신한다.
