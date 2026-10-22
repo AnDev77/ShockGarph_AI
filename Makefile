@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate risk-evaluate risk-compare risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
+.PHONY: setup quality test test-fast collect collect-treasury train evaluate risk-evaluate risk-compare risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -17,6 +17,9 @@ test-fast:
 
 collect:
 	$(PYTHON) scripts/probe_kalshi.py
+
+collect-treasury:
+	$(PYTHON) scripts/collect_treasury_rates.py $(if $(TREASURY_MONTH),--month $(TREASURY_MONTH),)
 
 research-demo:
 	$(PYTHON) scripts/run_event_research.py --input data/fixtures/analytics/synthetic_cpi.json --min-train 4

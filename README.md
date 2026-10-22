@@ -2,6 +2,10 @@
 
 [진행 기록](docs/progress.md) · [트러블슈팅](docs/troubleshooting.md)
 
+공개 재무부 10년물 XML의 비공개 원본 수집은 [수집기 안내](apps/collector/README.md)를
+따른다. 금리 수집에는 API 키가 필요하지 않다. TLT·SPY 가격은 별도의 시점별
+공급원·표시 권리 확인이 필요하며, 공개 금리만으로 ETF 예측 성능을 판정하지 않는다.
+
 ShockGraph AI는 SPY·TLT 각각의 가격 변화와 관측 위험을 설명하고,
 입력 비중의 기간 총변동률을 선택적으로 계산한다. 별도 연구에서는 당시
 가격·금리·변동성 정보로 ETF의 향후 위험 범위를 검증한다.
