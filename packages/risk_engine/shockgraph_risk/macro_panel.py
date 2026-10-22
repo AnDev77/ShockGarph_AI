@@ -10,33 +10,65 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from shockgraph_analytics.contracts import ProbabilitySnapshot
 
 from shockgraph_risk.daily import VolatilityForecast, _utc
 
 _HASH = re.compile(r"^[0-9a-f]{64}$")
+_EASTERN = ZoneInfo("America/New_York")
 
 
 @dataclass(frozen=True, slots=True)
 class MarketIndicatorObservation:
     name: str
     source: str
-    observed_at: datetime
+    observed_at: datetime | None
     available_at: datetime
     value: float
     raw_hash: str
+    observation_date: date | None = None
 
     def __post_init__(self) -> None:
-        _utc(self.observed_at, "indicator observed_at")
         _utc(self.available_at, "indicator available_at")
-        if self.available_at < self.observed_at:
-            raise ValueError("indicator cannot be available before observation")
+        if (self.observed_at is None) == (self.observation_date is None):
+            raise ValueError("indicator needs exactly one observation timestamp or date")
+        if self.observed_at is not None:
+            _utc(self.observed_at, "indicator observed_at")
+            if self.available_at < self.observed_at:
+                raise ValueError("indicator cannot be available before observation")
+        elif self.observation_date is not None and (
+            self.observation_date > self.available_at.astimezone(_EASTERN).date()
+        ):
+            raise ValueError("indicator cannot be captured before its observation date")
         if not self.name or not self.source or not _HASH.fullmatch(self.raw_hash):
             raise ValueError("indicator needs a name, source, and raw SHA-256")
         if not math.isfinite(self.value):
             raise ValueError("indicator value must be finite")
+
+    def known_at(self, prediction_at: datetime) -> bool:
+        if self.available_at > prediction_at:
+            return False
+        if self.observed_at is not None:
+            return self.observed_at <= prediction_at
+        assert self.observation_date is not None
+        return self.observation_date <= prediction_at.astimezone(_EASTERN).date()
+
+    def age_anchor(self) -> datetime:
+        if self.observed_at is not None:
+            return self.observed_at
+        assert self.observation_date is not None
+        # Midnight at the start of the dated US observation is a conservative freshness
+        # convention, never a claim that the source measured/published at midnight.
+        return datetime.combine(self.observation_date, time.min, _EASTERN).astimezone(UTC)
+
+    def sort_key(self) -> tuple[date, datetime, datetime]:
+        if self.observation_date is not None:
+            return self.observation_date, self.age_anchor(), self.available_at
+        assert self.observed_at is not None
+        return self.observed_at.astimezone(_EASTERN).date(), self.observed_at, self.available_at
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,7 +189,7 @@ def build_macro_risk_panel(
     series_sources: dict[str, str] = {}
     indicator_keys = set()
     for row in indicators:
-        key = (row.name, row.observed_at, row.available_at)
+        key = (row.name, row.observed_at, row.observation_date, row.available_at)
         if key in indicator_keys:
             raise ValueError("duplicate indicator vintage")
         indicator_keys.add(key)
@@ -197,14 +229,14 @@ def build_macro_risk_panel(
         for name in required_indicators:
             eligible = [
                 row for row in by_indicator[name]
-                if row.observed_at <= at and row.available_at <= at
+                if row.known_at(at)
             ]
             if not eligible:
                 excluded["missing_indicator"] += 1
                 indicator_excluded[(name, "missing_indicator")] += 1
                 break
-            latest = max(eligible, key=lambda row: (row.observed_at, row.available_at))
-            if at - latest.observed_at > configured_ages.get(name, max_indicator_age):
+            latest = max(eligible, key=lambda row: row.sort_key())
+            if at - latest.age_anchor() > configured_ages.get(name, max_indicator_age):
                 excluded["stale_indicator"] += 1
                 indicator_excluded[(name, "stale_indicator")] += 1
                 break

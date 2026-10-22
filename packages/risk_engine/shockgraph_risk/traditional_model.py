@@ -132,7 +132,9 @@ def _input_hash(rows: Sequence[TraditionalFeatureRow]) -> str:
             f"{forecast.ewma_volatility}"
         )
         evidence.extend(
-            f"{indicator.name}:{indicator.source}:{indicator.observed_at.isoformat()}:"
+            f"{indicator.name}:{indicator.source}:"
+            f"{indicator.observed_at.isoformat() if indicator.observed_at else ''}:"
+            f"{indicator.observation_date.isoformat() if indicator.observation_date else ''}:"
             f"{indicator.available_at.isoformat()}:{indicator.value}:{indicator.raw_hash}"
             for indicator in row.indicators
         )
@@ -207,8 +209,7 @@ def evaluate_traditional_holdout(
             raise ValueError("traditional row must match an archived price forecast")
         if tuple(item.name for item in row.indicators) != indicator_names:
             raise ValueError("traditional row has unexpected indicators or order")
-        if any(item.observed_at > row.forecast.prediction_at
-               or item.available_at > row.forecast.prediction_at for item in row.indicators):
+        if any(not item.known_at(row.forecast.prediction_at) for item in row.indicators):
             raise ValueError("future indicator in traditional row")
 
     train_labels = {

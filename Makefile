@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect train evaluate risk-evaluate risk-compare risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
+.PHONY: setup quality test test-fast collect collect-treasury treasury-coverage train evaluate risk-evaluate risk-compare risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -17,6 +17,13 @@ test-fast:
 
 collect:
 	$(PYTHON) scripts/probe_kalshi.py
+
+collect-treasury:
+	$(PYTHON) scripts/collect_treasury_rates.py $(if $(TREASURY_MONTH),--month $(TREASURY_MONTH),)
+
+treasury-coverage:
+	@test -n "$(PRICE_HISTORY)" || (echo "PRICE_HISTORY에 비공개 TLT 가격 CSV 경로를 지정하세요" && exit 2)
+	$(PYTHON) scripts/report_treasury_coverage.py --price-history "$(PRICE_HISTORY)" --treasury-archive "$(or $(TREASURY_RAW_ROOT),data/raw)"
 
 research-demo:
 	$(PYTHON) scripts/run_event_research.py --input data/fixtures/analytics/synthetic_cpi.json --min-train 4
@@ -49,8 +56,9 @@ risk-evaluate:
 
 risk-compare:
 	@test -n "$(SNAPSHOT_MANIFEST)" || (echo "SNAPSHOT_MANIFEST에 비공개 manifest.json 경로를 지정하세요" && exit 2)
-	@test -n "$(INDICATOR_HISTORY)" || (echo "INDICATOR_HISTORY에 비공개 지표 CSV 경로를 지정하세요" && exit 2)
-	$(PYTHON) scripts/evaluate_traditional_holdout.py --manifest "$(SNAPSHOT_MANIFEST)" --indicators "$(INDICATOR_HISTORY)"
+	@test -n "$(INDICATOR_HISTORY)$(TREASURY_RAW_ROOT)" || (echo "INDICATOR_HISTORY 또는 TREASURY_RAW_ROOT를 지정하세요" && exit 2)
+	@test -z "$(INDICATOR_HISTORY)" -o -z "$(TREASURY_RAW_ROOT)" || (echo "지표 CSV와 Treasury 원본은 동시에 지정할 수 없습니다" && exit 2)
+	$(PYTHON) scripts/evaluate_traditional_holdout.py --manifest "$(SNAPSHOT_MANIFEST)" $(if $(TREASURY_RAW_ROOT),--treasury-archive "$(TREASURY_RAW_ROOT)",--indicators "$(INDICATOR_HISTORY)")
 
 risk-explore:
 	@test -n "$(PRICE_HISTORY)" || (echo "PRICE_HISTORY에 비공개 수정종가 CSV 경로를 지정하세요" && exit 2)

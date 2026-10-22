@@ -2,6 +2,11 @@
 
 [진행 기록](docs/progress.md) · [트러블슈팅](docs/troubleshooting.md)
 
+공개 재무부 10년물 XML의 비공개 원본 수집은 [수집기 안내](apps/collector/README.md)를
+따른다. 금리 수집에는 API 키가 필요하지 않다. 보관 원본을 검증해
+`UST10Y_PAR` 날짜별 특징량으로 읽는 비공개 모델 B 경로도 있다. TLT·SPY 가격은 별도의 시점별
+공급원·표시 권리 확인이 필요하며, 공개 금리만으로 ETF 예측 성능을 판정하지 않는다.
+
 ShockGraph AI는 SPY·TLT 각각의 가격 변화와 관측 위험을 설명하고,
 입력 비중의 기간 총변동률을 선택적으로 계산한다. 별도 연구에서는 당시
 가격·금리·변동성 정보로 ETF의 향후 위험 범위를 검증한다.
@@ -67,6 +72,12 @@ TLT/금리 관측을 시점별로 자동 결합한 리포트가 수동 조사보
 ```bash
 make risk-compare SNAPSHOT_MANIFEST=/private/manifest.json \
   INDICATOR_HISTORY=/private/indicators.csv PYTHON=.venv/bin/python
+# 실제로 받은 재무부 원본이 있다면 날짜별 10년물을 비교 입력으로 사용한다.
+make risk-compare SNAPSHOT_MANIFEST=/private/manifest.json \
+  TREASURY_RAW_ROOT=data/raw PYTHON=.venv/bin/python
+# TLT 단일 수정종가 이력과 보관 금리의 날짜·수신 시각 커버리지다.
+make treasury-coverage PRICE_HISTORY=artifacts/tlt-adjusted-history-private.csv \
+  TREASURY_RAW_ROOT=data/raw PYTHON=.venv/bin/python
 # 기본 지표 DGS10 외 복수 지표를 시험할 때는 다음 CLI에서 --indicator를 반복한다.
 .venv/bin/python scripts/evaluate_traditional_holdout.py \
   --manifest /private/manifest.json --indicators /private/indicators.csv \
@@ -78,6 +89,15 @@ make risk-compare SNAPSHOT_MANIFEST=/private/manifest.json \
   --indicator-age-hours DGS10=48 --indicator-age-hours NFCI_RISK=240 \
   --output artifacts/private-ab-fed-context.json
 ```
+
+재무부 원본에는 관측 날짜만 있어 일중 발표 시각을 채우지 않는다. 보관 원본의
+UTC 수신 시각 이전 예측에서는 해당 금리를 제외하고, 날짜 시작을 신선도 계산의
+보수적 기준으로 삼는다. `treasury-coverage`는 날짜가 겹치는 수와 수신 뒤의
+가격 세션을 설명하는 보고이며 모델 정확도 결과가 아니다. 이 실행 환경에서는
+2026-10-22 공식 피드의 실제 월별 응답 2건을 수신했다. 당시 TLT 파일은
+2026-10-16에 끝나 수신 **이후** 가격 세션이 0건이다. 금리 원본 보관소가 비어 있으면
+보고 명령은 입력 오류로 끝난다. 현재 TLT 수정종가 파일에는 당시의 과거 버전이
+없어 공통 자료가 생겨도 그것만으로 공개 성능을 주장할 수 없다.
 
 `NFCI_RISK`는 CSV에 입력할 **연구용 시리즈 이름 예시**이며 실제 주간 지수를
 자동 수집하지 않는다. 위 48·240시간은 사용법을 보이는 설정 예시다. 각 지표의
