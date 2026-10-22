@@ -2,6 +2,12 @@
 
 [진행 기록](docs/progress.md) · [트러블슈팅](docs/troubleshooting.md)
 
+TLT·SPY 가격의 첫 기술 공급원은 Alpaca SIP 일봉이다. 키가 실행 환경에 있다면
+`make collect-alpaca PRICE_END=2026-10-20 PYTHON=.venv/bin/python`으로 미국
+수신일 이전의 가격 전체 이력을 원본·조정 방식별로 보관할 수 있다.
+실행 방법과 비공개 출력은 [수집기 안내](apps/collector/README.md), 공급원
+판정과 미검증 권리는 [자료 게이트](docs/data-source-gate-b.md)를 따른다.
+
 공개 재무부 10년물 XML의 비공개 원본 수집은 [수집기 안내](apps/collector/README.md)를
 따른다. 금리 수집에는 API 키가 필요하지 않다. 보관 원본을 검증해
 `UST10Y_PAR` 날짜별 특징량으로 읽는 비공개 모델 B 경로도 있다. TLT·SPY 가격은 별도의 시점별

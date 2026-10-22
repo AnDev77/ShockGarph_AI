@@ -16,6 +16,7 @@
 | 이전 | 키 없는 재무부 금리 원본 수집 | 공개 재무부 월별 XML을 HTTP 수신 뒤 UTC 시각·원본 바이트·해시와 함께 보관하는 수집기와 명령을 추가 | [재무부 수집 리뷰](reviews/treasury-yield-collection-review.md). 이 환경에서 외부 도메인 조회는 실패함 |
 | **추가** | **재무부 금리 빈티지의 B 입력 연결과 TLT 커버리지** | 직전에는 원본 저장만 가능했음 → 이제 보관 XML·해시를 재검사해 수신 순서별 날짜 금리를 B의 `UST10Y_PAR` 입력으로 쓰고, 가격 이력과 겹치는 날짜·수신 이후 세션을 보고할 수 있음 | [빈티지 연결 리뷰](reviews/treasury-vintage-risk-panel-review.md). 153개 합성 시험 통과. 실제 재무부 응답 미수신, TLT 가격의 당시 버전 미확보로 성능 `HOLD` |
 | **실수집** | **재무부 공식 XML 실수신과 TLT 날짜 겹침 측정** | HTTP 접근 실패 판정을 재검토하고 SOCKS 의존성을 추가. `curl` 경유 1건과 공식 Python 수집 명령 1건으로 2026-10 월별 XML을 실제 수신·보관. TLT 1,253개 세션 중 같은 관측 날짜 11개를 찾았지만 첫 수신 이후 가격 세션은 0개 | [실수집 리뷰](reviews/treasury-live-ingestion-review.md). 과거 관측일이 같다고 당시 예측에 쓸 수 있던 것은 아님. 실 A/B `HOLD` |
+| **추가** | **Alpaca SIP 가격 원본과 TLT·SPY 스냅샷 경로** | 직전에는 공급원 없는 TLT 수정종가 단일 파일만 있었음 → 키가 주입되면 Alpaca의 원본·조정 일봉을 각각 보관하고 TLT·SPY 전체 가격 CSV와 원본 해시 manifest를 생성해 기존 시점별 위험 입력 형식으로 검사할 수 있음 | [Alpaca 가격 리뷰](reviews/alpaca-sip-price-snapshots-review.md). 전체 157개 시험 통과. 현재 환경에는 키가 없어 실제 HTTP·가격 품질·권리 미확인, 성능 `HOLD` |
 
 ## 현재 제품 판정
 

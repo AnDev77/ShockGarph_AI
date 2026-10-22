@@ -9,6 +9,7 @@
 | 증상 | 확인한 원인 | 적용한 조치와 상태 | 근거 |
 |---|---|---|---|
 | TLT 20일 예측 성능을 실제로 판정할 수 없었음 | 처음에는 실제 가격 원본이 없었고, 이후 구한 현재 수정종가 한 벌에는 과거 일별 수정 버전·수신 시각이 없음. 신규 독립 시험 기간도 부족함 | 가격 전체 스냅샷·시점별 정답 계약과 `HOLD` 게이트를 추가. **실자료 확보 문제는 미해결** | [실증 가능성](reviews/prediction-data-feasibility-review.md), [가격 버전](reviews/price-vintage-asof-review.md) |
+| Alpaca 키가 있다고 알려졌으나 이 실행 환경의 첫 가격 수집은 시작되지 않음 | 저장소 `.env.example`은 값 없는 예시이고 현재 프로세스의 `APCA_API_KEY_ID`·`APCA_API_SECRET_KEY`도 비어 있음. GitHub 비밀값은 현재 실행 셸로 자동 전달되지 않음 | 키 값은 출력·커밋하지 않고 두 환경 변수의 존재 여부만 확인. 빈 값에서는 `missing_credentials`를 내며 실제 HTTP 수신·TLT/SPY 수치는 **미확인**. 수집기와 기존 스냅샷 연결은 합성 응답으로 검증 | [Alpaca 가격](reviews/alpaca-sip-price-snapshots-review.md) |
 | 뒤늦게 수정된 가격을 과거 예측 입력으로 오인할 수 있음 | 수정종가는 배당 등으로 이전 날짜 값도 바뀔 수 있음 | 예측 당시 보관한 완전한 가격 파일 한 벌을 선택하고, 이후 받은 정답은 별도 파일에서 계산함. 합성 시험으로 누수 차단을 확인함 | [가격 버전](reviews/price-vintage-asof-review.md) |
 | 2025-01-09에 존재하지 않은 미국 주식 세션이 생김 | 연간 예정 달력만 사용하면 임시 휴장 반영이 누락됨 | Nasdaq 추가 공지를 대조해 2024~2026년 달력에 반영하고, 가짜 휴장일 가격을 거부함 | [다년 거래일](reviews/multiyear-nasdaq-risk-calendar-review.md) |
 | 일별 DGS10과 주간 연은 위험지수에 같은 경과시간을 적용하면 어느 한쪽이 불필요하게 결측 또는 너무 오래된 값이 됨 | B 패널의 `max_indicator_age`가 모든 지표에 공통이었음 | **이번 작업:** 지표별 상한과 어떤 지표에서 행이 빠졌는지 출력 추가. 정해진 게시 시각을 역산하지 않으며 실자료 유효성은 계속 미확인 | [지표 신선도](reviews/indicator-freshness-gate-review.md) |

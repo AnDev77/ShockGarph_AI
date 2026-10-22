@@ -31,3 +31,20 @@ GET으로 조회한다. API 키를 요구하지 않는 공개 요청 URL을 사�
 2026-10-22에는 프록시의 SOCKS 의존성을 갖춘 환경에서 공식 수집 명령으로
 2026-10 월별 XML을 실제로 두 번 수신했다. 관측일 14개를 포함하지만 오늘
 수신한 이력이 과거 14개 거래일의 공개 시각을 입증하지는 않는다.
+
+## Alpaca TLT·SPY 일별 가격 원본
+
+`APCA_API_KEY_ID`와 `APCA_API_SECRET_KEY`를 실행 환경에 설정한 뒤
+`make collect-alpaca PRICE_START=2024-01-02 PRICE_END=2026-10-20 \
+PYTHON=.venv/bin/python`을 실행한다. 미국 수신일 이전의 `PRICE_END`만 받는다.
+`feed=sip`의 `adjustment=raw`와 `adjustment=all` 두 전체 이력을 각 종목에
+요청한다. 페이지마다 실제 수신 시각, 원본 JSON 바이트, SHA-256을
+`data/raw/alpaca/`에 보관하며 인증 헤더·키는 보관하지 않는다.
+
+정규화된 TLT·SPY 전체 스냅샷 CSV와 원본 해시 manifest는 Git 추적에서
+제외된 `artifacts/alpaca-private/` 아래 남는다. 일별 응답의 `t`는 거래일을
+표시하므로, 검토된 미국 주식 거래일 달력의 마감 시각을 관측 기간 끝으로
+기록한다. 가격 버전의 이용 가능 시각은 추측하지 않고 실제 전체 응답을
+받은 시각으로 설정한다. 같은 날의 조정종가가 나중에 수정되면 새 버전으로
+보관하고 과거 예측에 소급하지 않는다. 과거 수정 이력과 외부 표시 권리는
+여전히 검증되지 않았다.
