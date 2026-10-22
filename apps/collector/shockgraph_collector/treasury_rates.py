@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
+import json
 import math
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from pathlib import Path
 from typing import Self
 from zoneinfo import ZoneInfo
 
 import httpx
+from shockgraph_data_pipeline.kalshi_contract import payload_sha256
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore, RawArtifact
 
 TREASURY_URL = "https://home.treasury.gov"
@@ -116,11 +120,54 @@ class TreasuryYieldCollector:
         if "xml" not in content_type:
             raise ValueError("Treasury response does not have an XML content type")
         digest = hashlib.sha256(contents).hexdigest()
+        rates = _parse_rates(contents, year, month, captured_at, digest)
         raw = store.save(
             {"format": "application/xml", "body_base64": base64.b64encode(contents).decode("ascii"),
              "file_sha256": digest},
             source="us-treasury", endpoint=TREASURY_PATH,
             request_params=params, observed_at=captured_at,
         )
-        rates = _parse_rates(contents, year, month, captured_at, digest)
         return TreasuryMonthlyCapture(captured_at, rates, digest, raw)
+
+
+def load_treasury_history(raw_root: Path) -> tuple[TreasuryTenYearRate, ...]:
+    """Read archived monthly vintages; never infer earlier provider release times."""
+    files = sorted((raw_root / "us-treasury").rglob("*.json"))
+    if not files:
+        raise ValueError("Treasury raw archive is empty")
+    history: list[TreasuryTenYearRate] = []
+    seen: set[tuple[date, datetime]] = set()
+    for file in files:
+        try:
+            envelope = json.loads(file.read_text(encoding="utf-8"))
+            meta, payload = envelope["metadata"], envelope["payload"]
+            params = meta["request_params"]
+            month_text = params["field_tdr_date_value_month"]
+            if (meta["source"] != "us-treasury" or meta["endpoint"] != TREASURY_PATH
+                    or params["data"] != "daily_treasury_yield_curve"
+                    or not isinstance(month_text, str) or len(month_text) != 6
+                    or not month_text.isascii() or not month_text.isdecimal()):
+                raise ValueError("unexpected Treasury archive metadata")
+            captured_at = datetime.fromisoformat(meta["observed_at"])
+            if captured_at.tzinfo is None or captured_at.utcoffset() != UTC.utcoffset(None):
+                raise ValueError("archive capture time must be UTC")
+            contents = base64.b64decode(payload["body_base64"], validate=True)
+            if len(contents) > MAX_RESPONSE_BYTES:
+                raise ValueError("Treasury archive exceeds the monthly size limit")
+            digest = hashlib.sha256(contents).hexdigest()
+            if (meta["payload_sha256"] != payload_sha256(payload)
+                    or not file.name.endswith(f"_{meta['payload_sha256']}.json")
+                    or digest != payload["file_sha256"]):
+                raise ValueError("Treasury archive hash mismatch")
+            rates = _parse_rates(contents, int(month_text[:4]), int(month_text[4:]),
+                                 captured_at, digest)
+        except (OSError, KeyError, TypeError, json.JSONDecodeError,
+                UnicodeDecodeError, binascii.Error) as error:
+            raise ValueError("Treasury archive could not be verified") from error
+        for row in rates:
+            key = row.observation_date, row.captured_at
+            if key in seen:
+                raise ValueError("duplicate Treasury observation vintage")
+            seen.add(key)
+            history.append(row)
+    return tuple(sorted(history, key=lambda row: (row.observation_date, row.captured_at)))

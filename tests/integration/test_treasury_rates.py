@@ -7,8 +7,10 @@ from datetime import UTC, date, datetime
 
 import httpx
 import pytest
-from shockgraph_collector.treasury_rates import TreasuryYieldCollector
+from shockgraph_collector.treasury_rates import TreasuryYieldCollector, load_treasury_history
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore
+
+from scripts.report_treasury_coverage import report_coverage
 
 SAMPLE = b"""<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"
@@ -72,6 +74,7 @@ def test_treasury_rejects_wrong_month_duplicates_and_future_observations(tmp_pat
             clock=lambda: datetime(2026, 10, 22, 1, 5, tzinfo=UTC),
         ) as client, pytest.raises(ValueError):
             client.collect_month(2026, 10, ImmutableRawStore(tmp_path))
+    assert not list((tmp_path / "us-treasury").rglob("*.json"))
 
 
 def test_treasury_rejects_html_and_non_finite_rate(tmp_path) -> None:
@@ -88,3 +91,51 @@ def test_treasury_rejects_html_and_non_finite_rate(tmp_path) -> None:
             clock=lambda: datetime(2026, 10, 22, 1, 5, tzinfo=UTC),
         ) as client, pytest.raises(ValueError):
             client.collect_month(2026, 10, ImmutableRawStore(tmp_path))
+
+
+def test_archived_treasury_versions_keep_real_capture_order_and_detect_tampering(tmp_path) -> None:
+    store = ImmutableRawStore(tmp_path)
+    captured = datetime(2026, 10, 22, 1, 5, tzinfo=UTC)
+    with TreasuryYieldCollector(
+        transport=httpx.MockTransport(lambda _: httpx.Response(
+            200, content=SAMPLE, headers={"content-type": "application/xml"}
+        )), clock=lambda: captured,
+    ) as client:
+        first = client.collect_month(2026, 10, store)
+    with TreasuryYieldCollector(
+        transport=httpx.MockTransport(lambda _: httpx.Response(
+            200, content=SAMPLE.replace(b"4.05", b"4.15"),
+            headers={"content-type": "application/xml"}
+        )), clock=lambda: datetime(2026, 10, 23, 1, 5, tzinfo=UTC),
+    ) as client:
+        client.collect_month(2026, 10, store)
+    history = load_treasury_history(tmp_path)
+    assert [(row.observation_date, row.value_percent, row.captured_at)
+            for row in history if row.observation_date == date(2026, 10, 20)] == [
+        (date(2026, 10, 20), 4.05, captured),
+        (date(2026, 10, 20), 4.15, datetime(2026, 10, 23, 1, 5, tzinfo=UTC)),
+    ]
+    tampered = json.loads(first.raw_artifact.path.read_text(encoding="utf-8"))
+    tampered["payload"]["body_base64"] = base64.b64encode(b"<broken/>").decode("ascii")
+    first.raw_artifact.path.write_text(json.dumps(tampered), encoding="utf-8")
+    with pytest.raises(ValueError, match="hash mismatch"):
+        load_treasury_history(tmp_path)
+
+
+def test_coverage_distinguishes_shared_dates_from_later_capturable_sessions(tmp_path) -> None:
+    with TreasuryYieldCollector(
+        transport=httpx.MockTransport(lambda _: httpx.Response(
+            200, content=SAMPLE, headers={"content-type": "application/xml"}
+        )), clock=lambda: datetime(2026, 10, 22, 1, 5, tzinfo=UTC),
+    ) as client:
+        client.collect_month(2026, 10, ImmutableRawStore(tmp_path))
+    price_path = tmp_path / "private-prices.csv"
+    price_path.write_text("session_date,adjusted_close\n2026-10-19,100\n"
+                          "2026-10-20,101\n2026-10-21,102\n2026-10-22,103\n",
+                          encoding="utf-8")
+    result = report_coverage(price_path, tmp_path)
+    assert result["price_session_count"] == 4
+    assert result["same_date_observation_overlap"] == 2
+    assert result["price_sessions_strictly_after_first_capture"] == 1
+    assert result["sessions_with_earlier_treasury_capture"] == 1
+    assert result["public_performance_allowed"] is False

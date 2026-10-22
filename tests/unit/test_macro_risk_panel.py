@@ -113,6 +113,46 @@ def test_backfilled_observations_only_change_later_as_of_rows() -> None:
     assert revised.probability_rows[1].probability.probability == 0.9
 
 
+def test_date_only_treasury_rate_uses_capture_and_conservative_age() -> None:
+    first = MarketIndicatorObservation(
+        "UST10Y_PAR", "us-treasury", None, clock(6, 22), 4.0, "f" * 64,
+        observation_date=date(2026, 1, 6),
+    )
+    result = build_macro_risk_panel(
+        (baseline(6), baseline(7), baseline(9)), (first,), [], [],
+        required_indicators=("UST10Y_PAR",),
+        max_indicator_age=timedelta(hours=48),
+        max_probability_age=DAY, max_release_lead=DAY,
+        include_probability_research=False,
+    )
+    assert [row.forecast.session_date for row in result.traditional_rows] == [date(2026, 1, 7)]
+    assert result.coverage.indicator_exclusions == (
+        ("UST10Y_PAR", "missing_indicator", 1),
+        ("UST10Y_PAR", "stale_indicator", 1),
+    )
+    with pytest.raises(ValueError, match="exactly one observation timestamp or date"):
+        MarketIndicatorObservation("UST10Y_PAR", "us-treasury", clock(6), clock(7),
+                                   4.0, "f" * 64, observation_date=date(2026, 1, 6))
+
+
+def test_date_only_treasury_revision_does_not_change_earlier_prediction() -> None:
+    first = MarketIndicatorObservation(
+        "UST10Y_PAR", "us-treasury", None, clock(6, 22), 4.0, "f" * 64,
+        observation_date=date(2026, 1, 6),
+    )
+    revised = MarketIndicatorObservation(
+        "UST10Y_PAR", "us-treasury", None, clock(8, 22), 4.5, "e" * 64,
+        observation_date=date(2026, 1, 6),
+    )
+    result = build_macro_risk_panel(
+        (baseline(7), baseline(9)), (first, revised), [], [],
+        required_indicators=("UST10Y_PAR",), max_indicator_age=DAY * 7,
+        max_probability_age=DAY, max_release_lead=DAY,
+        include_probability_research=False,
+    )
+    assert [row.indicators[0].value for row in result.traditional_rows] == [4.0, 4.5]
+
+
 def test_nearest_known_release_is_not_skipped_for_a_later_event_with_data() -> None:
     nearer = ScheduledMacroEvent("FOMC-1", "FOMC", "synthetic", "FOMC-RATE",
                                  clock(4), clock(4), clock(7, 13), "e" * 64)
