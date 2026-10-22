@@ -6,6 +6,8 @@ on:
       - feat/alpaca-price-snapshots
     paths:
       - .github/workflows/alpaca-price-collection.yml
+      - apps/collector/shockgraph_collector/alpaca_bars.py
+      - scripts/collect_alpaca_prices.py
   workflow_dispatch:
 
 permissions:

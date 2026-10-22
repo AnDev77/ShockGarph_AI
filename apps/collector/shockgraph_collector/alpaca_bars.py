@@ -9,7 +9,7 @@ import io
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time
 from decimal import Decimal, InvalidOperation
 from typing import Self
 from zoneinfo import ZoneInfo
@@ -110,10 +110,10 @@ class AlpacaDailyCollector:
             cursor: str | None = None
             seen_cursors: set[str] = set()
             for _ in range(_MAX_PAGES):
-                # Alpaca's inclusive date endpoint resolves at midnight UTC, while
-                # an NY daily bar is stamped 04:00/05:00 UTC on its session day.
+                # Explicit UTC end includes the NY midnight-stamped daily bar
+                # without asking a free SIP plan for a current-date range.
                 params = {"timeframe": "1Day", "start": start.isoformat(),
-                          "end": (end + timedelta(days=1)).isoformat(), "adjustment": adjustment,
+                          "end": f"{end.isoformat()}T23:59:59Z", "adjustment": adjustment,
                           "feed": "sip", "limit": "10000"}
                 if cursor is not None:
                     params["page_token"] = cursor
