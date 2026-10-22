@@ -42,23 +42,38 @@ jobs:
           python - <<'PY'
           import json
           import os
+          from datetime import datetime, timedelta
+          from zoneinfo import ZoneInfo
           import httpx
 
           headers = {
               "APCA-API-KEY-ID": os.environ["APCA_API_KEY_ID"],
               "APCA-API-SECRET-KEY": os.environ["APCA_API_SECRET_KEY"],
           }
+          today_us = datetime.now(ZoneInfo("America/New_York")).date()
+          latest = (today_us - timedelta(days=1)).isoformat()
+          cases = (
+              ("old_small", "sip", "2024-04-08", "2024-04-09", 1),
+              ("old_large_limit", "sip", "2024-04-08", "2024-04-09", 10000),
+              ("wide_old", "sip", "2024-01-02", "2026-09-30", 1),
+              ("recent_small", "sip", latest, today_us.isoformat(), 1),
+              ("old_iex", "iex", "2024-04-08", "2024-04-09", 1),
+          )
           with httpx.Client(timeout=15) as client:
-              for feed in ("iex", "sip"):
+              for name, feed, start, end, limit in cases:
                   try:
                       response = client.get(
                           "https://data.alpaca.markets/v2/stocks/SPY/bars",
-                          params={"timeframe": "1Day", "start": "2024-04-08",
-                                  "end": "2024-04-09", "feed": feed, "limit": 1},
+                          params={"timeframe": "1Day", "start": start,
+                                  "end": end, "feed": feed, "limit": limit},
                           headers=headers,
                       )
-                      print(json.dumps({"feed": feed, "http_status": response.status_code}))
+                      payload = response.json() if response.headers.get(
+                          "content-type", "").startswith("application/json") else {}
+                      code = payload.get("code") if isinstance(payload, dict) else None
+                      print(json.dumps({"case": name, "http_status": response.status_code,
+                                        "api_code": code if isinstance(code, int) else None}))
                   except httpx.HTTPError:
-                      print(json.dumps({"feed": feed, "status": "network_error"}))
+                      print(json.dumps({"case": name, "status": "network_error"}))
           PY
           exit 2
