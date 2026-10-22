@@ -6,8 +6,11 @@ from pathlib import Path
 
 import pytest
 from shockgraph_data_pipeline.market_calendar import nasdaq_2026_sessions, nasdaq_sessions
+from shockgraph_risk.daily import VolatilityForecast
+from shockgraph_risk.macro_panel import build_macro_risk_panel
 
 from scripts.evaluate_snapshot_holdout import main
+from scripts.evaluate_traditional_holdout import load_indicators
 from scripts.evaluate_traditional_holdout import main as traditional_main
 
 
@@ -98,10 +101,12 @@ def test_traditional_cli_uses_private_indicator_csv_and_blocks_too_short_holdout
     indicators.write_text("\n".join(lines) + "\n", encoding="utf-8")
     output = tmp_path / "traditional.json"
     args = ["--manifest", str(manifest), "--indicators", str(indicators),
-            "--raw-root", str(tmp_path / "raw"), "--output", str(output)]
+            "--raw-root", str(tmp_path / "raw"), "--output", str(output),
+            "--allow-unverified-indicators"]
     assert traditional_main(args) == 0
     report = json.loads(output.read_text(encoding="utf-8"))
-    assert report["schema_version"] == 3
+    assert report["schema_version"] == 4
+    assert report["indicator_capture_times_supplied"] is False
     assert report["public_performance_allowed"] is False
     assert report["indicator_names"] == ["DGS10"]
     assert len(report["indicator_file_sha256"]) == 64
@@ -130,7 +135,7 @@ def test_traditional_cli_records_per_indicator_age_and_rejects_unknown_override(
     args = ["--manifest", str(manifest), "--indicators", str(indicators),
             "--raw-root", str(tmp_path / "raw"), "--indicator", "DGS10",
             "--indicator", "NFCI_RISK", "--indicator-age-hours", "DGS10=25",
-            "--indicator-age-hours", "NFCI_RISK=240"]
+            "--indicator-age-hours", "NFCI_RISK=240", "--allow-unverified-indicators"]
     assert traditional_main(args) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["indicator_max_age_hours"] == {"DGS10": 25.0, "NFCI_RISK": 240.0}
@@ -140,6 +145,84 @@ def test_traditional_cli_records_per_indicator_age_and_rejects_unknown_override(
     rejected = json.loads(capsys.readouterr().out)
     assert rejected["status"] == "invalid_input"
     assert "unknown indicator age" in rejected["reason"]
+
+
+def test_indicator_capture_time_prevents_retroactive_use(tmp_path: Path) -> None:
+    path = tmp_path / "indicators.csv"
+    path.write_text(
+        "name,source,observed_at,available_at,captured_at,value\n"
+        "DGS10,source,2026-10-16T20:00:00Z,2026-10-19T20:16:00Z,"
+        "2026-10-19T20:21:00Z,5.09\n",
+        encoding="utf-8",
+    )
+    rows, _, capture_supplied = load_indicators(path)
+    assert capture_supplied is True
+    assert rows[0].available_at == datetime.fromisoformat("2026-10-19T20:21:00+00:00")
+    forecasts = (
+        VolatilityForecast("TLT", date(2026, 10, 19),
+                           datetime.fromisoformat("2026-10-19T20:20:00+00:00"),
+                           5, 0.02, 0.02, "a" * 64),
+        VolatilityForecast("TLT", date(2026, 10, 20),
+                           datetime.fromisoformat("2026-10-20T20:20:00+00:00"),
+                           5, 0.02, 0.02, "b" * 64),
+    )
+    panel = build_macro_risk_panel(
+        forecasts, rows, [], [], required_indicators=("DGS10",),
+        max_indicator_age=timedelta(days=5), max_probability_age=timedelta(days=1),
+        max_release_lead=timedelta(days=1), include_probability_research=False,
+    )
+    assert [row.forecast.session_date for row in panel.traditional_rows] == [date(2026, 10, 20)]
+    assert panel.coverage.indicator_exclusions == (("DGS10", "missing_indicator", 1),)
+
+    path.write_text(
+        "name,source,observed_at,available_at,captured_at,value\n"
+        "DGS10,source,2026-10-16T20:00:00Z,2026-10-19T20:16:00Z,"
+        "2026-10-19T20:10:00Z,5.09\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="capture cannot precede provider availability"):
+        load_indicators(path)
+
+
+def test_strict_comparison_rejects_indicator_without_capture_time(tmp_path: Path) -> None:
+    manifest = _manifest(tmp_path)
+    indicators = tmp_path / "indicators.csv"
+    indicators.write_text(
+        "name,source,observed_at,available_at,value\n"
+        "DGS10,synthetic,2026-01-05T21:00:00Z,2026-01-05T21:02:00Z,3.0\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="captured_at is required"):
+        load_indicators(indicators, require_captured_at=True)
+    assert traditional_main([
+        "--manifest", str(manifest), "--indicators", str(indicators),
+        "--raw-root", str(tmp_path / "raw"),
+    ]) == 2
+
+
+def test_strict_comparison_reports_capture_input_but_does_not_verify_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    manifest = _manifest(tmp_path)
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    indicators = tmp_path / "indicators.csv"
+    lines = ["name,source,observed_at,available_at,captured_at,value"]
+    for item in data["snapshots"]:
+        captured_at = datetime.fromisoformat(item["captured_at"])
+        lines.append(
+            f"DGS10,synthetic,{(captured_at - timedelta(minutes=5)).isoformat()},"
+            f"{(captured_at - timedelta(minutes=2)).isoformat()},"
+            f"{captured_at.isoformat()},3.0"
+        )
+    indicators.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert traditional_main([
+        "--manifest", str(manifest), "--indicators", str(indicators),
+        "--raw-root", str(tmp_path / "raw"),
+    ]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["indicator_capture_times_supplied"] is True
+    assert report["indicator_capture_times_verified"] is False
+    assert report["public_performance_allowed"] is False
 
 
 def test_manifest_accepts_cross_year_sessions_and_rejects_false_holiday_price(

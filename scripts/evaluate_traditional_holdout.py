@@ -37,34 +37,53 @@ from shockgraph_risk.traditional_model import evaluate_traditional_holdout  # no
 from scripts.evaluate_snapshot_holdout import load_snapshot_manifest  # noqa: E402
 
 _FIELDS = ("name", "source", "observed_at", "available_at", "value")
+_CAPTURE_FIELDS = ("name", "source", "observed_at", "available_at", "captured_at", "value")
 
 
-def load_indicators(path: Path) -> tuple[tuple[MarketIndicatorObservation, ...], str]:
-    """Hash the private source file and require explicit UTC observation/availability times."""
+def load_indicators(
+    path: Path, *, require_captured_at: bool = False,
+) -> tuple[tuple[MarketIndicatorObservation, ...], str, bool]:
+    """Use the later of provider availability and the recorded local capture time."""
     try:
         contents = path.read_bytes()
         reader = csv.DictReader(io.StringIO(contents.decode("utf-8-sig"), newline=""))
-        if reader.fieldnames != list(_FIELDS):
-            raise ValueError("indicator CSV needs name,source,observed_at,available_at,value")
+        has_capture = reader.fieldnames == list(_CAPTURE_FIELDS)
+        if not has_capture and reader.fieldnames != list(_FIELDS):
+            raise ValueError("indicator CSV has invalid columns")
+        if require_captured_at and not has_capture:
+            raise ValueError("indicator captured_at is required for this comparison")
         file_hash = hashlib.sha256(contents).hexdigest()
         rows = []
         for item in reader:
-            if None in item or any(item[name] is None or not item[name] for name in _FIELDS):
+            fields = _CAPTURE_FIELDS if has_capture else _FIELDS
+            if None in item or any(item[name] is None or not item[name] for name in fields):
                 raise ValueError("indicator CSV has an incomplete row")
             value = float(item["value"])
             if not math.isfinite(value):
                 raise ValueError("indicator value must be finite")
+            provider_at = datetime.fromisoformat(item["available_at"])
+            if has_capture:
+                captured_at = datetime.fromisoformat(item["captured_at"])
+                if captured_at.tzinfo is None or captured_at.utcoffset() != timedelta(0):
+                    raise ValueError("indicator captured_at must be UTC")
+                if provider_at.tzinfo is None or provider_at.utcoffset() != timedelta(0):
+                    raise ValueError("indicator available_at must be UTC")
+                if captured_at < provider_at:
+                    raise ValueError("indicator capture cannot precede provider availability")
+                effective_at = captured_at
+            else:
+                effective_at = provider_at
             rows.append(MarketIndicatorObservation(
                 name=item["name"], source=item["source"],
                 observed_at=datetime.fromisoformat(item["observed_at"]),
-                available_at=datetime.fromisoformat(item["available_at"]),
+                available_at=effective_at,
                 value=value, raw_hash=file_hash,
             ))
     except (OSError, UnicodeDecodeError, csv.Error, KeyError) as error:
         raise ValueError("indicator CSV could not be read") from error
     if not rows:
         raise ValueError("indicator CSV must contain observations")
-    return tuple(rows), file_hash
+    return tuple(rows), file_hash, has_capture
 
 
 def run_traditional_manifest(
@@ -72,9 +91,12 @@ def run_traditional_manifest(
     *, indicator_names: tuple[str, ...] = ("DGS10",),
     max_indicator_age: timedelta = timedelta(days=5),
     indicator_max_ages: Mapping[str, timedelta] | None = None,
+    require_captured_at: bool = True,
 ) -> dict[str, Any]:
     inputs = load_snapshot_manifest(manifest_path, raw_root)
-    indicators, indicator_hash = load_indicators(indicator_path)
+    indicators, indicator_hash, capture_supplied = load_indicators(
+        indicator_path, require_captured_at=require_captured_at
+    )
     if not indicator_names or len(set(indicator_names)) != len(indicator_names):
         raise ValueError("indicator names must be nonempty and unique")
     if max_indicator_age <= timedelta(0):
@@ -114,10 +136,12 @@ def run_traditional_manifest(
         compared.append({"horizon": horizon, "coverage": asdict(panel.coverage),
                          "metrics": asdict(result)})
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "status": "private_research_only",
         "manifest_sha256": inputs.manifest_sha256,
         "indicator_file_sha256": indicator_hash,
+        "indicator_capture_times_supplied": capture_supplied,
+        "indicator_capture_times_verified": False,
         "indicator_names": indicator_names,
         "max_indicator_age_seconds": max_indicator_age.total_seconds(),
         "indicator_max_age_hours": {
@@ -159,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-indicator-age-hours", type=float, default=120)
     parser.add_argument("--indicator-age-hours", action="append", default=[],
                         help="지표별 상한 NAME=HOURS; 예: NFCI_RISK=240")
+    parser.add_argument("--allow-unverified-indicators", action="store_true",
+                        help="수집 시각 없는 구형 CSV를 합성·탐색 연구에만 사용")
     parser.add_argument("--raw-root", type=Path, default=ROOT / "data/raw")
     parser.add_argument("--output", type=Path, help="비공개 JSON 출력 경로, 생략하면 표준 출력")
     args = parser.parse_args(argv)
@@ -171,6 +197,7 @@ def main(argv: list[str] | None = None) -> int:
             args.manifest, args.indicators, args.raw_root, indicator_names=names,
             max_indicator_age=timedelta(hours=args.max_indicator_age_hours),
             indicator_max_ages=configured_ages,
+            require_captured_at=not args.allow_unverified_indicators,
         )
         encoded = json.dumps(report, ensure_ascii=False, indent=2,
                              default=lambda value: value.isoformat()
