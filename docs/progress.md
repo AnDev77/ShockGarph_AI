@@ -18,6 +18,7 @@
 | **실수집** | **재무부 공식 XML 실수신과 TLT 날짜 겹침 측정** | HTTP 접근 실패 판정을 재검토하고 SOCKS 의존성을 추가. `curl` 경유 1건과 공식 Python 수집 명령 1건으로 2026-10 월별 XML을 실제 수신·보관. TLT 1,253개 세션 중 같은 관측 날짜 11개를 찾았지만 첫 수신 이후 가격 세션은 0개 | [실수집 리뷰](reviews/treasury-live-ingestion-review.md). 과거 관측일이 같다고 당시 예측에 쓸 수 있던 것은 아님. 실 A/B `HOLD` |
 | **추가** | **Alpaca SIP 가격 원본과 TLT·SPY 스냅샷 경로** | 직전에는 공급원 없는 TLT 수정종가 단일 파일만 있었음 → 키가 주입되면 Alpaca의 원본·조정 일봉을 각각 보관하고 TLT·SPY 전체 가격 CSV와 원본 해시 manifest를 생성해 기존 시점별 위험 입력 형식으로 검사할 수 있음 | [Alpaca 가격 리뷰](reviews/alpaca-sip-price-snapshots-review.md). 전체 157개 시험 통과. 로컬에는 키가 없어 합성으로 검증했으며 실제 응답은 아래 Actions 작업에서 확인 |
 | **실수집** | **GitHub Actions의 Alpaca 비밀 변수 연결과 TLT·SPY 커버리지** | 키 두 개를 Actions에서 사용하고 최근 날짜형 SIP 403을 명시적 UTC 종료 시각으로 해결. 실제 SIP 응답으로 TLT·SPY 각각 704거래일을 수집해 원본·조정본, 날짜 완전성을 확인 | [Alpaca 가격 리뷰](reviews/alpaca-sip-price-snapshots-review.md) 및 [실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39742059555). 원본·CSV는 일회성 러너에서 삭제됨. 과거 시점별 보관본, 재배포 권리, A/B 성능은 여전히 `HOLD` |
+| **진행** | **TLT·SPY 가격 기준선 종목별 비교** | 직전에는 실제 가격의 거래일 수만 확인 → 수집 직후 manifest·CSV 해시를 다시 검사하고 각 종목의 최근 변동성·EWMA·GARCH·가격 Ridge를 동일한 5·20일 정답에서 비교하는 명령 연결 | [종목별 가격 비교 리뷰](reviews/alpaca-price-only-comparison-review.md). 실제 실행 수치는 Actions 결과 확인 후 기록. 시점별 A/B 판정은 `HOLD` |
 
 ## 현재 제품 판정
 

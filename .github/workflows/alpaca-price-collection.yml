@@ -8,6 +8,7 @@ on:
       - .github/workflows/alpaca-price-collection.yml
       - apps/collector/shockgraph_collector/alpaca_bars.py
       - scripts/collect_alpaca_prices.py
+      - scripts/analyze_alpaca_history.py
   workflow_dispatch:
 
 permissions:
@@ -39,6 +40,8 @@ jobs:
         run: |
           PRICE_END=$(python -c 'from datetime import datetime, timedelta; from zoneinfo import ZoneInfo; print((datetime.now(ZoneInfo("America/New_York")).date() - timedelta(days=1)).isoformat())')
           if python scripts/collect_alpaca_prices.py --start 2024-01-02 --end "$PRICE_END"; then
+            MANIFEST=$(find artifacts/alpaca-private/captures -maxdepth 1 -type f -name '*.json' -print -quit)
+            python scripts/analyze_alpaca_history.py --manifest "$MANIFEST" --holdout-start 2026-01-02
             exit 0
           fi
           python - <<'PY'
