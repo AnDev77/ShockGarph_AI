@@ -54,10 +54,15 @@ TLT/금리 관측을 시점별로 자동 결합한 리포트가 수동 조사보
 
 `make risk-evaluate`에서 쓰는 **보관 전체 수정가격 스냅샷 manifest**와
 별도의 전통 지표 CSV가 필요하다. 지표 파일은 저장소 밖 또는 무시된 비공개
-경로에 두고 `name,source,observed_at,available_at,value` 열을 사용한다.
-`observed_at`과 `available_at`은 UTC 시각이며, 예를 들어 `DGS10`의 관측일
-이름만 적고 장 마감 전 공개된 것처럼 만들지 않는다. 원본 자료나 별도 기록으로
-해당 과거 게시 시각을 확인하지 못하면 입력 시각의 진위는 **미확인**이다.
+경로에 두고 `name,source,observed_at,available_at,captured_at,value` 열을 사용한다.
+세 시각은 UTC이며 `available_at`은 공급원에서 해당 버전을 API로 받을 수 있게
+된 시각, `captured_at`은 **우리 쪽에서 실제 응답을 받은 시각**이다. 둘 중 늦은
+수집 시각부터 해당 행을 사용한다. 관측 날짜만 제공하는 `DGS10`에 근거 없는
+일중 관측 시각을 만들어 쓰지 않는다. CSV에 수집 시각을 적는 것만으로 실제
+수집 사실이 인증되지는 않는다. 원본 응답·수신 로그·시계 동기화와 이용권 확인은
+별도 과제이며 보고서는 `indicator_capture_times_verified=false`를 유지한다.
+수집 시각이 없는 예전 5열 파일은 `--allow-unverified-indicators`를 명시해야만
+합성·탐색 연구에 사용할 수 있다.
 
 ```bash
 make risk-compare SNAPSHOT_MANIFEST=/private/manifest.json \
