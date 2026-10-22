@@ -48,3 +48,11 @@ PYTHON=.venv/bin/python`을 실행한다. 미국 수신일 이전의 `PRICE_END`
 받은 시각으로 설정한다. 같은 날의 조정종가가 나중에 수정되면 새 버전으로
 보관하고 과거 예측에 소급하지 않는다. 과거 수정 이력과 외부 표시 권리는
 여전히 검증되지 않았다.
+
+수집 manifest가 남은 같은 비공개 환경에서
+`make analyze-alpaca ALPACA_MANIFEST=artifacts/alpaca-private/captures/<파일>.json \
+HOLDOUT_START=2026-01-02 PYTHON=.venv/bin/python`을 실행하면 TLT와 SPY의
+현재 조정 이력에서 5·20일 가격 기준선을 각각 비교한다. GitHub Actions도
+수집 직후 해당 분석을 실행하지만 원본 가격과 CSV는 Actions 아티팩트에
+올리지 않아 작업이 끝나면 삭제된다. 이 결과는 예측 당시의 과거 가격
+버전이나 외부 표시 권리를 증명하지 않는다.
