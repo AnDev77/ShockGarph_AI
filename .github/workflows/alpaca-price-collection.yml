@@ -36,4 +36,29 @@ jobs:
       - name: TLT·SPY 과거 가격 수집과 검증
         run: |
           PRICE_END=$(python -c 'from datetime import datetime, timedelta; from zoneinfo import ZoneInfo; print((datetime.now(ZoneInfo("America/New_York")).date() - timedelta(days=1)).isoformat())')
-          python scripts/collect_alpaca_prices.py --start 2024-01-02 --end "$PRICE_END"
+          if python scripts/collect_alpaca_prices.py --start 2024-01-02 --end "$PRICE_END"; then
+            exit 0
+          fi
+          python - <<'PY'
+          import json
+          import os
+          import httpx
+
+          headers = {
+              "APCA-API-KEY-ID": os.environ["APCA_API_KEY_ID"],
+              "APCA-API-SECRET-KEY": os.environ["APCA_API_SECRET_KEY"],
+          }
+          with httpx.Client(timeout=15) as client:
+              for feed in ("iex", "sip"):
+                  try:
+                      response = client.get(
+                          "https://data.alpaca.markets/v2/stocks/SPY/bars",
+                          params={"timeframe": "1Day", "start": "2024-04-08",
+                                  "end": "2024-04-09", "feed": feed, "limit": 1},
+                          headers=headers,
+                      )
+                      print(json.dumps({"feed": feed, "http_status": response.status_code}))
+                  except httpx.HTTPError:
+                      print(json.dumps({"feed": feed, "status": "network_error"}))
+          PY
+          exit 2
