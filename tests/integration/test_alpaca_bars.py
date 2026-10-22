@@ -29,6 +29,8 @@ def test_alpaca_sip_pages_preserve_originals_and_connect_price_snapshot(tmp_path
         assert request.url.host == "data.alpaca.markets"
         assert request.url.params["feed"] == "sip"
         assert request.url.params["timeframe"] == "1Day"
+        assert request.url.params["start"] == "2026-04-06"
+        assert request.url.params["end"] == "2026-04-09"
         assert request.url.params["adjustment"] in ("raw", "all")
         adjustment = request.url.params["adjustment"]
         cursor = request.url.params.get("page_token")
