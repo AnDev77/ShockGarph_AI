@@ -25,6 +25,7 @@
 | **연구 단계 갱신** | **통계·딥러닝 후보의 데이터 조건** | 직전 설계의 Yahoo 단일 이력 기준 탈락 표현과 Alpaca 다른 기간의 탐색 수치를 구별. B는 거시정보 추가 효과와 모델 복잡도 효과를 분리해, 시점별 자료 확보 뒤 비대칭 GARCH·작은 비선형 모형·조건부 신경망 후보를 순서대로 검토 | [현대적 모델 단계 리뷰](reviews/modern-risk-model-research-stage-review.md). 실제 B1 및 딥러닝 학습·평가는 미실시, 제품 성능 `HOLD` |
 | **통계 후보 실분석** | **비대칭 GJR-GARCH 종목별 평가** | 직전에는 대칭 GARCH까지만 실제 가격을 비교 → 이번에는 하락 충격을 따로 반영하는 GJR를 홀드아웃 전 학습해 같은 정답에 추가. SPY 5일 MAE는 0.2547→0.2155%p, 20일은 0.1870→0.1673%p, TLT의 비대칭 계수는 0으로 추정 | [비대칭 위험 리뷰](reviews/gjr-garch-price-risk-review.md), [실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39889120543). 163개 시험·정적 검사 통과. SPY 20일 개선의 블록 구간에는 0이 포함되고 이미 본 가격 기간의 탐색이므로 제품 성능 `HOLD` |
 | **월별 안정성 탐색** | **SPY 비대칭 위험 개선의 시기 집중도** | 직전에는 연간 평균 오차만 보고 → 5·20일 동일 예측 시작일의 월별 차이와 학습 전 502/홀드아웃 202/20일 채점 182일을 분리. SPY 5일은 10개월 중 9개월 개선, 20일은 9개월 중 4개월만 개선했고 20일 전체 개선 합의 약 80%가 4월 시작일에서 나옴 | [월별 오차 리뷰](reviews/monthly-risk-error-stability-review.md), [실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39894886870). 이미 본 동일 기간의 탐색이어서 독립 판정은 `HOLD` |
+| **재학습 안정성 탐색** | **GARCH 월초 재학습과 고정 계수 비교** | 직전에는 고정 계수의 월별 오차만 관찰 → 각 달 첫 예측 종가까지 수익률로 대칭 GARCH/GJR를 다시 추정. SPY 5일 GJR 0.2175%p 대 월별 GARCH 0.2563%p이나 기존 고정 GJR 0.2155%p보다 개선되지 않음. SPY 20일 월초 GJR 0.1677%p 대 고정 0.1673%p | [월초 재학습 리뷰](reviews/monthly-garch-refit-stability-review.md), [실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39896738693). 165개 시험 통과, 정적 검사 0건. 독립 기간·당시 가격 버전은 미확보, 제품 `HOLD` |
 
 ## 현재 제품 판정
 

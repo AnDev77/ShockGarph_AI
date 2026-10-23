@@ -37,6 +37,7 @@
 | 이전 Yahoo 탐색의 가격 모형 열세가 현재 프로젝트 전체의 모델 탈락처럼 읽힘 | 모델 설계 문서의 마지막 판단 문장이 후속 Alpaca SIP 다른 기간 탐색을 반영하지 않음 | 공급원·기간별 결과를 분리하고 어느 쪽도 시점별 독립 성능 평가가 아님을 명시. 실제 거시 B1의 효과는 여전히 `HOLD` | [현대적 모델 단계](reviews/modern-risk-model-research-stage-review.md) |
 | GJR가 모든 ETF에서 대칭 GARCH보다 개선된다는 가정은 실제 탐색과 맞지 않음 | TLT의 학습된 비대칭 계수가 0인 반면 SPY는 0.215117. SPY 20일의 겹친 미래 구간을 고려한 오차 차이의 블록 구간은 0을 포함 | 종목별 계수·5/20일 MAE·길이 `h`와 `2h` 블록을 나눠 보고, TLT에는 개선 없음, SPY 20일에는 우위 미확정으로 기록. 이미 본 표본을 독립 시험으로 재사용하지 않음 | [비대칭 위험](reviews/gjr-garch-price-risk-review.md) |
 | SPY 20일의 전체 MAE 개선만 보면 월별 편차가 가려짐 | 같은 평가 기간의 9개 시작 월 중 개선은 4개월이고, 4월 시작일이 전체 오차 차이 합의 약 80%에 기여 | 같은 예측 시작일의 월별 MAE 차이와 4월 제외 단순 재집계를 추가. 20일 우위는 계속 보류하고 월별 결과를 독립 실험 또는 시장 국면 모형의 학습 근거로 사용하지 않음 | [월별 오차](reviews/monthly-risk-error-stability-review.md) |
+| 비대칭 모형을 더 자주 재학습하면 위험 예측이 개선될 것이라는 예상이 실제 탐색과 맞지 않음 | SPY 5일 고정 GJR MAE 0.2155%p, 월초 재학습 0.2175%p. 20일도 고정 0.1673%p, 월초 0.1677%p | 추가 이득을 주장하지 않고, 월초 재학습 GJR와 대칭 GARCH, 고정 GJR를 같은 시작일에서 비교했다. 예측 당시 가격 빈티지·새 독립 기간 미확보로 채택 보류 | [월초 재학습](reviews/monthly-garch-refit-stability-review.md) |
 | Kalshi CPI 표본으로 ETF 위험을 검증하기 어려움 | 유효 계약·발표 표본이 제한되고 계약 가격이 ETF 변동성 정답이 아님 | 계약의 당시 기대는 설명 자료로 분리하고, 가격 기준선 A 대 전통 정보 B를 먼저 비교 | [CPI 조사](cpi-coverage-review.md), [기대 맥락 분리](reviews/kalshi-expectation-context-review.md) |
 | 더 복잡한 모형이면 낫다는 주장을 할 수 없음 | 현재 수정종가 한 벌의 비공개 탐색에서 Ridge·GARCH의 5·20일 MAE가 EWMA보다 큼. 5일 QLIKE 등 일부 지표 판단은 다름 | MAE와 QLIKE를 함께 보고하고, 이미 본 구간은 독립 시험으로 재사용하지 않음. B의 실제 증분 효과는 `HOLD` | [GARCH 탐색](reviews/tlt-exploratory-garch-visual-review.md) |
 | 첫 화면의 공동 분석 결과가 사용자의 종목별 판단을 흐림 | 사용자 피드백에서 SPY·TLT 각각의 상태가 우선이라고 명시됨 | 두 종목의 과거 위험·변화를 각각 계산하고 합산은 최초 비중의 기간 총변동률로 축소 | [종목별 화면](reviews/asset-first-market-overview-review.md) |
@@ -55,6 +56,7 @@
 | 새 환경에서 Pyright가 `matplotlib`을 찾지 못함 | 처음 복구 명령은 `dev` 추가 항목만 설치하고, 저장소의 선택적 `viz` 추가 항목은 빠뜨림 | `viz`까지 동기화해 모듈 해석 오류를 제거. 기존 저장소 의존성 선언은 그대로 유지 | [지표 신선도](reviews/indicator-freshness-gate-review.md) |
 | 새 GJR 시험을 처음 정적 검사할 때 Optional 값의 대소 비교에서 Pyright 오류 1건 | `gjr_volatility`는 최적화 실패 시 `None`일 수 있는데 시험이 곧장 `> 0`으로 비교 | 시험에서 `None` 여부를 먼저 확인하도록 수정. Ruff 위반 0건, Pyright 오류·경고 0건과 전체 163개 시험으로 다시 검증 | [비대칭 위험](reviews/gjr-garch-price-risk-review.md) |
 | 월별 집계의 첫 통합 시험에서 미채점 끝부분이 `None`으로 표시됨 | 계산은 20일 진단의 최소 블록 수 부족 상태에도 끝부분의 20개 미래 정답 부재를 표시해야 하는데, 새 출력은 탐색 상태에서만 값을 내도록 작성됨 | 상태와 무관하게 홀드아웃 가격 행 수에서 채점 시작일 수를 빼도록 수정. 합성 20일 제한 상태의 통합 시험에서 끝부분 20일을 재확인 | [월별 오차](reviews/monthly-risk-error-stability-review.md) |
+| 월초 재학습 부족 표본 시험에서 모든 기간이 차단될 것으로 예상했으나 5일은 채점 가능했음 | 시험의 20개 홀드아웃 가격 중 5일은 미래 구간 15개·완전 묶음 3개가 남고, 20일은 0개다 | 시험에서 20일 차단만 정확히 검사하고 5일은 정상적으로 수행. 전체 165개 시험을 다시 실행해 통과 | [월초 재학습](reviews/monthly-garch-refit-stability-review.md) |
 | 로컬 커밋을 `git push`로 GitHub에 업로드할 수 없었음 | 이 작업 환경의 Git 원격에 GitHub HTTPS 인증 정보가 없어 사용자명을 읽지 못함 | 이미 승인된 GitHub 연결로 원격 기존 브랜치에서 새 기능 브랜치를 만들고, 로컬과 **동일한 파일 트리 해시**를 가진 커밋을 작성해 초안 PR을 열었음. 로컬·원격의 커밋 ID는 다르므로 후속 개발에서는 원격 트리를 대조해야 함 | [진행 기록](progress.md) |
 
 새 오류가 발생하면 해당 행의 해결 상태와 실제 재실행 결과를 갱신한다.
