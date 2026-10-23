@@ -54,6 +54,18 @@ def test_alpaca_analysis_uses_same_dates_and_rejects_changed_capture(tmp_path) -
             length = horizon["horizon_sessions"]
             assert horizon["nonoverlapping_windows"] == (count + length - 1) // length
             assert horizon["conservative_full_start_blocks"] == count // length
+            diagnostics = horizon["overlap_diagnostics"]
+            if (horizon["baseline_status"] != "exploratory_current_history_only" or
+                    horizon["ridge_status"] != "exploratory_current_history_only"):
+                assert diagnostics is None
+                continue
+            assert diagnostics is not None
+            assert diagnostics["garch_vs_ewma"]["nonoverlap_phase_count"] == length
+            assert diagnostics["ridge_vs_ewma"]["nonoverlap_phase_count"] == length
+            for name in ("garch_vs_ewma", "ridge_vs_ewma"):
+                assert (diagnostics[name]["block_2h_ci_percentage_points"] is not None) == (
+                    count >= 4 * length
+                )
 
     path = base / "SPY" / "capture.csv"
     path.write_bytes(path.read_bytes().replace(b"1000", b"1001", 1))

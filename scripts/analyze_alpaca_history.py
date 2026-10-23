@@ -18,6 +18,7 @@ sys.path[:0] = [str(ROOT / "packages/domain"), str(ROOT / "packages/data_pipelin
                 str(ROOT / "packages/risk_engine")]
 
 from shockgraph_data_pipeline.market_calendar import nasdaq_sessions  # noqa: E402
+from shockgraph_risk.daily import _paired_block_interval  # noqa: E402
 from shockgraph_risk.exploratory_garch import evaluate_exploratory_garch  # noqa: E402
 from shockgraph_risk.exploratory_history import HistoryPrice  # noqa: E402
 from shockgraph_risk.exploratory_model import compare_price_only_model  # noqa: E402
@@ -79,6 +80,44 @@ def _ci(value: tuple[float, float] | None) -> list[float] | None:
     return [round(point * 100, 4) for point in value] if value is not None else None
 
 
+def _serial_correlation(values: list[float], lag: int) -> float | None:
+    """Descriptive Pearson correlation of aligned pairs, with no IID significance claim."""
+    if lag < 1 or len(values) - lag < 2:
+        return None
+    left, right = values[:-lag], values[lag:]
+    first = math.fsum(left) / len(left)
+    second = math.fsum(right) / len(right)
+    cross = math.fsum((a - first) * (b - second) for a, b in zip(left, right, strict=True))
+    first_ss = math.fsum((a - first) ** 2 for a in left)
+    second_ss = math.fsum((b - second) ** 2 for b in right)
+    if first_ss <= 1e-30 or second_ss <= 1e-30:
+        return None
+    return round(cross / math.sqrt(first_ss * second_ss), 4)
+
+
+def _diagnose_paired_differences(differences: list[float], *, horizon: int) -> dict[str, Any]:
+    """Inspect error persistence and every possible nonoverlapping start phase."""
+    if horizon < 2 or not differences or any(not math.isfinite(x) for x in differences):
+        raise ValueError("paired differences require a finite nonempty horizon series")
+    phase_means = []
+    for start in range(min(horizon, len(differences))):
+        phase = differences[start::horizon]
+        if len(phase) >= 2:
+            phase_means.append(math.fsum(phase) / len(phase))
+    return {
+        "lag_one_correlation": _serial_correlation(differences, 1),
+        "nonoverlap_phase_count": len(phase_means),
+        "nonoverlap_phase_negative_count": sum(value < 0 for value in phase_means),
+        "nonoverlap_phase_mean_range_percentage_points": (
+            [_percent_points(min(phase_means)), _percent_points(max(phase_means))]
+            if phase_means else None
+        ),
+        "block_2h_ci_percentage_points": _ci(_paired_block_interval(
+            differences, block_length=2 * horizon, repeats=1000, seed=0,
+        )),
+    }
+
+
 def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
     manifest_bytes = manifest_path.read_bytes()
     manifest = json.loads(manifest_bytes)
@@ -113,6 +152,36 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
                     and not math.isclose(baseline.ewma_mae or 0, model.ewma_mae or 0,
                                          abs_tol=1e-12)):
                 raise ValueError("baseline MAE differs across evaluators")
+            diagnostics = None
+            if baseline.status == model.status == "exploratory_current_history_only":
+                if (len(baseline.points) != model.holdout_count or
+                        len(model.points) != model.holdout_count):
+                    raise ValueError("forecast point counts differ")
+                if any(
+                    left.session_date != right.session_date or
+                    not math.isclose(left.observed_volatility, right.observed_volatility,
+                                     abs_tol=1e-12) or
+                    not math.isclose(left.ewma_volatility, right.ewma_volatility,
+                                     abs_tol=1e-12)
+                    for left, right in zip(baseline.points, model.points, strict=True)
+                ):
+                    raise ValueError("forecast points differ across evaluators")
+                observed_variances = [point.observed_volatility ** 2 for point in model.points]
+                diagnostics = {
+                    "realized_variance_lag_one_correlation": _serial_correlation(
+                        observed_variances, 1,
+                    ),
+                    "garch_vs_ewma": _diagnose_paired_differences([
+                        abs(point.garch_volatility - point.observed_volatility)
+                        - abs(point.ewma_volatility - point.observed_volatility)
+                        for point in baseline.points
+                    ], horizon=model.horizon),
+                    "ridge_vs_ewma": _diagnose_paired_differences([
+                        abs(point.ridge_volatility - point.observed_volatility)
+                        - abs(point.ewma_volatility - point.observed_volatility)
+                        for point in model.points
+                    ], horizon=model.horizon),
+                }
             horizons.append({
                 "horizon_sessions": model.horizon,
                 "holdout_prediction_dates": model.holdout_count,
@@ -144,6 +213,7 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
                     "garch": _ci(baseline.garch_minus_ewma_mae_ci),
                     "ridge": _ci(model.ridge_minus_ewma_mae_ci),
                 },
+                "overlap_diagnostics": diagnostics,
             })
         output.append({
             "symbol": entry["symbol"], "session_count": len(prices),

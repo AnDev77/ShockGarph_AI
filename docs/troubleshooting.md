@@ -33,6 +33,7 @@
 |---|---|---|---|
 | 20일 평가의 비중첩 미래 구간을 9개라고 설명함 | `182 // 20`은 시작일의 완전한 20개 묶음만 세며, 실제로는 182개의 연속 시작일에서 1·21·…·181번째의 미래 정답 10개를 겹침 없이 선택 가능 | 탐색 보고서에 실제 비중첩 최대 10개와 기존 보수적 묶음 9개를 따로 표시. 두 숫자 모두 독립적인 시장 실험 횟수로 해석하지 않음 | [구간 수 리뷰](reviews/nonoverlapping-holdout-count-review.md) |
 | 구간 수와 재표집 이름만으로 오차 해석의 근거를 확인하기 어려움 | 미래 20일 정답의 공유 수익률과 오차 차이의 공분산 항, 합성 수치 예시 및 원 논문 연결이 빠져 있었음 | [방법론](daily-risk-methodology.md#미래-정답의-겹침과-평가-불확실성)에 공식·가상 수익률·구현 설정·출처를 추가. 실제 오차 자기상관과 블록 길이의 적절성은 별도로 확인해야 함 | [구간 수 리뷰](reviews/nonoverlapping-holdout-count-review.md) |
+| 매일 평가한 20일 MAE만으로 시작일 선택·블록 길이에 따른 결론 차이를 알 수 없음 | 기존 보고에는 평균과 길이 `h` 블록 구간만 있고 날짜별 짝지은 오차의 연속성 검사가 없었음 | 날짜별 GARCH·Ridge와 EWMA 오차 차이를 같은 날짜에서 비교해 `h`개 모든 시작 위치와 `2h` 블록 민감도, 1일 시차 상관을 집계. 실제 성능 승인이나 권리 확보와는 별개 | [겹침 진단](reviews/overlap-diagnostics-review.md) |
 | Kalshi CPI 표본으로 ETF 위험을 검증하기 어려움 | 유효 계약·발표 표본이 제한되고 계약 가격이 ETF 변동성 정답이 아님 | 계약의 당시 기대는 설명 자료로 분리하고, 가격 기준선 A 대 전통 정보 B를 먼저 비교 | [CPI 조사](cpi-coverage-review.md), [기대 맥락 분리](reviews/kalshi-expectation-context-review.md) |
 | 더 복잡한 모형이면 낫다는 주장을 할 수 없음 | 현재 수정종가 한 벌의 비공개 탐색에서 Ridge·GARCH의 5·20일 MAE가 EWMA보다 큼. 5일 QLIKE 등 일부 지표 판단은 다름 | MAE와 QLIKE를 함께 보고하고, 이미 본 구간은 독립 시험으로 재사용하지 않음. B의 실제 증분 효과는 `HOLD` | [GARCH 탐색](reviews/tlt-exploratory-garch-visual-review.md) |
 | 첫 화면의 공동 분석 결과가 사용자의 종목별 판단을 흐림 | 사용자 피드백에서 SPY·TLT 각각의 상태가 우선이라고 명시됨 | 두 종목의 과거 위험·변화를 각각 계산하고 합산은 최초 비중의 기간 총변동률로 축소 | [종목별 화면](reviews/asset-first-market-overview-review.md) |

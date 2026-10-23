@@ -20,6 +20,14 @@ _FLOOR = 1e-6
 
 
 @dataclass(frozen=True, slots=True)
+class ExploratoryModelPoint:
+    session_date: date
+    observed_volatility: float
+    ewma_volatility: float
+    ridge_volatility: float
+
+
+@dataclass(frozen=True, slots=True)
 class ModelComparison:
     horizon: int
     status: str
@@ -38,6 +46,7 @@ class ModelComparison:
     ridge_minus_trailing_mae_ci: tuple[float, float] | None
     ridge_minus_ewma_mae_ci: tuple[float, float] | None
     coefficients: tuple[float, ...] | None
+    points: tuple[ExploratoryModelPoint, ...] = ()
 
 
 def _solve_ridge(features: list[tuple[float, float, float]], labels: list[float]) -> tuple[
@@ -157,6 +166,7 @@ def compare_price_only_model(
         ewma_variance = math.fsum(squares[:horizon]) / horizon
         errors: dict[str, list[float]] = {name: [] for name in ("trailing", "ewma", "ridge")}
         qlikes: dict[str, list[float]] = {name: [] for name in errors}
+        points = []
         for index in range(horizon, len(prices) - horizon):
             if index > horizon:
                 ewma_variance = alpha * squares[index - 1] + (1 - alpha) * ewma_variance
@@ -174,6 +184,10 @@ def compare_price_only_model(
                 "ewma": math.sqrt(ewma_variance),
                 "ridge": candidate,
             }
+            points.append(ExploratoryModelPoint(
+                session_date=dates[index], observed_volatility=actual,
+                ewma_volatility=forecasts["ewma"], ridge_volatility=candidate,
+            ))
             for name, predicted in forecasts.items():
                 errors[name].append(abs(predicted - actual))
                 qlikes[name].append(_qlike(predicted, actual))
@@ -201,5 +215,6 @@ def compare_price_only_model(
                 paired_ewma, block_length=horizon, repeats=bootstrap_repeats, seed=0
             ),
             coefficients=coefficients,
+            points=tuple(points),
         ))
     return tuple(reports)
