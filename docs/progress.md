@@ -24,6 +24,7 @@
 | **진단 추가** | **TLT·SPY 겹친 정답의 오차 민감도** | 직전에는 MAE와 길이 `h` 블록 구간만 확인 → 같은 날짜의 오차 차이의 시차 상관, `h`개의 비중첩 시작 위치 전체, `2h` 블록 구간을 종목별·기간별로 보고. 실제 SIP 20일 실현분산의 1일 시차 상관은 TLT 0.9344·SPY 0.9671, TLT 20일 Ridge는 20개 시작 위치 중 9개만 EWMA보다 오차가 낮음 | [겹침 진단 리뷰](reviews/overlap-diagnostics-review.md), [Actions 실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39884340999). 합성 161개 시험과 실제 집계 경로 확인. 당시 이용 가능했던 가격 버전과 독립 시험은 미확보 |
 | **연구 단계 갱신** | **통계·딥러닝 후보의 데이터 조건** | 직전 설계의 Yahoo 단일 이력 기준 탈락 표현과 Alpaca 다른 기간의 탐색 수치를 구별. B는 거시정보 추가 효과와 모델 복잡도 효과를 분리해, 시점별 자료 확보 뒤 비대칭 GARCH·작은 비선형 모형·조건부 신경망 후보를 순서대로 검토 | [현대적 모델 단계 리뷰](reviews/modern-risk-model-research-stage-review.md). 실제 B1 및 딥러닝 학습·평가는 미실시, 제품 성능 `HOLD` |
 | **통계 후보 실분석** | **비대칭 GJR-GARCH 종목별 평가** | 직전에는 대칭 GARCH까지만 실제 가격을 비교 → 이번에는 하락 충격을 따로 반영하는 GJR를 홀드아웃 전 학습해 같은 정답에 추가. SPY 5일 MAE는 0.2547→0.2155%p, 20일은 0.1870→0.1673%p, TLT의 비대칭 계수는 0으로 추정 | [비대칭 위험 리뷰](reviews/gjr-garch-price-risk-review.md), [실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39889120543). 163개 시험·정적 검사 통과. SPY 20일 개선의 블록 구간에는 0이 포함되고 이미 본 가격 기간의 탐색이므로 제품 성능 `HOLD` |
+| **월별 안정성 탐색** | **SPY 비대칭 위험 개선의 시기 집중도** | 직전에는 연간 평균 오차만 보고 → 5·20일 동일 예측 시작일의 월별 차이와 학습 전 502/홀드아웃 202/20일 채점 182일을 분리. SPY 5일은 10개월 중 9개월 개선, 20일은 9개월 중 4개월만 개선했고 20일 전체 개선 합의 약 80%가 4월 시작일에서 나옴 | [월별 오차 리뷰](reviews/monthly-risk-error-stability-review.md), [실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39894886870). 이미 본 동일 기간의 탐색이어서 독립 판정은 `HOLD` |
 
 ## 현재 제품 판정
 
