@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 import httpx
 import pytest
@@ -134,6 +135,10 @@ def test_alpaca_cli_writes_two_private_snapshots_and_source_manifest(
     assert result["historical_provider_release_times_verified"] is False
     assert result["redistribution_rights_verified"] is False
     assert "test-secret" not in json.dumps(result)
+    for entry in result["prices"]:
+        assert all(Path(path).is_file()
+                   for path in entry["source_raw_artifact_paths"])
+        assert Path(entry["normalized_raw_artifact_path"]).is_file()
     assert (output / "TLT" / "20260409T220000.000000Z.csv").is_file()
     assert (output / "SPY" / "20260409T220000.000000Z.csv").is_file()
     assert json.loads((output / "captures" / "2026-04-09T22-00-00+00-00.json")

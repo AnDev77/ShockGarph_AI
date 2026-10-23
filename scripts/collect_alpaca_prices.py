@@ -57,8 +57,11 @@ def main(argv: list[str] | None = None) -> int:
                     "source_response_sha256": capture.raw_response_hashes,
                     "source_raw_payload_hashes": tuple(item.payload_sha256
                                                        for item in capture.raw_artifacts),
+                    "source_raw_artifact_paths": tuple(str(item.path)
+                                                       for item in capture.raw_artifacts),
                     "normalized_csv_sha256": imported.quality.file_sha256,
                     "normalized_raw_payload_hash": imported.quality.raw_payload_hash,
+                    "normalized_raw_artifact_path": str(imported.raw_artifact.path),
                     "snapshot_path": str(path),
                     "public_performance_allowed": False,
                 })
