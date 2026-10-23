@@ -1,4 +1,4 @@
-name: 비공개 가격 빈티지와 사전 위험 보관
+name: R2 비공개 가격 빈티지와 사전 위험 보관
 
 on:
   workflow_dispatch:
@@ -13,10 +13,10 @@ jobs:
     env:
       APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID || secrets.ALPACA_API_KEY_ID }}
       APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY || secrets.ALPACA_API_SECRET_KEY }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.SHOCKGRAPH_ARCHIVE_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.SHOCKGRAPH_ARCHIVE_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ vars.SHOCKGRAPH_ARCHIVE_REGION }}
-      SHOCKGRAPH_PRIVATE_BUCKET: ${{ vars.SHOCKGRAPH_ARCHIVE_BUCKET }}
+      SHOCKGRAPH_R2_ACCOUNT_ID: ${{ vars.SHOCKGRAPH_R2_ACCOUNT_ID }}
+      SHOCKGRAPH_R2_BUCKET: ${{ vars.SHOCKGRAPH_R2_BUCKET }}
+      SHOCKGRAPH_R2_ACCESS_KEY_ID: ${{ secrets.SHOCKGRAPH_R2_ACCESS_KEY_ID }}
+      SHOCKGRAPH_R2_SECRET_ACCESS_KEY: ${{ secrets.SHOCKGRAPH_R2_SECRET_ACCESS_KEY }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,8 +27,8 @@ jobs:
       - name: 보관 설정 검사
         run: |
           if [ -z "$APCA_API_KEY_ID" ] || [ -z "$APCA_API_SECRET_KEY" ] || \
-             [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || \
-             [ -z "$AWS_DEFAULT_REGION" ] || [ -z "$SHOCKGRAPH_PRIVATE_BUCKET" ]; then
+             [ -z "$SHOCKGRAPH_R2_ACCESS_KEY_ID" ] || [ -z "$SHOCKGRAPH_R2_SECRET_ACCESS_KEY" ] || \
+             [ -z "$SHOCKGRAPH_R2_ACCOUNT_ID" ] || [ -z "$SHOCKGRAPH_R2_BUCKET" ]; then
             echo '비공개 보관용 변수와 비밀값 구성이 필요합니다.'
             exit 2
           fi

@@ -2,6 +2,8 @@
 
 작성일: 2026-10-23. 직전에는 비공개 버킷에 쓴 객체의 크기와 해시를 기록하는 코드가 있었지만, 전체 원본과 예측 index를 한 번에 다시 읽고 **S3 서버의 실제 기록 시각**으로 사전 예측 여부를 검사하는 독립 명령은 없었다. 이번에는 `audit_capture`를 저장 직후에 실행하고 `scripts/audit_private_capture.py --index-key <보관 결과의 index_key>`로 나중에 읽기 전용 감사를 반복할 수 있게 했다.
 
+후속 실행 공급원은 [R2 전환 리뷰](r2-private-vintage-budget-review.md)를 따른다. 이 문서의 저장 계약과 합성 감사 결과는 유지하되 AWS 전용 설정은 더 이상 사용하지 않는다.
+
 ## 범위와 검증
 
 - 저장된 index와 index가 가리키는 모든 가격 CSV·원본 봉투·manifest를 S3 `HEAD`와 `GET`으로 다시 읽는다. 바이트 길이·SHA-256·객체 메타데이터와 index의 해시 목록을 대조한다. manifest 해시는 저장 키에 기록된 값과도 비교한다.

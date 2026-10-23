@@ -13,8 +13,10 @@ import pytest
 from shockgraph_data_pipeline.market_calendar import nasdaq_sessions
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore
 
+from scripts import private_r2
 from scripts.archive_forward_capture import archive_capture, audit_capture, main
 from scripts.audit_private_capture import main as audit_main
+from scripts.private_r2 import MAX_BUCKET_BYTES, MAX_CAPTURE_BYTES, bucket_budget_guard
 
 
 class AlreadyExists(Exception):
@@ -26,12 +28,11 @@ class MemoryS3:
         self.objects: dict[str, tuple[bytes, str]] = {}
         self.write_times: dict[str, datetime] = {}
         self.written_at = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
+        self.listed_bytes_override: int | None = None
 
     def put_object(self, *, Bucket: str, Key: str, Body: bytes,
-                   Metadata: dict[str, str], ServerSideEncryption: str,
-                   IfNoneMatch: str) -> None:
+                   Metadata: dict[str, str], IfNoneMatch: str) -> None:
         assert Bucket == "private-risk-research"
-        assert ServerSideEncryption == "AES256"
         assert IfNoneMatch == "*"
         if Key in self.objects:
             raise AlreadyExists
@@ -45,6 +46,14 @@ class MemoryS3:
 
     def get_object(self, *, Bucket: str, Key: str) -> dict[str, object]:
         return {"Body": io.BytesIO(self.objects[Key][0])}
+
+    def list_objects_v2(self, *, Bucket: str,
+                        ContinuationToken: str | None = None) -> dict[str, object]:
+        assert Bucket == "private-risk-research"
+        assert ContinuationToken is None
+        if self.listed_bytes_override is not None:
+            return {"Contents": [{"Size": self.listed_bytes_override}]}
+        return {"Contents": [{"Size": len(body)} for body, _ in self.objects.values()]}
 
 
 def _manifest(tmp_path: Path, *, full_history: bool = False) -> tuple[Path, Path]:
@@ -215,8 +224,47 @@ def test_archive_audit_rejects_changed_source_and_late_index(tmp_path) -> None:
         audit_capture(client, bucket="private-risk-research", index_key=report["index_key"])
 
 
+def test_r2_budget_blocks_upload_before_any_source_write(tmp_path) -> None:
+    manifest, raw_root = _manifest(tmp_path)
+    client = MemoryS3()
+    client.listed_bytes_override = MAX_BUCKET_BYTES - 1
+    with pytest.raises(ValueError, match="bucket budget"):
+        archive_capture(manifest, raw_root=raw_root, s3=client,
+                        bucket="private-risk-research", prefix="research",
+                        prediction_at=datetime(2026, 4, 9, 22, 20, tzinfo=UTC),
+                        receipt_clock=lambda: datetime(2026, 4, 9, 22, 20, tzinfo=UTC),
+                        budget_check=bucket_budget_guard(client, "private-risk-research"))
+    assert not client.objects
+    with pytest.raises(ValueError, match="per-run budget"):
+        bucket_budget_guard(client, "private-risk-research")(MAX_CAPTURE_BYTES + 1)
+
+
+def test_r2_client_uses_private_endpoint_and_auto_region(monkeypatch) -> None:
+    monkeypatch.setenv("SHOCKGRAPH_R2_ACCOUNT_ID", "a" * 32)
+    monkeypatch.setenv("SHOCKGRAPH_R2_BUCKET", "private-risk-research")
+    monkeypatch.setenv("SHOCKGRAPH_R2_ACCESS_KEY_ID", "test-access")
+    monkeypatch.setenv("SHOCKGRAPH_R2_SECRET_ACCESS_KEY", "test-secret")
+    arguments = {}
+
+    class FakeBoto3:
+        def client(self, service: str, **kwargs):
+            arguments.update({"service": service, **kwargs})
+            return object()
+
+    monkeypatch.setattr(private_r2.importlib, "import_module", lambda _: FakeBoto3())
+    _, bucket = private_r2.configured_r2()
+    assert bucket == "private-risk-research"
+    assert arguments == {"service": "s3", "region_name": "auto",
+                         "endpoint_url": f"https://{'a' * 32}.r2.cloudflarestorage.com",
+                         "aws_access_key_id": "test-access",
+                         "aws_secret_access_key": "test-secret"}
+
+
 def test_cli_requires_private_bucket_before_loading_the_archive(monkeypatch, capsys) -> None:
-    monkeypatch.delenv("SHOCKGRAPH_PRIVATE_BUCKET", raising=False)
+    monkeypatch.delenv("SHOCKGRAPH_R2_ACCOUNT_ID", raising=False)
+    monkeypatch.delenv("SHOCKGRAPH_R2_BUCKET", raising=False)
+    monkeypatch.delenv("SHOCKGRAPH_R2_ACCESS_KEY_ID", raising=False)
+    monkeypatch.delenv("SHOCKGRAPH_R2_SECRET_ACCESS_KEY", raising=False)
     assert main(["--manifest", "/missing/manifest.json"]) == 2
     assert json.loads(capsys.readouterr().out) == {"status": "private_archive_not_configured"}
     assert audit_main(["--index-key", "private/index.json"]) == 2

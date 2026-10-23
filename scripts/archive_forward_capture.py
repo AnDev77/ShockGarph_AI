@@ -1,4 +1,4 @@
-"""Archive a verified Alpaca capture in a private, write-once S3 bucket.
+"""Archive a verified Alpaca capture in a private, write-once R2 bucket.
 
 Forecasts are stored only if source archiving finishes before the next open.
 No source prices or forecasts are printed to public workflow logs.
@@ -10,9 +10,7 @@ import argparse
 import base64
 import binascii
 import hashlib
-import importlib
 import json
-import os
 import re
 import sys
 from collections.abc import Callable, Mapping
@@ -33,16 +31,16 @@ from shockgraph_risk.forward_risk_capture import (  # noqa: E402
 )
 
 from scripts.analyze_alpaca_history import _read_symbol  # noqa: E402
+from scripts.private_r2 import bucket_budget_guard, configured_r2  # noqa: E402
 
-_BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
+_BUCKET = re.compile(r"^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$")
 _PREFIX = re.compile(r"^[a-zA-Z0-9/_-]+$")
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 
 
 class S3Like(Protocol):
     def put_object(self, *, Bucket: str, Key: str, Body: bytes,
-                   Metadata: dict[str, str], ServerSideEncryption: str,
-                   IfNoneMatch: str) -> Any: ...
+                   Metadata: dict[str, str], IfNoneMatch: str) -> Any: ...
     def head_object(self, *, Bucket: str, Key: str) -> Mapping[str, Any]: ...
     def get_object(self, *, Bucket: str, Key: str) -> Mapping[str, Any]: ...
 
@@ -87,8 +85,7 @@ def _write_once(s3: S3Like, bucket: str, key: str, data: bytes) -> bool:
     digest = _digest(data)
     try:
         s3.put_object(Bucket=bucket, Key=key, Body=data,
-                      Metadata={"sha256": digest}, ServerSideEncryption="AES256",
-                      IfNoneMatch="*")
+                      Metadata={"sha256": digest}, IfNoneMatch="*")
         created = True
     except Exception as error:
         response = getattr(error, "response", None)
@@ -192,6 +189,7 @@ def archive_capture(
     prefix: str,
     prediction_at: datetime,
     receipt_clock: Callable[[], datetime] | None = None,
+    budget_check: Callable[[int], None] | None = None,
 ) -> dict[str, Any]:
     """Validate all local bytes before any private upload; retry is write-once."""
     if not _BUCKET.fullmatch(bucket) or not _PREFIX.fullmatch(prefix) or ".." in prefix:
@@ -244,6 +242,9 @@ def archive_capture(
             raise ValueError("prediction_at must follow actual price capture")
         captured_series.append((symbol, prices, capture_time, entry["normalized_csv_sha256"]))
     candidates.append((f"{archive_prefix}/manifest.json", manifest_bytes))
+    if budget_check is not None:
+        # Reserve room for the index and forecast values before the first write.
+        budget_check(sum(len(body) for _, body in candidates) + 64_000)
     # First persist source bytes; do not count a forecast without a preopen receipt.
     created = sum(_write_once(s3, bucket, key, body) for key, body in candidates)
     receipt = (receipt_clock or (lambda: datetime.now(UTC)))()
@@ -294,26 +295,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--raw-root", type=Path, default=ROOT / "data/raw")
     parser.add_argument("--prefix", default="shockgraph-research")
     args = parser.parse_args(argv)
-    bucket = os.environ.get("SHOCKGRAPH_PRIVATE_BUCKET", "")
-    if not bucket:
+    try:
+        client, bucket = configured_r2()
+    except (ValueError, ImportError):
         print(json.dumps({"status": "private_archive_not_configured"}))
         return 2
+    except Exception:
+        print(json.dumps({"status": "private_archive_failed"}))
+        return 2
     try:
-        boto3 = importlib.import_module("boto3")
-        client = boto3.client("s3")
-        block = client.get_public_access_block(Bucket=bucket)["PublicAccessBlockConfiguration"]
-        if not all(block.get(name) is True for name in (
-            "BlockPublicAcls", "IgnorePublicAcls", "BlockPublicPolicy",
-            "RestrictPublicBuckets",
-        )):
-            raise ValueError("bucket public access block is required")
         report = archive_capture(
             args.manifest, raw_root=args.raw_root, s3=client,
             bucket=bucket, prefix=args.prefix, prediction_at=datetime.now(UTC),
+            budget_check=bucket_budget_guard(client, bucket),
         )
         report["readback"] = audit_capture(client, bucket=bucket,
                                            index_key=report["index_key"])
-    except (OSError, ValueError, ImportError, TypeError, KeyError):
+    except Exception:
         print(json.dumps({"status": "private_archive_failed"}))
         return 2
     print(json.dumps(report, ensure_ascii=False))
