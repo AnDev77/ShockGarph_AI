@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from shockgraph_data_pipeline.market_calendar import nasdaq_sessions
@@ -62,8 +63,15 @@ def test_forward_record_rejects_late_or_unavailable_snapshot() -> None:
     origin = history[-1].session_date
     next_close = nasdaq_sessions(origin + timedelta(days=1),
                                  date(2026, 12, 31))[0].close_at
+    next_day = nasdaq_sessions(origin + timedelta(days=1),
+                               date(2026, 12, 31))[0].session_date
+    after_open = datetime.combine(next_day, time(10), ZoneInfo("America/New_York"))
+    with pytest.raises(ValueError, match="next outcome open"):
+        build_forward_risk_record("TLT", history, source_snapshot_sha256="3" * 64,
+                                  source_captured_at=nasdaq_sessions(origin, origin)[0].close_at,
+                                  prediction_at=after_open.astimezone(UTC))
     after_origin = nasdaq_sessions(origin, origin)[0].close_at + timedelta(minutes=10)
-    with pytest.raises(ValueError, match="next outcome close"):
+    with pytest.raises(ValueError, match="next outcome open"):
         build_forward_risk_record("TLT", history, source_snapshot_sha256="3" * 64,
                                   source_captured_at=after_origin, prediction_at=next_close)
     with pytest.raises(ValueError, match="capture"):

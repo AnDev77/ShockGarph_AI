@@ -5,8 +5,9 @@ import csv
 import hashlib
 import io
 import json
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 from shockgraph_data_pipeline.market_calendar import nasdaq_sessions
@@ -95,7 +96,7 @@ def test_private_archive_is_immutable_and_does_not_backdate_late_forecast(tmp_pa
                             bucket="private-risk-research", prefix="research",
                             prediction_at=recorded_at,
                             receipt_clock=lambda: recorded_at)
-    assert first["status"] == "snapshot_only_preclose_gate_failed"
+    assert first["status"] == "snapshot_only_preopen_gate_failed"
     assert first["forecast_count"] == 0
     assert first["created_object_count"] == 8
     second = archive_capture(manifest, raw_root=raw_root, s3=client,
@@ -144,7 +145,7 @@ def test_private_archive_rejects_changed_raw_or_outside_path(tmp_path) -> None:
                         receipt_clock=lambda: datetime(2026, 4, 9, 22, 20, tzinfo=UTC))
 
 
-def test_private_archive_records_forecasts_only_before_next_close(tmp_path) -> None:
+def test_private_archive_records_forecasts_only_before_next_open(tmp_path) -> None:
     manifest, raw_root = _manifest(tmp_path, full_history=True)
     client = MemoryS3()
     capture = datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
@@ -161,10 +162,13 @@ def test_private_archive_records_forecasts_only_before_next_close(tmp_path) -> N
         date.fromisoformat(index["forecasts"][0]["origin_session"]) + timedelta(days=1),
         date(2026, 12, 31),
     )[0].close_at
+    next_open = datetime.combine(next_close.astimezone(ZoneInfo("America/New_York")).date(),
+                                 time(9, 30), ZoneInfo("America/New_York")).astimezone(UTC)
     late = archive_capture(manifest, raw_root=raw_root, s3=client,
                            bucket="private-risk-research", prefix="research",
-                           prediction_at=recorded_at, receipt_clock=lambda: next_close)
-    assert late["status"] == "snapshot_only_preclose_gate_failed"
+                           prediction_at=recorded_at,
+                           receipt_clock=lambda: next_open - timedelta(minutes=30))
+    assert late["status"] == "snapshot_only_preopen_gate_failed"
     assert late["forecast_count"] == 0
     assert late["created_object_count"] == 1
 

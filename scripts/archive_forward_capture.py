@@ -1,6 +1,6 @@
 """Archive a verified Alpaca capture in a private, write-once S3 bucket.
 
-Forecasts are stored only if archiving finishes before the next outcome close.
+Forecasts are stored only if source archiving finishes before the next open.
 No source prices or forecasts are printed to public workflow logs.
 """
 
@@ -27,7 +27,10 @@ sys.path[:0] = [str(ROOT), str(ROOT / "packages/domain"),
 
 from shockgraph_data_pipeline.kalshi_contract import payload_sha256  # noqa: E402
 from shockgraph_data_pipeline.market_calendar import nasdaq_sessions  # noqa: E402
-from shockgraph_risk.forward_risk_capture import build_forward_risk_record  # noqa: E402
+from shockgraph_risk.forward_risk_capture import (  # noqa: E402
+    build_forward_risk_record,
+    next_outcome_open,
+)
 
 from scripts.analyze_alpaca_history import _read_symbol  # noqa: E402
 
@@ -164,8 +167,7 @@ def archive_capture(
             raise ValueError("prediction_at must follow actual price capture")
         captured_series.append((symbol, prices, capture_time, entry["normalized_csv_sha256"]))
     candidates.append((f"{archive_prefix}/manifest.json", manifest_bytes))
-    # First persist source bytes; this output cannot be called a pre-close forecast
-    # unless the archive receipt itself is also written before the next close.
+    # First persist source bytes; do not count a forecast without a preopen receipt.
     created = sum(_write_once(s3, bucket, key, body) for key, body in candidates)
     receipt = (receipt_clock or (lambda: datetime.now(UTC)))()
     if receipt.tzinfo is None or receipt.utcoffset() != timedelta(0):
@@ -181,8 +183,8 @@ def archive_capture(
         if len(future) < 20:
             reviewed_calendar = False
         # The Actions job has a 20-minute timeout. Keep an additional hour
-        # between the archive receipt and the first outcome close.
-        elif receipt <= future[0].close_at - timedelta(hours=1):
+        # between the archive receipt and the first outcome opening bell.
+        elif receipt <= next_outcome_open(future[0].session_date) - timedelta(hours=1):
             record = build_forward_risk_record(
                 symbol, prices, source_snapshot_sha256=snapshot_hash,
                 source_captured_at=capture_time, prediction_at=receipt,
@@ -190,7 +192,7 @@ def archive_capture(
             forward.append(asdict(record))
     status = ("forward_forecasts_archived" if len(forward) == 2 else
               "snapshot_only_reviewed_calendar_exhausted" if not reviewed_calendar else
-              "snapshot_only_preclose_gate_failed")
+              "snapshot_only_preopen_gate_failed")
     index = {
         "status": status, "schema_version": 1,
         "archive_manifest_sha256": _digest(manifest_bytes),

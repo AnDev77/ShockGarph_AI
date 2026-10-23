@@ -1,7 +1,7 @@
 """Immutable, private as-of daily risk forecasts and delayed outcome scoring.
 
 This module requires an externally archived full price vintage. Its records may
-only be created before the next outcome session closes. No public model claim.
+only be created before the next outcome session opens. No public model claim.
 """
 
 from __future__ import annotations
@@ -10,7 +10,8 @@ import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from shockgraph_data_pipeline.market_calendar import ScheduledSession, nasdaq_sessions
 
@@ -19,6 +20,7 @@ from shockgraph_risk.garch import fit_garch_11, forecast_garch_11
 from shockgraph_risk.gjr_garch import fit_gjr_garch_11, forecast_gjr_garch_11
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_NEW_YORK = ZoneInfo("America/New_York")
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +99,11 @@ def _digest(value: str) -> str:
     return value
 
 
+def next_outcome_open(session_date: date) -> datetime:
+    """The reviewed regular-session NY open for one scheduled US equity day."""
+    return datetime.combine(session_date, time(9, 30), tzinfo=_NEW_YORK).astimezone(UTC)
+
+
 def build_forward_risk_record(
     symbol: str,
     prices: Sequence[HistoryPrice],
@@ -105,7 +112,7 @@ def build_forward_risk_record(
     source_captured_at: datetime,
     prediction_at: datetime,
 ) -> ForwardRiskRecord:
-    """Forecast from a completed session's price vintage before the next close."""
+    """Forecast from a completed session's price vintage before the next open."""
     if symbol not in ("TLT", "SPY"):
         raise ValueError("forward risk supports TLT and SPY")
     source_captured_at = _utc(source_captured_at, "source_captured_at")
@@ -116,8 +123,8 @@ def build_forward_risk_record(
     next_session = _outcome_sessions(origin, 20)[0]
     if prediction_at < source_captured_at or source_captured_at < origin_close:
         raise ValueError("prediction needs a completed and available capture")
-    if prediction_at >= next_session.close_at:
-        raise ValueError("prediction must precede the next outcome close")
+    if prediction_at >= next_outcome_open(next_session.session_date):
+        raise ValueError("prediction must precede the next outcome open")
     if len(rows) < 101:
         raise ValueError("insufficient past price sessions")
 
