@@ -13,7 +13,8 @@ import pytest
 from shockgraph_data_pipeline.market_calendar import nasdaq_sessions
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore
 
-from scripts.archive_forward_capture import archive_capture, main
+from scripts.archive_forward_capture import archive_capture, audit_capture, main
+from scripts.audit_private_capture import main as audit_main
 
 
 class AlreadyExists(Exception):
@@ -23,6 +24,8 @@ class AlreadyExists(Exception):
 class MemoryS3:
     def __init__(self) -> None:
         self.objects: dict[str, tuple[bytes, str]] = {}
+        self.write_times: dict[str, datetime] = {}
+        self.written_at = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
 
     def put_object(self, *, Bucket: str, Key: str, Body: bytes,
                    Metadata: dict[str, str], ServerSideEncryption: str,
@@ -33,10 +36,12 @@ class MemoryS3:
         if Key in self.objects:
             raise AlreadyExists
         self.objects[Key] = Body, Metadata["sha256"]
+        self.write_times[Key] = self.written_at
 
     def head_object(self, *, Bucket: str, Key: str) -> dict[str, object]:
         body, digest = self.objects[Key]
-        return {"ContentLength": len(body), "Metadata": {"sha256": digest}}
+        return {"ContentLength": len(body), "Metadata": {"sha256": digest},
+                "LastModified": self.write_times[Key]}
 
     def get_object(self, *, Bucket: str, Key: str) -> dict[str, object]:
         return {"Body": io.BytesIO(self.objects[Key][0])}
@@ -107,6 +112,8 @@ def test_private_archive_is_immutable_and_does_not_backdate_late_forecast(tmp_pa
     assert len(client.objects) == 8
     index_key = first["index_key"]
     assert json.loads(client.objects[index_key][0])["public_performance_allowed"] is False
+    assert audit_capture(client, bucket="private-risk-research", index_key=index_key)[
+        "forecast_count"] == 0
     data, _ = client.objects[index_key]
     client.objects[index_key] = data, "0" * 64
     with pytest.raises(ValueError, match="immutable object collision"):
@@ -150,6 +157,7 @@ def test_private_archive_records_forecasts_only_before_next_open(tmp_path) -> No
     client = MemoryS3()
     capture = datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
     recorded_at = capture + timedelta(minutes=5)
+    client.written_at = recorded_at
     first = archive_capture(manifest, raw_root=raw_root, s3=client,
                             bucket="private-risk-research", prefix="research",
                             prediction_at=recorded_at,
@@ -158,6 +166,11 @@ def test_private_archive_records_forecasts_only_before_next_open(tmp_path) -> No
     index = json.loads(client.objects[first["index_key"]][0])
     assert len(index["forecasts"]) == 2
     assert all(len(item["horizons"]) == 2 for item in index["forecasts"])
+    checked = audit_capture(client, bucket="private-risk-research",
+                            index_key=first["index_key"])
+    assert checked["status"] == "archive_readback_verified"
+    assert checked["source_object_count"] == 7
+    assert checked["forecast_count"] == 2
     next_close = nasdaq_sessions(
         date.fromisoformat(index["forecasts"][0]["origin_session"]) + timedelta(days=1),
         date(2026, 12, 31),
@@ -173,7 +186,38 @@ def test_private_archive_records_forecasts_only_before_next_open(tmp_path) -> No
     assert late["created_object_count"] == 1
 
 
+def test_archive_audit_rejects_changed_source_and_late_index(tmp_path) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    client = MemoryS3()
+    capture = datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
+    recorded_at = capture + timedelta(minutes=5)
+    client.written_at = recorded_at
+    report = archive_capture(manifest, raw_root=raw_root, s3=client,
+                             bucket="private-risk-research", prefix="research",
+                             prediction_at=recorded_at, receipt_clock=lambda: recorded_at)
+    index = json.loads(client.objects[report["index_key"]][0])
+    source_key = index["source_objects"][0]["key"]
+    source_bytes, digest = client.objects[source_key]
+    client.objects[source_key] = source_bytes + b"x", digest
+    with pytest.raises(ValueError, match="readback hash"):
+        audit_capture(client, bucket="private-risk-research", index_key=report["index_key"])
+    client.objects[source_key] = source_bytes, digest
+    client.write_times[source_key] = recorded_at + timedelta(seconds=2)
+    client.write_times[report["index_key"]] = recorded_at + timedelta(seconds=3)
+    with pytest.raises(ValueError, match="source was stored after prediction"):
+        audit_capture(client, bucket="private-risk-research", index_key=report["index_key"])
+    client.write_times[source_key] = recorded_at
+    next_day = date.fromisoformat(index["forecasts"][0]["horizons"][0]
+                                   ["first_outcome_session"])
+    client.write_times[report["index_key"]] = datetime.combine(
+        next_day, time(10), ZoneInfo("America/New_York")).astimezone(UTC)
+    with pytest.raises(ValueError, match="stored after opening"):
+        audit_capture(client, bucket="private-risk-research", index_key=report["index_key"])
+
+
 def test_cli_requires_private_bucket_before_loading_the_archive(monkeypatch, capsys) -> None:
     monkeypatch.delenv("SHOCKGRAPH_PRIVATE_BUCKET", raising=False)
     assert main(["--manifest", "/missing/manifest.json"]) == 2
+    assert json.loads(capsys.readouterr().out) == {"status": "private_archive_not_configured"}
+    assert audit_main(["--index-key", "private/index.json"]) == 2
     assert json.loads(capsys.readouterr().out) == {"status": "private_archive_not_configured"}

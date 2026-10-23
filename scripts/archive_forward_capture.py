@@ -17,7 +17,7 @@ import re
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import asdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -104,6 +104,83 @@ def _write_once(s3: S3Like, bucket: str, key: str, data: bytes) -> bool:
     if actual != data:
         raise ValueError("immutable object collision in private archive")
     return created
+
+
+def audit_capture(s3: S3Like, *, bucket: str, index_key: str) -> dict[str, Any]:
+    """Read the persisted index and every source byte back from private S3."""
+    def verified_object(key: str, expected_sha: str | None = None) -> tuple[bytes, datetime]:
+        head = s3.head_object(Bucket=bucket, Key=key)
+        written_at = head.get("LastModified")
+        if (not isinstance(written_at, datetime) or written_at.tzinfo is None
+                or written_at.utcoffset() != timedelta(0)):
+            raise ValueError("archive object needs a UTC S3 write timestamp")
+        size = head.get("ContentLength")
+        if not isinstance(size, int) or size < 0:
+            raise ValueError("archive object size is missing")
+        body = s3.get_object(Bucket=bucket, Key=key)["Body"].read(size + 1)
+        digest = _digest(body)
+        if (len(body) != size or head.get("Metadata", {}).get("sha256") != digest
+                or expected_sha is not None and expected_sha != digest):
+            raise ValueError("private archive readback hash differs")
+        return body, written_at.astimezone(UTC)
+
+    index_bytes, index_written_at = verified_object(index_key)
+    index = json.loads(index_bytes)
+    if not isinstance(index, dict) or index.get("schema_version") != 1:
+        raise ValueError("invalid private archive index")
+    sources = index.get("source_objects")
+    forecasts = index.get("forecasts")
+    if (not isinstance(sources, list) or not sources
+            or not isinstance(forecasts, list)
+            or len(sources) != index.get("source_object_count")
+            or any(not isinstance(item, dict) for item in (*sources, *forecasts))):
+        raise ValueError("private archive index objects are incomplete")
+    prefix = index_key.split("/records/", 1)[0]
+    if "/captures/" not in prefix or not index_key.startswith(prefix + "/records/"):
+        raise ValueError("private archive index key is invalid")
+    seen: set[str] = set()
+    source_written_at = []
+    source_hashes = {}
+    for item in sources:
+        key, expected = item.get("key"), item.get("sha256")
+        if (not isinstance(key, str) or not key.startswith(prefix + "/")
+                or key in seen or not isinstance(expected, str) or not _SHA.fullmatch(expected)):
+            raise ValueError("private archive source key or hash is invalid")
+        seen.add(key)
+        _, stored_at = verified_object(key, expected)
+        source_written_at.append(stored_at)
+        source_hashes[key] = expected
+    if source_hashes.get(prefix + "/manifest.json") != index.get("archive_manifest_sha256"):
+        raise ValueError("private archive manifest hash differs")
+    if max(source_written_at) > index_written_at:
+        raise ValueError("private archive index precedes its source")
+    if index.get("status") == "forward_forecasts_archived":
+        if (len(forecasts) != 2 or {item.get("symbol") for item in forecasts} != {"TLT", "SPY"}):
+            raise ValueError("private archive forecasts are incomplete")
+        prediction_at = datetime.fromisoformat(index["prediction_at"])
+        if prediction_at.tzinfo is None or prediction_at.utcoffset() != timedelta(0):
+            raise ValueError("private archive prediction is not UTC")
+        if max(source_written_at) > prediction_at + timedelta(seconds=1):
+            raise ValueError("private archive source was stored after prediction")
+        if index_written_at + timedelta(seconds=1) < prediction_at:
+            raise ValueError("private archive prediction postdates its index")
+        for item in forecasts:
+            symbol = item["symbol"]
+            if (item.get("prediction_at") != index["prediction_at"]
+                    or item.get("source_snapshot_sha256") != source_hashes.get(
+                        prefix + f"/{symbol}/prices.csv")
+                    or not isinstance(item.get("horizons"), list)
+                    or {h.get("horizon") for h in item["horizons"]} != {5, 20}):
+                raise ValueError("private archive forecast differs from its source")
+            first_session = date.fromisoformat(item["horizons"][0]["first_outcome_session"])
+            if index_written_at >= next_outcome_open(first_session):
+                raise ValueError("private archive forecast index was stored after opening")
+    elif (index.get("status") not in ("snapshot_only_reviewed_calendar_exhausted",
+                                      "snapshot_only_preopen_gate_failed")
+          or forecasts or index.get("prediction_at") is not None):
+        raise ValueError("snapshot-only archive contains forecasts")
+    return {"status": "archive_readback_verified", "source_object_count": len(sources),
+            "forecast_count": len(forecasts), "index_written_at": index_written_at.isoformat()}
 
 
 def archive_capture(
@@ -234,6 +311,8 @@ def main(argv: list[str] | None = None) -> int:
             args.manifest, raw_root=args.raw_root, s3=client,
             bucket=bucket, prefix=args.prefix, prediction_at=datetime.now(UTC),
         )
+        report["readback"] = audit_capture(client, bucket=bucket,
+                                           index_key=report["index_key"])
     except (OSError, ValueError, ImportError, TypeError, KeyError):
         print(json.dumps({"status": "private_archive_failed"}))
         return 2
