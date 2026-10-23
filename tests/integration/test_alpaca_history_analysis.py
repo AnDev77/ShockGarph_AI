@@ -58,6 +58,18 @@ def test_alpaca_analysis_uses_same_dates_and_rejects_changed_capture(tmp_path) -
             assert asset["holdout_price_sessions"] - length == count
             assert horizon["nonoverlapping_windows"] == (count + length - 1) // length
             assert horizon["conservative_full_start_blocks"] == count // length
+            monthly_refit = horizon["monthly_refit"]
+            if horizon["baseline_status"] == "exploratory_current_history_only":
+                assert monthly_refit["status"] == "exploratory_current_history_only"
+                assert monthly_refit["sample_size"] == count
+                assert monthly_refit["refit_month_count"] > 0
+                assert monthly_refit["first_refit_training_returns"] >= 100
+                assert monthly_refit["mae_daily_volatility_percentage_points"]["gjr"]
+                assert monthly_refit["paired_block_ci_difference_percentage_points"][
+                    "gjr_vs_static_gjr"
+                ] is not None
+            else:
+                assert monthly_refit["mae_daily_volatility_percentage_points"]["gjr"] is None
             months = horizon["monthly_error_diagnostics"]
             if months is not None:
                 rows = months["months"]

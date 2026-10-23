@@ -26,6 +26,7 @@ from shockgraph_risk.exploratory_garch import (  # noqa: E402
 )
 from shockgraph_risk.exploratory_history import HistoryPrice  # noqa: E402
 from shockgraph_risk.exploratory_model import compare_price_only_model  # noqa: E402
+from shockgraph_risk.monthly_garch_refit import evaluate_monthly_garch_refit  # noqa: E402
 
 _COLUMNS = ["session_date", "observed_at", "available_at", "close",
             "adjusted_close", "volume"]
@@ -173,9 +174,12 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
         common_dates = dates
         ridge = compare_price_only_model(prices, holdout_start=holdout_start)
         garch = evaluate_exploratory_garch(prices, holdout_start=holdout_start)
+        monthly_reports = evaluate_monthly_garch_refit(
+            prices, static_reports=garch, holdout_start=holdout_start,
+        )
         horizons = []
-        for baseline, model in zip(garch, ridge, strict=True):
-            if baseline.horizon != model.horizon or (
+        for baseline, model, monthly in zip(garch, ridge, monthly_reports, strict=True):
+            if baseline.horizon != model.horizon or monthly.horizon != baseline.horizon or (
                 baseline.sample_size, baseline.first_prediction_date,
                 baseline.last_prediction_date
             ) != (
@@ -267,6 +271,33 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
                               if baseline.gjr_parameters else None),
                 "overlap_diagnostics": diagnostics,
                 "monthly_error_diagnostics": _monthly_error_diagnostics(baseline.points),
+                "monthly_refit": {
+                    "status": monthly.status,
+                    "sample_size": monthly.sample_size,
+                    "refit_month_count": len(monthly.refit_months),
+                    "first_refit_training_returns": (
+                        monthly.refit_months[0].training_return_count
+                        if monthly.refit_months else None
+                    ),
+                    "last_refit_training_returns": (
+                        monthly.refit_months[-1].training_return_count
+                        if monthly.refit_months else None
+                    ),
+                    "positive_gamma_refit_month_count": sum(
+                        row.gjr_parameters.gamma > 0.000001
+                        for row in monthly.refit_months
+                    ),
+                    "mae_daily_volatility_percentage_points": {
+                        "garch": _percent_points(monthly.garch_mae),
+                        "gjr": _percent_points(monthly.gjr_mae),
+                    },
+                    "paired_block_ci_difference_percentage_points": {
+                        "gjr_vs_monthly_garch": _ci(
+                            monthly.gjr_minus_monthly_garch_mae_ci
+                        ),
+                        "gjr_vs_static_gjr": _ci(monthly.gjr_minus_static_gjr_mae_ci),
+                    },
+                },
             })
         output.append({
             "symbol": entry["symbol"], "session_count": len(prices),
