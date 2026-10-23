@@ -31,6 +31,7 @@
 
 | 증상 | 확인한 원인 | 적용한 조치와 상태 | 근거 |
 |---|---|---|---|
+| 20일 평가의 비중첩 미래 구간을 9개라고 설명함 | `182 // 20`은 시작일의 완전한 20개 묶음만 세며, 실제로는 182개의 연속 시작일에서 1·21·…·181번째의 미래 정답 10개를 겹침 없이 선택 가능 | 탐색 보고서에 실제 비중첩 최대 10개와 기존 보수적 묶음 9개를 따로 표시. 두 숫자 모두 독립적인 시장 실험 횟수로 해석하지 않음 | [구간 수 리뷰](reviews/nonoverlapping-holdout-count-review.md) |
 | Kalshi CPI 표본으로 ETF 위험을 검증하기 어려움 | 유효 계약·발표 표본이 제한되고 계약 가격이 ETF 변동성 정답이 아님 | 계약의 당시 기대는 설명 자료로 분리하고, 가격 기준선 A 대 전통 정보 B를 먼저 비교 | [CPI 조사](cpi-coverage-review.md), [기대 맥락 분리](reviews/kalshi-expectation-context-review.md) |
 | 더 복잡한 모형이면 낫다는 주장을 할 수 없음 | 현재 수정종가 한 벌의 비공개 탐색에서 Ridge·GARCH의 5·20일 MAE가 EWMA보다 큼. 5일 QLIKE 등 일부 지표 판단은 다름 | MAE와 QLIKE를 함께 보고하고, 이미 본 구간은 독립 시험으로 재사용하지 않음. B의 실제 증분 효과는 `HOLD` | [GARCH 탐색](reviews/tlt-exploratory-garch-visual-review.md) |
 | 첫 화면의 공동 분석 결과가 사용자의 종목별 판단을 흐림 | 사용자 피드백에서 SPY·TLT 각각의 상태가 우선이라고 명시됨 | 두 종목의 과거 위험·변화를 각각 계산하고 합산은 최초 비중의 기간 총변동률로 축소 | [종목별 화면](reviews/asset-first-market-overview-review.md) |

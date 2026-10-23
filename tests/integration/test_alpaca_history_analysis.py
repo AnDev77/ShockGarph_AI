@@ -48,6 +48,12 @@ def test_alpaca_analysis_uses_same_dates_and_rejects_changed_capture(tmp_path) -
     assert first["first_prediction_date"] == second["first_prediction_date"]
     assert first["holdout_prediction_dates"] == second["holdout_prediction_dates"]
     assert first["last_training_label_date"] < first["first_prediction_date"]
+    for asset in report["assets"]:
+        for horizon in asset["horizons"]:
+            count = horizon["holdout_prediction_dates"]
+            length = horizon["horizon_sessions"]
+            assert horizon["nonoverlapping_windows"] == (count + length - 1) // length
+            assert horizon["conservative_full_start_blocks"] == count // length
 
     path = base / "SPY" / "capture.csv"
     path.write_bytes(path.read_bytes().replace(b"1000", b"1001", 1))

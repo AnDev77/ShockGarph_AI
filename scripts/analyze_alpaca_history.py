@@ -116,7 +116,12 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
             horizons.append({
                 "horizon_sessions": model.horizon,
                 "holdout_prediction_dates": model.holdout_count,
-                "nonoverlapping_windows": model.nonoverlapping_window_count,
+                # Consecutive forecast starts permit starts 0, h, 2h, ...;
+                # the model's floor division instead counts full groups of starts.
+                "nonoverlapping_windows": (
+                    (model.holdout_count + model.horizon - 1) // model.horizon
+                ),
+                "conservative_full_start_blocks": model.nonoverlapping_window_count,
                 "last_training_label_date": (
                     model.last_training_label_date.isoformat()
                     if model.last_training_label_date else None
