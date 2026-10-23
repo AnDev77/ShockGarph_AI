@@ -182,6 +182,12 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
                         for point in model.points
                     ], horizon=model.horizon),
                 }
+                if baseline.gjr_parameters is not None:
+                    diagnostics["gjr_vs_garch"] = _diagnose_paired_differences([
+                        abs(point.gjr_volatility - point.observed_volatility)
+                        - abs(point.garch_volatility - point.observed_volatility)
+                        for point in baseline.points if point.gjr_volatility is not None
+                    ], horizon=model.horizon)
             horizons.append({
                 "horizon_sessions": model.horizon,
                 "holdout_prediction_dates": model.holdout_count,
@@ -202,17 +208,25 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
                     model.last_holdout_date.isoformat() if model.last_holdout_date else None
                 ),
                 "baseline_status": baseline.status,
+                "gjr_fit_status": baseline.gjr_fit_status,
                 "ridge_status": model.status,
                 "mae_daily_volatility_percentage_points": {
                     "trailing": _percent_points(model.trailing_mae),
                     "ewma": _percent_points(model.ewma_mae),
                     "garch": _percent_points(baseline.garch_mae),
+                    "gjr": _percent_points(baseline.gjr_mae),
                     "ridge": _percent_points(model.ridge_mae),
                 },
                 "paired_block_ci_difference_vs_ewma_percentage_points": {
                     "garch": _ci(baseline.garch_minus_ewma_mae_ci),
+                    "gjr": _ci(baseline.gjr_minus_ewma_mae_ci),
                     "ridge": _ci(model.ridge_minus_ewma_mae_ci),
                 },
+                "paired_block_ci_difference_vs_garch_percentage_points": {
+                    "gjr": _ci(baseline.gjr_minus_garch_mae_ci),
+                },
+                "gjr_gamma": (round(baseline.gjr_parameters.gamma, 6)
+                              if baseline.gjr_parameters else None),
                 "overlap_diagnostics": diagnostics,
             })
         output.append({

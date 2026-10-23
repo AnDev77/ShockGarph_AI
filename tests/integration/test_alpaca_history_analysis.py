@@ -62,10 +62,13 @@ def test_alpaca_analysis_uses_same_dates_and_rejects_changed_capture(tmp_path) -
             assert diagnostics is not None
             assert diagnostics["garch_vs_ewma"]["nonoverlap_phase_count"] == length
             assert diagnostics["ridge_vs_ewma"]["nonoverlap_phase_count"] == length
-            for name in ("garch_vs_ewma", "ridge_vs_ewma"):
+            for name in ("garch_vs_ewma", "ridge_vs_ewma", "gjr_vs_garch"):
                 assert (diagnostics[name]["block_2h_ci_percentage_points"] is not None) == (
                     count >= 4 * length
                 )
+            assert horizon["mae_daily_volatility_percentage_points"]["gjr"] is not None
+            assert horizon["paired_block_ci_difference_vs_ewma_percentage_points"]["gjr"]
+            assert horizon["paired_block_ci_difference_vs_garch_percentage_points"]["gjr"]
 
     path = base / "SPY" / "capture.csv"
     path.write_bytes(path.read_bytes().replace(b"1000", b"1001", 1))

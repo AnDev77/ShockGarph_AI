@@ -14,6 +14,7 @@ from datetime import date
 from shockgraph_risk.daily import _paired_block_interval
 from shockgraph_risk.exploratory_history import HistoryPrice
 from shockgraph_risk.garch import GarchParameters, fit_garch_11, forecast_garch_11
+from shockgraph_risk.gjr_garch import GjrParameters, fit_gjr_garch_11, forecast_gjr_garch_11
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +24,7 @@ class ExploratoryGarchPoint:
     trailing_volatility: float
     ewma_volatility: float
     garch_volatility: float
+    gjr_volatility: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,11 +40,17 @@ class ExploratoryGarchReport:
     trailing_mae: float | None
     ewma_mae: float | None
     garch_mae: float | None
+    gjr_mae: float | None
     trailing_qlike: float | None
     ewma_qlike: float | None
     garch_qlike: float | None
+    gjr_qlike: float | None
     garch_minus_ewma_mae_ci: tuple[float, float] | None
+    gjr_minus_ewma_mae_ci: tuple[float, float] | None
+    gjr_minus_garch_mae_ci: tuple[float, float] | None
     parameters: GarchParameters | None
+    gjr_parameters: GjrParameters | None
+    gjr_fit_status: str
     points: tuple[ExploratoryGarchPoint, ...]
     public_performance_allowed: bool = False
 
@@ -81,9 +89,12 @@ def evaluate_exploratory_garch(
     split = next(index for index, day in enumerate(dates) if day >= holdout_start)
     training_returns = returns[: split - 1]
     parameters = None
+    gjr_parameters = None
     fit_reason = None
+    gjr_fit_reason = None
     if len(training_returns) < min_training_returns:
         fit_reason = "insufficient_pre_holdout_returns"
+        gjr_fit_reason = fit_reason
     else:
         try:
             parameters = fit_garch_11(training_returns, min_returns=min_training_returns)
@@ -91,6 +102,14 @@ def evaluate_exploratory_garch(
             if str(error) not in {"degenerate_training_returns", "garch_fit_did_not_converge"}:
                 raise
             fit_reason = str(error)
+        try:
+            gjr_parameters = fit_gjr_garch_11(
+                training_returns, min_returns=min_training_returns
+            )
+        except ValueError as error:
+            if str(error) not in {"degenerate_training_returns", "gjr_fit_did_not_converge"}:
+                raise
+            gjr_fit_reason = str(error)
 
     reports = []
     for horizon in horizons:
@@ -106,9 +125,12 @@ def evaluate_exploratory_garch(
             nonoverlapping_window_count=blocks,
             first_prediction_date=dates[eligible[0]] if eligible else None,
             last_prediction_date=dates[eligible[-1]] if eligible else None,
-            trailing_mae=None, ewma_mae=None, garch_mae=None,
-            trailing_qlike=None, ewma_qlike=None, garch_qlike=None,
-            garch_minus_ewma_mae_ci=None, parameters=parameters, points=(),
+            trailing_mae=None, ewma_mae=None, garch_mae=None, gjr_mae=None,
+            trailing_qlike=None, ewma_qlike=None, garch_qlike=None, gjr_qlike=None,
+            garch_minus_ewma_mae_ci=None, gjr_minus_ewma_mae_ci=None,
+            gjr_minus_garch_mae_ci=None, parameters=parameters,
+            gjr_parameters=gjr_parameters,
+            gjr_fit_status=gjr_fit_reason or "fitted_pre_holdout", points=(),
         )
         if status != "exploratory_current_history_only":
             reports.append(blocked)
@@ -117,6 +139,8 @@ def evaluate_exploratory_garch(
         alpha = 2 / (horizon + 1)
         ewma_variance = math.fsum(squares[:horizon]) / horizon
         errors: dict[str, list[float]] = {name: [] for name in ("trailing", "ewma", "garch")}
+        if gjr_parameters is not None:
+            errors["gjr"] = []
         qlikes: dict[str, list[float]] = {name: [] for name in errors}
         points = []
         for index in range(horizon, len(prices) - horizon):
@@ -130,10 +154,15 @@ def evaluate_exploratory_garch(
                 "ewma": math.sqrt(ewma_variance),
                 "garch": forecast_garch_11(returns[:index], parameters, horizon=horizon),
             }
+            if gjr_parameters is not None:
+                predictions["gjr"] = forecast_gjr_garch_11(
+                    returns[:index], gjr_parameters, horizon=horizon,
+                )
             points.append(ExploratoryGarchPoint(
                 session_date=dates[index], observed_volatility=actual,
                 trailing_volatility=predictions["trailing"],
                 ewma_volatility=predictions["ewma"], garch_volatility=predictions["garch"],
+                gjr_volatility=predictions.get("gjr"),
             ))
             for name, predicted in predictions.items():
                 errors[name].append(abs(predicted - actual))
@@ -148,12 +177,23 @@ def evaluate_exploratory_garch(
             trailing_mae=math.fsum(errors["trailing"]) / count,
             ewma_mae=math.fsum(errors["ewma"]) / count,
             garch_mae=math.fsum(errors["garch"]) / count,
+            gjr_mae=math.fsum(errors["gjr"]) / count if gjr_parameters else None,
             trailing_qlike=math.fsum(qlikes["trailing"]) / count,
             ewma_qlike=math.fsum(qlikes["ewma"]) / count,
             garch_qlike=math.fsum(qlikes["garch"]) / count,
+            gjr_qlike=math.fsum(qlikes["gjr"]) / count if gjr_parameters else None,
             garch_minus_ewma_mae_ci=_paired_block_interval(
                 differences, block_length=horizon, repeats=bootstrap_repeats, seed=0
             ),
-            parameters=parameters, points=tuple(points),
+            gjr_minus_ewma_mae_ci=_paired_block_interval(
+                [new - old for new, old in zip(errors["gjr"], errors["ewma"], strict=True)],
+                block_length=horizon, repeats=bootstrap_repeats, seed=0,
+            ) if gjr_parameters else None,
+            gjr_minus_garch_mae_ci=_paired_block_interval(
+                [new - old for new, old in zip(errors["gjr"], errors["garch"], strict=True)],
+                block_length=horizon, repeats=bootstrap_repeats, seed=0,
+            ) if gjr_parameters else None,
+            parameters=parameters, gjr_parameters=gjr_parameters,
+            gjr_fit_status=gjr_fit_reason or "fitted_pre_holdout", points=tuple(points),
         ))
     return tuple(reports)
