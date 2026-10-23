@@ -49,11 +49,32 @@ def test_alpaca_analysis_uses_same_dates_and_rejects_changed_capture(tmp_path) -
     assert first["holdout_prediction_dates"] == second["holdout_prediction_dates"]
     assert first["last_training_label_date"] < first["first_prediction_date"]
     for asset in report["assets"]:
+        assert (asset["pre_holdout_price_sessions"] + asset["holdout_price_sessions"]
+                == len(sessions))
         for horizon in asset["horizons"]:
             count = horizon["holdout_prediction_dates"]
             length = horizon["horizon_sessions"]
+            assert horizon["future_tail_not_scored"] == length
+            assert asset["holdout_price_sessions"] - length == count
             assert horizon["nonoverlapping_windows"] == (count + length - 1) // length
             assert horizon["conservative_full_start_blocks"] == count // length
+            months = horizon["monthly_error_diagnostics"]
+            if months is not None:
+                rows = months["months"]
+                assert sum(row["prediction_dates"] for row in rows) == count
+                assert len(rows) == months["month_count"]
+                assert months["gjr_better_month_count"] == sum(
+                    row["gjr_minus_garch_mae_percentage_points"] < -0.000001
+                    for row in rows
+                )
+                assert rows[0]["month"] < rows[-1]["month"]
+                assert sum(row["prediction_dates"] *
+                           row["gjr_minus_garch_mae_percentage_points"]
+                           for row in rows) / count == pytest.approx(
+                    horizon["mae_daily_volatility_percentage_points"]["gjr"]
+                    - horizon["mae_daily_volatility_percentage_points"]["garch"],
+                    abs=0.0002,
+                )
             diagnostics = horizon["overlap_diagnostics"]
             if (horizon["baseline_status"] != "exploratory_current_history_only" or
                     horizon["ridge_status"] != "exploratory_current_history_only"):

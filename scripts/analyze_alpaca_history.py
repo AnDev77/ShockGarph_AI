@@ -9,6 +9,7 @@ import io
 import json
 import math
 import sys
+from collections import defaultdict
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,10 @@ sys.path[:0] = [str(ROOT / "packages/domain"), str(ROOT / "packages/data_pipelin
 
 from shockgraph_data_pipeline.market_calendar import nasdaq_sessions  # noqa: E402
 from shockgraph_risk.daily import _paired_block_interval  # noqa: E402
-from shockgraph_risk.exploratory_garch import evaluate_exploratory_garch  # noqa: E402
+from shockgraph_risk.exploratory_garch import (  # noqa: E402
+    ExploratoryGarchPoint,
+    evaluate_exploratory_garch,
+)
 from shockgraph_risk.exploratory_history import HistoryPrice  # noqa: E402
 from shockgraph_risk.exploratory_model import compare_price_only_model  # noqa: E402
 
@@ -118,6 +122,37 @@ def _diagnose_paired_differences(differences: list[float], *, horizon: int) -> d
     }
 
 
+def _monthly_error_diagnostics(
+    points: tuple[ExploratoryGarchPoint, ...],
+) -> dict[str, Any] | None:
+    """Group shared forecast origins by month; do not treat months as independent trials."""
+    if not points or any(point.gjr_volatility is None for point in points):
+        return None
+    grouped: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for point in points:
+        assert point.gjr_volatility is not None
+        grouped[point.session_date.strftime("%Y-%m")].append((
+            abs(point.garch_volatility - point.observed_volatility),
+            abs(point.gjr_volatility - point.observed_volatility),
+        ))
+    monthly = []
+    better_count = 0
+    for month, pairs in sorted(grouped.items()):
+        garch_mae = math.fsum(old for old, _ in pairs) / len(pairs)
+        gjr_mae = math.fsum(new for _, new in pairs) / len(pairs)
+        difference = gjr_mae - garch_mae
+        if difference * 100 < -0.000001:
+            better_count += 1
+        monthly.append({
+            "month": month, "prediction_dates": len(pairs),
+            "garch_mae_percentage_points": round(garch_mae * 100, 6),
+            "gjr_mae_percentage_points": round(gjr_mae * 100, 6),
+            "gjr_minus_garch_mae_percentage_points": round(difference * 100, 6),
+        })
+    return {"month_count": len(monthly), "gjr_better_month_count": better_count,
+            "months": monthly}
+
+
 def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
     manifest_bytes = manifest_path.read_bytes()
     manifest = json.loads(manifest_bytes)
@@ -191,6 +226,9 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
             horizons.append({
                 "horizon_sessions": model.horizon,
                 "holdout_prediction_dates": model.holdout_count,
+                "future_tail_not_scored": (
+                    len(prices) - garch[0].training_return_count - 1 - model.holdout_count
+                ),
                 # Consecutive forecast starts permit starts 0, h, 2h, ...;
                 # the model's floor division instead counts full groups of starts.
                 "nonoverlapping_windows": (
@@ -228,9 +266,12 @@ def run_analysis(manifest_path: Path, *, holdout_start: date) -> dict[str, Any]:
                 "gjr_gamma": (round(baseline.gjr_parameters.gamma, 6)
                               if baseline.gjr_parameters else None),
                 "overlap_diagnostics": diagnostics,
+                "monthly_error_diagnostics": _monthly_error_diagnostics(baseline.points),
             })
         output.append({
             "symbol": entry["symbol"], "session_count": len(prices),
+            "pre_holdout_price_sessions": garch[0].training_return_count + 1,
+            "holdout_price_sessions": len(prices) - garch[0].training_return_count - 1,
             "first_session": dates[0].isoformat(), "last_session": dates[-1].isoformat(),
             "capture": entry["capture"],
             "adjusted_vs_raw_return_difference_over_0_1_percent_points": discrepancy_count,
