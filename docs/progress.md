@@ -20,6 +20,7 @@
 | **실수집** | **GitHub Actions의 Alpaca 비밀 변수 연결과 TLT·SPY 커버리지** | 키 두 개를 Actions에서 사용하고 최근 날짜형 SIP 403을 명시적 UTC 종료 시각으로 해결. 실제 SIP 응답으로 TLT·SPY 각각 704거래일을 수집해 원본·조정본, 날짜 완전성을 확인 | [Alpaca 가격 리뷰](reviews/alpaca-sip-price-snapshots-review.md) 및 [실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39742059555). 원본·CSV는 일회성 러너에서 삭제됨. 과거 시점별 보관본, 재배포 권리, A/B 성능은 여전히 `HOLD` |
 | **탐색 실분석** | **TLT·SPY 가격 기준선 종목별 비교** | 직전에는 실제 가격의 거래일 수만 확인 → 수집 직후 manifest·CSV 해시를 다시 검사하고 각 종목의 최근 변동성·EWMA·GARCH·가격 Ridge를 동일한 5·20일 정답에서 비교. TLT 5일 Ridge 0.1865%p·20일 GARCH 0.0846%p, SPY 5일 Ridge 0.2297%p·20일 Ridge 0.1725%p가 이 평가 구간의 최저 MAE | [종목별 가격 비교 리뷰](reviews/alpaca-price-only-comparison-review.md), [실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/39874550442). 기존 보고서의 20일 9개는 시작일 완전 묶음 수였으며 실제 비중첩 미래 구간의 최대 개수는 10개다. 현재 조정 이력의 과거 재계산. 시점별 A/B 판정은 `HOLD` |
 | **표현 수정** | **비중첩 평가 구간 수 구분** | 직전에는 182개 시작일을 20개씩 내림해 9개를 비중첩 구간으로 잘못 표시 → 연속 시작일에서 미래 정답이 겹치지 않게 선택할 수 있는 10개와 보수적 완전 묶음 9개를 별도 출력. 기존 MAE와 모델 판정 수식은 그대로 | [구간 수 리뷰](reviews/nonoverlapping-holdout-count-review.md). 구간의 시간적 상관과 독립 시험 부족은 여전히 남음 |
+| **방법론 기록** | **겹치는 미래 정답의 수학적 근거** | 직전에는 개수와 블록 재표집 사용만 기록 → 합성 3일 수익률 예시, 미래 실현 변동성·오차 차이 분산 공식, 블록 재표집 구현 설정과 원 논문 링크를 연결 | [일별 위험 평가 방법](daily-risk-methodology.md#미래-정답의-겹침과-평가-불확실성). 실제 ETF 오차의 자기상관 검정이나 블록 길이 민감도, 신규 독립 시험은 아직 없음 |
 
 ## 현재 제품 판정
 
