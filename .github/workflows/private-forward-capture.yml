@@ -2,6 +2,10 @@ name: R2 비공개 가격 빈티지와 사전 위험 보관
 
 on:
   workflow_dispatch:
+  # The schedule is active only after this workflow reaches the default branch.
+  schedule:
+    - cron: '10 7 * * 1-5'
+      timezone: America/New_York
   push:
     branches:
       - feat/alpaca-price-snapshots
@@ -10,6 +14,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: private-forward-capture-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   capture:
