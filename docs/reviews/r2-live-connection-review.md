@@ -17,3 +17,7 @@
 ## 로컬 검증 결과
 
 `make quality PYTHON=.venv/bin/python`에서 Ruff 경고 0건과 Pyright 오류·경고 0건을 확인했다. `make test PYTHON=.venv/bin/python`에서는 175개 시험이 모두 통과했다. 이 시험은 원본 해시, 보관 예산, 읽기 재검증 및 시각 게이트의 합성 사례를 포함한다. 실제 Cloudflare R2의 권한과 Alpaca 응답, 새 예측의 성능은 이 로컬 시험만으로 확인할 수 없다.
+
+## 최초 원격 결과
+
+[Actions 실행의 2차 시도](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40248276178)는 보관 설정 검사, 실제 수집, R2 보관, 다시 읽기, 가격 이력 탐색 분석을 모두 완료했다. TLT와 SPY는 각각 706거래일이며 원격에서 원본 객체 9개를 읽어 검증했고 기록 인덱스를 포함해 10개 객체가 생성됐다. 두 종목의 사전 예측 기록 2개가 개장 전 조건을 충족해 보관됐다. 과거 가격 한 벌의 탐색 오차 수치와 독립 미래 성능은 별개이므로 후자는 여전히 `HOLD`다.
