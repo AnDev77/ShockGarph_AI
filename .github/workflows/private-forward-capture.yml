@@ -2,6 +2,11 @@ name: R2 비공개 가격 빈티지와 사전 위험 보관
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/alpaca-price-snapshots
+    paths:
+      - .github/workflows/private-forward-capture.yml
 
 permissions:
   contents: read
@@ -41,3 +46,18 @@ jobs:
           MANIFEST=$(find artifacts/alpaca-private/captures -maxdepth 1 -type f -name '*.json' -print -quit)
           test -n "$MANIFEST"
           python scripts/archive_forward_capture.py --manifest "$MANIFEST"
+      - name: TLT·SPY 가격 이력 탐색 분석
+        run: |
+          MANIFEST=$(find artifacts/alpaca-private/captures -maxdepth 1 -type f -name '*.json' -print -quit)
+          python scripts/analyze_alpaca_history.py --manifest "$MANIFEST" --holdout-start 2026-01-02 > /tmp/shockgraph-analysis.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path('/tmp/shockgraph-analysis.json').read_text())
+          if result.get('status') != 'exploratory_current_history_only':
+              raise SystemExit('가격 탐색 분석 상태 확인 실패')
+          for asset in result['assets']:
+              print(f"{asset['symbol']}: {asset['session_count']}거래일, {len(asset['horizons'])}개 평가 기간")
+          print('과거 가격 빈티지와 독립 시험은 아직 검증되지 않았습니다.')
+          PY
