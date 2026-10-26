@@ -46,6 +46,8 @@ jobs:
           MANIFEST=$(find artifacts/alpaca-private/captures -maxdepth 1 -type f -name '*.json' -print -quit)
           test -n "$MANIFEST"
           python scripts/archive_forward_capture.py --manifest "$MANIFEST"
+      - name: 최신 R2 기록을 독립 경로로 다시 감사
+        run: python scripts/audit_private_capture.py --latest
       - name: TLT·SPY 가격 이력 탐색 분석
         run: |
           MANIFEST=$(find artifacts/alpaca-private/captures -maxdepth 1 -type f -name '*.json' -print -quit)
