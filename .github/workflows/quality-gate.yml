@@ -1,0 +1,34 @@
+name: 빌드와 품질 게이트
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: 개발 의존성 설치
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -e '.[dev,viz]' build
+      - name: 배포 패키지 빌드
+        run: .venv/bin/python -m build --wheel --outdir dist
+      - name: 빌드 산출물 검사
+        run: .venv/bin/python scripts/check_wheel_contents.py dist/*.whl
+      - name: 정적 검사
+        run: make quality PYTHON=.venv/bin/python
+      - name: 전체 시험
+        run: make test PYTHON=.venv/bin/python

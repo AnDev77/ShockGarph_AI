@@ -50,6 +50,12 @@ def test_candidate_and_baselines_share_exact_holdout_rows() -> None:
         assert candidate.trailing_mae == pytest.approx(baseline.trailing_mae)
         assert candidate.ewma_mae == pytest.approx(baseline.ewma_mae)
         assert candidate.coefficients is not None and len(candidate.coefficients) == 4
+        assert len(candidate.points) == candidate.holdout_count
+        assert candidate.points[0].session_date == candidate.first_holdout_date
+        assert candidate.ridge_mae == pytest.approx(sum(
+            abs(point.ridge_volatility - point.observed_volatility)
+            for point in candidate.points
+        ) / candidate.holdout_count)
 
 
 def test_training_shortage_suppresses_all_candidate_metrics() -> None:
@@ -61,3 +67,4 @@ def test_training_shortage_suppresses_all_candidate_metrics() -> None:
     assert result.coefficients is None
     assert result.trailing_mae is None
     assert result.ridge_mae is None
+    assert result.points == ()

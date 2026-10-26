@@ -1,0 +1,90 @@
+name: R2 비공개 가격 빈티지와 사전 위험 보관
+
+on:
+  workflow_dispatch:
+  # The schedule is active only after this workflow reaches the default branch.
+  schedule:
+    - cron: '10 7 * * 1-5'
+      timezone: America/New_York
+  push:
+    branches:
+      - feat/alpaca-price-snapshots
+    paths:
+      - .github/workflows/private-forward-capture.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-forward-capture-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID || secrets.ALPACA_API_KEY_ID }}
+      APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY || secrets.ALPACA_API_SECRET_KEY }}
+      SHOCKGRAPH_R2_ACCOUNT_ID: ${{ vars.SHOCKGRAPH_R2_ACCOUNT_ID }}
+      SHOCKGRAPH_R2_BUCKET: ${{ vars.SHOCKGRAPH_R2_BUCKET }}
+      SHOCKGRAPH_R2_ACCESS_KEY_ID: ${{ secrets.SHOCKGRAPH_R2_ACCESS_KEY_ID }}
+      SHOCKGRAPH_R2_SECRET_ACCESS_KEY: ${{ secrets.SHOCKGRAPH_R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: 보관 설정 검사
+        run: |
+          if [ -z "$APCA_API_KEY_ID" ] || [ -z "$APCA_API_SECRET_KEY" ] || \
+             [ -z "$SHOCKGRAPH_R2_ACCESS_KEY_ID" ] || [ -z "$SHOCKGRAPH_R2_SECRET_ACCESS_KEY" ] || \
+             [ -z "$SHOCKGRAPH_R2_ACCOUNT_ID" ] || [ -z "$SHOCKGRAPH_R2_BUCKET" ]; then
+            echo '비공개 보관용 변수와 비밀값 구성이 필요합니다.'
+            exit 2
+          fi
+      - name: 보관 의존성 설치
+        run: python -m pip install -e '.[archive]'
+      - name: 원격 빈티지와 마지막 거래일 사전 검사
+        id: preflight
+        run: |
+          PRICE_END=$(python -c 'from datetime import datetime, timedelta; from zoneinfo import ZoneInfo; print((datetime.now(ZoneInfo("America/New_York")).date() - timedelta(days=1)).isoformat())')
+          python scripts/check_capture_due.py --end "$PRICE_END" > /tmp/capture-preflight.json
+          echo "price_end=$PRICE_END" >> "$GITHUB_OUTPUT"
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          result = json.loads(Path('/tmp/capture-preflight.json').read_text())
+          print(f"due={str(result['due']).lower()}")
+          PY
+      - name: 가격 원본 검증과 비공개 보관
+        if: steps.preflight.outputs.due == 'true'
+        run: |
+          python scripts/collect_alpaca_prices.py --start 2024-01-02 --end "${{ steps.preflight.outputs.price_end }}" > /dev/null
+          MANIFEST=$(find artifacts/alpaca-private/captures -maxdepth 1 -type f -name '*.json' -print -quit)
+          test -n "$MANIFEST"
+          python scripts/archive_forward_capture.py --manifest "$MANIFEST"
+      - name: 최신 R2 기록을 독립 경로로 다시 감사
+        run: python scripts/audit_private_capture.py --latest
+      - name: 고유한 사전 예측 거래일 수 감사
+        run: python scripts/audit_private_capture.py --inventory
+      - name: 성숙한 정답의 공식 비공개 점수 저장
+        run: python scripts/score_archived_forward.py
+      - name: TLT·SPY 가격 이력 탐색 분석
+        if: steps.preflight.outputs.due == 'true'
+        run: |
+          MANIFEST=$(find artifacts/alpaca-private/captures -maxdepth 1 -type f -name '*.json' -print -quit)
+          python scripts/analyze_alpaca_history.py --manifest "$MANIFEST" --holdout-start 2026-01-02 > /tmp/shockgraph-analysis.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path('/tmp/shockgraph-analysis.json').read_text())
+          if result.get('status') != 'exploratory_current_history_only':
+              raise SystemExit('가격 탐색 분석 상태 확인 실패')
+          for asset in result['assets']:
+              print(f"{asset['symbol']}: {asset['session_count']}거래일, {len(asset['horizons'])}개 평가 기간")
+          print('과거 가격 빈티지와 독립 시험은 아직 검증되지 않았습니다.')
+          PY

@@ -41,8 +41,13 @@ def test_garch_uses_same_holdout_labels_as_existing_price_baseline() -> None:
         assert report.ewma_mae == pytest.approx(baseline.ewma_mae)
         assert report.trailing_mae == pytest.approx(baseline.trailing_mae)
         assert report.garch_mae is not None
+        assert report.gjr_mae is not None
+        assert report.gjr_minus_garch_mae_ci is not None
+        assert report.gjr_parameters is not None
         assert report.garch_minus_ewma_mae_ci is not None
         assert all(point.garch_volatility > 0 for point in report.points)
+        assert all(point.gjr_volatility is not None and point.gjr_volatility > 0
+                   for point in report.points)
 
 
 def test_future_revision_cannot_refit_garch_and_short_history_is_blocked() -> None:
@@ -54,8 +59,10 @@ def test_future_revision_cannot_refit_garch_and_short_history_is_blocked() -> No
     revised = evaluate_exploratory_garch(changed, holdout_start=split)
     for before, after in zip(original, revised, strict=True):
         assert before.parameters == after.parameters
+        assert before.gjr_parameters == after.gjr_parameters
         assert before.training_return_count == after.training_return_count
         assert before.garch_mae != after.garch_mae
+        assert before.gjr_mae != after.gjr_mae
 
     blocked = evaluate_exploratory_garch(
         prices[:135], holdout_start=prices[50].session_date,

@@ -90,6 +90,7 @@ def import_daily_prices(
     end: date,
     prediction_delay: timedelta = timedelta(hours=1),
     symbol: str = "TLT",
+    venue: str = "XNAS",
     full_snapshot: bool = False,
 ) -> DailyPriceImport:
     """Preserve the supplied file and check timestamps against the reviewed Nasdaq schedule.
@@ -98,8 +99,8 @@ def import_daily_prices(
     This import does not produce a public performance claim or infer publication times.
     """
     captured_at = _utc(captured_at, "captured_at")
-    if not source or not symbol or symbol != "TLT":
-        raise ValueError("the initial import supports a named source and TLT only")
+    if not source or symbol not in ("TLT", "SPY") or venue not in ("XNAS", "US_SIP"):
+        raise ValueError("price import supports TLT/SPY and a reviewed venue only")
     if not timedelta(0) < prediction_delay <= timedelta(days=1):
         raise ValueError("prediction_delay must be positive and at most one day")
     sessions = nasdaq_sessions(start, end)
@@ -121,7 +122,7 @@ def import_daily_prices(
         source=source,
         endpoint="/local/daily-adjusted-csv",
         observed_at=captured_at,
-        request_params={"symbol": symbol, "venue": "XNAS"},
+        request_params={"symbol": symbol, "venue": venue},
     )
 
     try:
@@ -154,7 +155,7 @@ def import_daily_prices(
                 AssetPriceRecord(
                     source=source,
                     symbol=symbol,
-                    venue="XNAS",
+                    venue=venue,
                     session_date=session_date,
                     observed_at=observed_at,
                     available_at=available_at,
@@ -199,7 +200,7 @@ def import_daily_prices(
     quality = DailyPriceQuality(
         source=source,
         symbol=symbol,
-        venue="XNAS",
+        venue=venue,
         mode="full_snapshot" if full_snapshot else "single_series",
         captured_at=captured_at.isoformat(),
         calendar_source=NASDAQ_CALENDAR_SOURCE,

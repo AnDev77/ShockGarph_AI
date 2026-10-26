@@ -20,9 +20,25 @@ dev = [
   "ruff>=0.9,<1",
 ]
 viz = ["matplotlib>=3.9,<4"]
+archive = ["boto3>=1.35,<2"]
 
 [tool.setuptools]
-packages = []
+packages = [
+  "shockgraph_analytics",
+  "shockgraph_calibration",
+  "shockgraph_collector",
+  "shockgraph_data_pipeline",
+  "shockgraph_domain",
+  "shockgraph_risk",
+]
+
+[tool.setuptools.package-dir]
+shockgraph_analytics = "packages/event_study/shockgraph_analytics"
+shockgraph_calibration = "packages/calibration/shockgraph_calibration"
+shockgraph_collector = "apps/collector/shockgraph_collector"
+shockgraph_data_pipeline = "packages/data_pipeline/shockgraph_data_pipeline"
+shockgraph_domain = "packages/domain/shockgraph_domain"
+shockgraph_risk = "packages/risk_engine/shockgraph_risk"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
