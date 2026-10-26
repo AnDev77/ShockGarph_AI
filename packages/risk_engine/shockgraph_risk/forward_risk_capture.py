@@ -164,10 +164,10 @@ def score_forward_risk_record(
     label_snapshot_sha256: str,
     label_captured_at: datetime,
 ) -> tuple[ForwardRiskScore, ...]:
-    """Score both horizons only after both labels close and a later snapshot arrives."""
+    """Score each matured horizon using a later immutable price snapshot."""
     label_captured_at = _utc(label_captured_at, "label_captured_at")
-    if label_captured_at <= record.prediction_at or any(
-        label_captured_at < item.label_end_at for item in record.horizons
+    if label_captured_at <= record.prediction_at or not any(
+        label_captured_at >= item.label_end_at for item in record.horizons
     ):
         raise ValueError("future risk label is not yet mature")
     label_sha = _digest(label_snapshot_sha256)
@@ -184,6 +184,8 @@ def score_forward_risk_record(
             target.first_outcome_session, target.last_outcome_session, target.label_end_at
         ):
             raise ValueError("forward record calendar differs from reviewed sessions")
+        if label_captured_at < target.label_end_at:
+            continue
         if any(day.session_date not in by_date for day in expected):
             raise ValueError("label snapshot lacks a target session")
         values = [by_date[record.origin_session],

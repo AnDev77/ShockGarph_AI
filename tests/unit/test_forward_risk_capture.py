@@ -44,11 +44,17 @@ def test_forward_forecast_is_fixed_before_future_close_and_score_waits_for_matur
                                             (1.01 ** (index + 1)))
                                 for index, day in enumerate(target_dates)))
     mature = record.horizons[-1].label_end_at + timedelta(minutes=10)
+    five_day = record.horizons[0].label_end_at + timedelta(minutes=10)
     with pytest.raises(ValueError, match="not yet mature"):
-        score_forward_risk_record(
-            record, label_prices, label_snapshot_sha256="2" * 64,
-            label_captured_at=mature - timedelta(days=1),
-        )
+        score_forward_risk_record(record, label_prices, label_snapshot_sha256="2" * 64,
+                                  label_captured_at=record.horizons[0].label_end_at -
+                                  timedelta(minutes=1))
+    first_five_prices = label_prices[:len(history) + 5]
+    early = score_forward_risk_record(record, first_five_prices,
+                                      label_snapshot_sha256="7" * 64,
+                                      label_captured_at=five_day)
+    assert [score.horizon for score in early] == [5]
+    assert early[0].label_snapshot_sha256 == "7" * 64
     scores = score_forward_risk_record(
         record, label_prices, label_snapshot_sha256="2" * 64,
         label_captured_at=mature,
