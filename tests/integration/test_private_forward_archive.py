@@ -15,6 +15,7 @@ from shockgraph_data_pipeline.raw_store import ImmutableRawStore
 
 from scripts import private_r2
 from scripts.archive_forward_capture import archive_capture, audit_capture, main
+from scripts.audit_private_capture import latest_capture
 from scripts.audit_private_capture import main as audit_main
 from scripts.private_r2 import MAX_BUCKET_BYTES, MAX_CAPTURE_BYTES, bucket_budget_guard
 
@@ -48,12 +49,47 @@ class MemoryS3:
         return {"Body": io.BytesIO(self.objects[Key][0])}
 
     def list_objects_v2(self, *, Bucket: str,
-                        ContinuationToken: str | None = None) -> dict[str, object]:
+                        ContinuationToken: str | None = None,
+                        Prefix: str | None = None) -> dict[str, object]:
         assert Bucket == "private-risk-research"
         assert ContinuationToken is None
         if self.listed_bytes_override is not None:
             return {"Contents": [{"Size": self.listed_bytes_override}]}
-        return {"Contents": [{"Size": len(body)} for body, _ in self.objects.values()]}
+        return {"Contents": [{"Size": len(body), "Key": key,
+                               "LastModified": self.write_times[key]}
+                              for key, (body, _) in self.objects.items()
+                              if Prefix is None or key.startswith(Prefix)]}
+
+
+def test_latest_private_capture_audits_remote_bytes_without_exposing_key(tmp_path) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    client = MemoryS3()
+    recorded_at = (datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
+                   + timedelta(hours=1))
+    client.written_at = recorded_at
+    first = archive_capture(manifest, raw_root=raw_root, s3=client,
+                            bucket="private-risk-research", prefix="research",
+                            prediction_at=recorded_at, receipt_clock=lambda: recorded_at)
+    checked = latest_capture(client, bucket="private-risk-research", prefix="research")
+    assert checked["capture_index_count"] == 1
+    assert checked["forecast_count"] == 2
+    assert first["index_key"] not in json.dumps(checked)
+    source = json.loads(client.objects[first["index_key"]][0])["source_objects"][0]["key"]
+    data, digest = client.objects[source]
+    client.objects[source] = data + b"tampered", digest
+    with pytest.raises(ValueError, match="readback hash"):
+        latest_capture(client, bucket="private-risk-research", prefix="research")
+
+
+def test_latest_private_capture_requires_complete_listing_and_valid_timestamp() -> None:
+    class IncompleteListing:
+        def list_objects_v2(self, **kwargs):
+            return {"IsTruncated": True, "Contents": [], "NextContinuationToken": ""}
+
+    with pytest.raises(ValueError, match="listing"):
+        latest_capture(IncompleteListing(), bucket="private-risk-research", prefix="research")
+    with pytest.raises(ValueError, match="no archive"):
+        latest_capture(MemoryS3(), bucket="private-risk-research", prefix="research")
 
 
 def _manifest(tmp_path: Path, *, full_history: bool = False) -> tuple[Path, Path]:
