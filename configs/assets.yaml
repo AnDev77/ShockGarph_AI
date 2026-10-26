@@ -1,4 +1,10 @@
-version: 1
+version: 2
+daily_risk_initial_assets:
+  - TLT
+daily_risk_next_assets:
+  - SPY
+  - XLE
+# 아래 자산들은 분석 후보이며 학습/공개가 승인된 목록이 아니다.
 us_assets:
   - SPY
   - QQQ
