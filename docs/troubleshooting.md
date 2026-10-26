@@ -85,11 +85,11 @@
 - 증상: 최초 wheel 빌드는 성공했지만 압축 파일에는 Python 소스 없이 `dist-info` 메타데이터만 들어 있었다.
 - 원인: `pyproject.toml`에 `packages = []`가 지정되어 빌드 과정이 모든 패키지를 제외했다.
 - 조치: 여섯 소스 디렉터리를 패키지 이름과 명시적으로 연결하고 wheel 내부 필수 파일을 검사하는 스크립트와 PR 게이트를 추가했다.
-- 검증: 로컬 재빌드에서 필수 소스 7개를 확인했다. 원격 PR 게이트는 별도 확인한다.
+- 검증: 로컬 재빌드에서 필수 소스 7개를 확인했다. [수정된 PR 게이트](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40249457880)에서도 필수 소스 7개를 확인했다.
 
 ## PR 게이트의 Pyright 선택 의존성 오류 (2026-10-26)
 
 - 증상: [첫 PR 게이트](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40249311447)에서 빌드·산출물·Ruff는 통과했지만 Pyright가 `matplotlib` import 3건을 찾지 못해 실패했다.
 - 원인: 로컬 `.venv`에 있던 시각화 선택 의존성과 `pyproject.toml`의 `.venv` 설정을 CI의 전역 Python 설치가 재현하지 못했다.
 - 조치: CI에 `.venv`를 만들고 `dev,viz` 선택 의존성을 설치하며 모든 검사를 같은 인터프리터로 실행하도록 수정했다.
-- 검증 상태: 수정 후 PR 실행 결과를 기다린다.
+- 검증: 수정된 PR 실행에서 Pyright 오류·경고 0건과 전체 175개 시험 통과.
