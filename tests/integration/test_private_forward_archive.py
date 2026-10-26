@@ -19,6 +19,7 @@ from scripts.audit_private_capture import capture_inventory, latest_capture
 from scripts.audit_private_capture import main as audit_main
 from scripts.check_capture_due import capture_due
 from scripts.private_r2 import MAX_BUCKET_BYTES, MAX_CAPTURE_BYTES, bucket_budget_guard
+from scripts.score_archived_forward import score_archived_pair
 
 
 class AlreadyExists(Exception):
@@ -137,11 +138,47 @@ def test_inventory_counts_unique_origin_instead_of_duplicate_indices(tmp_path) -
         capture_inventory(client, bucket="private-risk-research", prefix="research")
 
 
-def _manifest(tmp_path: Path, *, full_history: bool = False) -> tuple[Path, Path]:
+def test_audited_later_vintage_scores_only_mature_five_day_outcomes(tmp_path) -> None:
+    first_manifest, first_root = _manifest(tmp_path / "first", full_history=True)
+    later_manifest, later_root = _manifest(tmp_path / "later", full_history=True,
+                                          extra_sessions=5)
+    client = MemoryS3()
+    first_at = (datetime.fromisoformat(json.loads(first_manifest.read_text())["prices"][0]
+                                        ["capture"]) + timedelta(hours=1))
+    client.written_at = first_at
+    first = archive_capture(first_manifest, raw_root=first_root, s3=client,
+                            bucket="private-risk-research", prefix="research",
+                            prediction_at=first_at, receipt_clock=lambda: first_at)
+    later_at = (datetime.fromisoformat(json.loads(later_manifest.read_text())["prices"][0]
+                                        ["capture"]) + timedelta(hours=1))
+    client.written_at = later_at
+    later = archive_capture(later_manifest, raw_root=later_root, s3=client,
+                            bucket="private-risk-research", prefix="research",
+                            prediction_at=later_at, receipt_clock=lambda: later_at)
+    scored = score_archived_pair(client, bucket="private-risk-research",
+                                 forecast_index_key=first["index_key"],
+                                 label_index_key=later["index_key"])
+    assert {(row.symbol, row.horizon) for row in scored} == {("TLT", 5), ("SPY", 5)}
+    assert all(not row.public_performance_allowed for row in scored)
+    with pytest.raises(ValueError, match="separate archive"):
+        score_archived_pair(client, bucket="private-risk-research",
+                            forecast_index_key=first["index_key"],
+                            label_index_key=first["index_key"])
+    label_csv = later["index_key"].split("/records/", 1)[0] + "/TLT/prices.csv"
+    data, digest = client.objects[label_csv]
+    client.objects[label_csv] = data + b"tampered", digest
+    with pytest.raises(ValueError, match="readback hash"):
+        score_archived_pair(client, bucket="private-risk-research",
+                            forecast_index_key=first["index_key"],
+                            label_index_key=later["index_key"])
+
+
+def _manifest(tmp_path: Path, *, full_history: bool = False,
+              extra_sessions: int = 0) -> tuple[Path, Path]:
     root = tmp_path / "raw"
     store = ImmutableRawStore(root)
     private = tmp_path / "private"
-    sessions = (nasdaq_sessions(date(2026, 1, 2), date(2026, 9, 30))[:125]
+    sessions = (nasdaq_sessions(date(2026, 1, 2), date(2026, 9, 30))[:125 + extra_sessions]
                 if full_history else nasdaq_sessions(date(2026, 4, 6), date(2026, 4, 8)))
     capture_time = (sessions[-1].close_at + timedelta(minutes=40) if full_history else
                     datetime(2026, 4, 9, 22, tzinfo=UTC))

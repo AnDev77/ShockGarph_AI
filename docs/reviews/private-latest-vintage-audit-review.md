@@ -39,3 +39,7 @@ wheel을 빌드하고 필수 Python 소스 7개를 확인했다. Ruff 오류 0�
 ## 고유 예측 시작일 감사
 
 `--inventory`는 index 전부를 소스 원본까지 재검증해 중복 시작일을 별도 집계한다. 합성 버킷의 동일 날짜 index 2개는 `audited_index_count=2`, `unique_origin_session_count=1`, `duplicate_forecast_index_count=1`로 반환됐다. 오래된 index가 변조되면 최신 index가 정상이더라도 inventory는 실패한다. 250개 초과는 비용과 실행 시간 검토를 요구하는 명시적 한계다. 고유 거래일 수는 겹치지 않는 5·20일 정답 수나 실제 채점 완료 건수와 같지 않다.
+
+## 실제 버킷 고유 거래일 판정
+
+[원격 실행](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40258151489)에서 과거 index 2개의 원본을 모두 재감사해 고유 origin 1개, 중복 1개로 판정했다. 손상된 index를 건너뛰는 동작은 허용하지 않았다. [별도 CI](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40258154805)는 179개 시험을 통과했다. 수집·표본 수 진척은 확보했지만 5일이나 20일의 실제 예측 오차는 0건이다.
