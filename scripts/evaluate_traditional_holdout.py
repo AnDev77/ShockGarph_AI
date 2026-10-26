@@ -18,12 +18,14 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [
     str(ROOT),
+    str(ROOT / "apps/collector"),
     str(ROOT / "packages/event_study"),
     str(ROOT / "packages/domain"),
     str(ROOT / "packages/data_pipeline"),
     str(ROOT / "packages/risk_engine"),
 ]
 
+from shockgraph_collector.treasury_rates import load_treasury_history  # noqa: E402
 from shockgraph_risk.daily import (  # noqa: E402
     build_snapshot_forecasts,
     evaluate_snapshot_holdout,
@@ -87,16 +89,35 @@ def load_indicators(
 
 
 def run_traditional_manifest(
-    manifest_path: Path, indicator_path: Path, raw_root: Path,
+    manifest_path: Path, indicator_path: Path | None, raw_root: Path,
     *, indicator_names: tuple[str, ...] = ("DGS10",),
     max_indicator_age: timedelta = timedelta(days=5),
     indicator_max_ages: Mapping[str, timedelta] | None = None,
     require_captured_at: bool = True,
+    treasury_archive_path: Path | None = None,
 ) -> dict[str, Any]:
     inputs = load_snapshot_manifest(manifest_path, raw_root)
-    indicators, indicator_hash, capture_supplied = load_indicators(
-        indicator_path, require_captured_at=require_captured_at
-    )
+    if (indicator_path is None) == (treasury_archive_path is None):
+        raise ValueError("choose exactly one indicator CSV or Treasury archive")
+    if treasury_archive_path is not None:
+        if indicator_names != ("UST10Y_PAR",):
+            raise ValueError("Treasury archive supplies only UST10Y_PAR")
+        history = load_treasury_history(treasury_archive_path)
+        indicators = tuple(MarketIndicatorObservation(
+            name="UST10Y_PAR", source="us-treasury", observed_at=None,
+            observation_date=row.observation_date, available_at=row.captured_at,
+            value=row.value_percent, raw_hash=row.raw_file_sha256,
+        ) for row in history)
+        indicator_hash = hashlib.sha256("\n".join(
+            f"{row.observation_date}:{row.captured_at.isoformat()}:{row.raw_file_sha256}"
+            for row in history
+        ).encode("utf-8")).hexdigest()
+        capture_supplied = True
+    else:
+        assert indicator_path is not None
+        indicators, indicator_hash, capture_supplied = load_indicators(
+            indicator_path, require_captured_at=require_captured_at
+        )
     if not indicator_names or len(set(indicator_names)) != len(indicator_names):
         raise ValueError("indicator names must be nonempty and unique")
     if max_indicator_age <= timedelta(0):
@@ -142,6 +163,7 @@ def run_traditional_manifest(
         "indicator_file_sha256": indicator_hash,
         "indicator_capture_times_supplied": capture_supplied,
         "indicator_capture_times_verified": False,
+        "indicator_raw_archive_checked": treasury_archive_path is not None,
         "indicator_names": indicator_names,
         "max_indicator_age_seconds": max_indicator_age.total_seconds(),
         "indicator_max_age_hours": {
@@ -178,7 +200,10 @@ def _parse_indicator_ages(values: Sequence[str], names: tuple[str, ...]) -> dict
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="시점이 맞는 가격·전통 지표의 비공개 A/B 비교")
     parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--indicators", type=Path, required=True)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--indicators", type=Path)
+    inputs.add_argument("--treasury-archive", type=Path,
+                        help="불변 원본 저장소의 UST10Y_PAR 월별 응답을 사용")
     parser.add_argument("--indicator", action="append", default=[], help="예: DGS10; 복수 가능")
     parser.add_argument("--max-indicator-age-hours", type=float, default=120)
     parser.add_argument("--indicator-age-hours", action="append", default=[],
@@ -189,7 +214,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, help="비공개 JSON 출력 경로, 생략하면 표준 출력")
     args = parser.parse_args(argv)
     try:
-        names = tuple(args.indicator) if args.indicator else ("DGS10",)
+        names = tuple(args.indicator) if args.indicator else (
+            ("UST10Y_PAR",) if args.treasury_archive else ("DGS10",)
+        )
         if not math.isfinite(args.max_indicator_age_hours) or args.max_indicator_age_hours <= 0:
             raise ValueError("indicator age limit must be positive")
         configured_ages = _parse_indicator_ages(args.indicator_age_hours, names)
@@ -198,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
             max_indicator_age=timedelta(hours=args.max_indicator_age_hours),
             indicator_max_ages=configured_ages,
             require_captured_at=not args.allow_unverified_indicators,
+            treasury_archive_path=args.treasury_archive,
         )
         encoded = json.dumps(report, ensure_ascii=False, indent=2,
                              default=lambda value: value.isoformat()

@@ -4,8 +4,11 @@ import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import httpx
 import pytest
+from shockgraph_collector.treasury_rates import TreasuryYieldCollector
 from shockgraph_data_pipeline.market_calendar import nasdaq_2026_sessions, nasdaq_sessions
+from shockgraph_data_pipeline.raw_store import ImmutableRawStore
 from shockgraph_risk.daily import VolatilityForecast
 from shockgraph_risk.macro_panel import build_macro_risk_panel
 
@@ -223,6 +226,32 @@ def test_strict_comparison_reports_capture_input_but_does_not_verify_it(
     assert report["indicator_capture_times_supplied"] is True
     assert report["indicator_capture_times_verified"] is False
     assert report["public_performance_allowed"] is False
+
+
+def test_traditional_cli_reads_archived_treasury_dates_without_fake_release_times(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    manifest = _manifest(tmp_path)
+    raw_root = tmp_path / "raw"
+    xml = (b'<feed xmlns="http://www.w3.org/2005/Atom" '
+           b'xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices">'
+           b'<entry><d:NEW_DATE>2026-01-05T00:00:00</d:NEW_DATE>'
+           b'<d:BC_10YEAR>4.0</d:BC_10YEAR></entry></feed>')
+    with TreasuryYieldCollector(
+        transport=httpx.MockTransport(lambda _: httpx.Response(
+            200, content=xml, headers={"content-type": "application/xml"}
+        )),
+        clock=lambda: datetime.fromisoformat("2026-01-06T22:00:00+00:00"),
+    ) as collector:
+        collector.collect_month(2026, 1, ImmutableRawStore(raw_root))
+    assert traditional_main([
+        "--manifest", str(manifest), "--treasury-archive", str(raw_root),
+        "--raw-root", str(raw_root), "--indicator-age-hours", "UST10Y_PAR=72",
+    ]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["indicator_names"] == ["UST10Y_PAR"]
+    assert report["indicator_raw_archive_checked"] is True
+    assert report["indicator_capture_times_verified"] is False
 
 
 def test_manifest_accepts_cross_year_sessions_and_rejects_false_holiday_price(
