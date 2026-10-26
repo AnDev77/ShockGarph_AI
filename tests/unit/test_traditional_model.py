@@ -212,8 +212,8 @@ def test_indicator_csv_requires_true_utc_availability_and_keeps_file_hash(tmp_pa
     path = tmp_path / "indicators.csv"
     path.write_text("name,source,observed_at,available_at,value\n"
                     "DGS10,test,2026-01-05T21:00:00Z,2026-01-05T21:05:00Z,4.0\n")
-    rows, digest = load_indicators(path)
-    assert len(rows) == 1 and rows[0].raw_hash == digest
+    rows, digest, capture_supplied = load_indicators(path)
+    assert len(rows) == 1 and rows[0].raw_hash == digest and capture_supplied is False
     path.write_text("name,source,observed_at,available_at,value\n"
                     "DGS10,test,2026-01-05T21:00:00,2026-01-05T21:05:00Z,4.0\n")
     with pytest.raises(ValueError, match="UTC"):
