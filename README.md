@@ -1,12 +1,16 @@
 # ShockGraph AI
 
-ShockGraph AI는 당시 가격·금리·변동성 정보로 ETF의 향후 위험 범위를 검증하고,
+[진행 기록](docs/progress.md) · [트러블슈팅](docs/troubleshooting.md)
+
+ShockGraph AI는 SPY·TLT 각각의 가격 변화와 관측 위험을 설명하고,
+입력 비중의 기간 총변동률을 선택적으로 계산한다. 별도 연구에서는 당시
+가격·금리·변동성 정보로 ETF의 향후 위험 범위를 검증한다.
 거시 발표의 당시 기대와 실제 결과를 별도로 설명하는 제품을 목표로 한다. 첫 정답은
 TLT의 미래 5·20거래일 실현 변동성이다. 가격 기준선 A와 전통 시장 정보 모델 B를
 같은 날짜에서 비교하고, 충분한 독립 표본이 있으면 머신러닝의 추가 가치를 검토한다.
 Kalshi의 특정 계약 확률은 계약 참가자가 그 시각에 반영한 기대를 출처와 함께
-보여주는 맥락 자료이며 위험 예측의 필수 입력이 아니다. SPY·XLE와 포트폴리오는
-데이터와 표본 외 성능을 확인한 뒤 확장한다. 기존 CPI/Kalshi 계약 적중률 감사와
+보여주는 맥락 자료이며 위험 예측의 필수 입력이 아니다. SPY·TLT는 첫 제품의
+독립 종목 카드 대상이고, QQQ·XLE는 자료와 수요를 확인한 뒤 확장한다. 기존 CPI/Kalshi 계약 적중률 감사와
 확률 추가 C 입력 경로는 선택적 연구 이력으로 보존한다. 전통 정보 모델 B의
 기준선 A 대비 성과와 A 자체의 오차·사용성을 따로 평가한다. 수치가 신뢰할 수
 없을 때는 발표 전 기대·최초 발표 결과·
@@ -15,7 +19,7 @@ TLT/금리 관측을 시점별로 자동 결합한 리포트가 수동 조사보
 의견을 검토하고, 후속으로 종목 보유 인증 채팅방을 검토한다.
 거래 실행과 개인화된 매수·매도 권유는 제공하지 않는다.
 
-**2026-10-20 목표 및 현재 단계:** 기존 Kalshi CPI 계약 적중률 코드는 연구 이력이다.
+**2026-10-21 목표 및 현재 단계:** 기존 Kalshi CPI 계약 적중률 코드는 연구 이력이다.
 보관 가격 기준선에 전통 지표·단일 계약 확률을 발표 전 시각으로 연결하고
 결측·지연 날짜를 세는 입력 패널은 합성 자료로 검증했지만, 확률 결합 학습과
 실자료 성능은 없다. 이 선택적 연구 경로는 첫 제품을 막는 필수 작업이 아니다.
@@ -25,10 +29,14 @@ TLT/금리 관측을 시점별로 자동 결합한 리포트가 수동 조사보
 보관 파일을 입력으로 받는 비공개 5·20일 시간순 평가 보고 경로를 구현했다.
 보관 가격과 이용 가능 시각이 적힌 전통 지표를 결합하는 A/B 비교기에
 가격 전용 Ridge 비교군과 GARCH(1,1) 통계 기준선을 추가해 합성 자료로
-검증했다. 실제 시점별 가격·금리 공통 표본의 성능은 아직 없다.
+검증했다. 현재 TLT 수정종가 한 벌에 대한 비공개 탐색 그래프도 만들었다.
+단일 종목의 과거 상태 계산기는 구현했으나 실제 SPY 가격 파일이 없어 SPY
+결과와 웹 화면·채팅은 아직 없다. 종목별 화면과 공개 채팅을 예측 모델
+승인과 분리해 진행하는 범위는 [제품 화면](docs/product-ui-direction.md)에 기록했다.
+실제 시점별 가격·금리 공통 표본의 성능은 아직 없다.
 공급 계약이 확인된 실가격 파일·수정가격의 과거 버전 증거·승인된 예측 모델·웹 화면·주주 인증과 채팅은 아직 없다.
 현재 내려받은 실제 TLT 수정종가 한 벌로 **비공개 탐색 평가**는 수행했다.
-가격 이력만 학습한 첫 비교 모델은 5·20일 MAE가 EWMA보다 커서 승인하지 않았다.
+가격 이력만 학습한 Ridge와 GARCH 후보 모두 5·20일 MAE가 EWMA보다 커서 승인하지 않았다.
 이 실험으로 거시 확률의 예측 가치를 부정하거나 긍정할 수는 없다.
 이는 과거 예측 당시의 가격 버전을 증명하지 않으므로 엄격한 **예측 실증은 HOLD**다.
 [데이터 가능성 판정](docs/data-source-gate-b.md#2026-10-20-예측-실증-가능성-판정)에서
@@ -58,7 +66,20 @@ make risk-compare SNAPSHOT_MANIFEST=/private/manifest.json \
 .venv/bin/python scripts/evaluate_traditional_holdout.py \
   --manifest /private/manifest.json --indicators /private/indicators.csv \
   --indicator DGS10 --indicator VIXCLS --output artifacts/private-ab.json
+# 주간 연은 지수 후보는 이름별로 경과시간을 따로 제한한다.
+.venv/bin/python scripts/evaluate_traditional_holdout.py \
+  --manifest /private/manifest.json --indicators /private/indicators.csv \
+  --indicator DGS10 --indicator NFCI_RISK \
+  --indicator-age-hours DGS10=48 --indicator-age-hours NFCI_RISK=240 \
+  --output artifacts/private-ab-fed-context.json
 ```
+
+`NFCI_RISK`는 CSV에 입력할 **연구용 시리즈 이름 예시**이며 실제 주간 지수를
+자동 수집하지 않는다. 위 48·240시간은 사용법을 보이는 설정 예시다. 각 지표의
+정확한 관측 기간·게시 시각·휴장일·과거 수정 가능성을 확인한 뒤, 최종 평가 전에
+신선도 상한을 고정해야 한다. 일별 금리와 주간 위험지수를 함께 요구하면 하나라도
+빠진 날짜는 B와 B0의 공통 비교에서 제외된다. 제외 이유와 해당 지표명은 비공개
+보고의 `coverage.indicator_exclusions`로 확인한다. 기본 경과시간은 기존 120시간이다.
 
 비교기는 A의 최근 변동성·EWMA와 일별 수익률 GARCH(1,1), 가격만 쓴
 Ridge(B0), 가격·지표 Ridge(B1)를 같은 홀드아웃 날짜에서 채점한다.
@@ -81,6 +102,13 @@ B0·B1은 훈련 기간에서만 표준화한 고정 패널티 Ridge이고
 별도로 확인해야 한다. 자료의 시점과 사용 권리, 새 독립 시험 기간이 없으면
 실증 성과를 주장하지 않는다.
 
+[시카고 연은 NFCI 위험 하위지수](https://www.chicagofed.org/research/data/nfci/about)는
+금융시장의 변동성과 자금조달 위험을 포함하는 **주간 시장 상태 지표**다.
+[세인트루이스 연은 STLFSI4](https://fred.stlouisfed.org/series/STLFSI4)도
+주간 금융시장 스트레스 지표이며 개별 ETF의 향후 위험 정답은 아니다. 둘 다
+후보 입력으로만 다루고, 가격만 쓴 B0와 같은 날짜에서 추가 효과를 검증한다.
+지표 원본·과거 게시 시각과 공개 재사용 조건은 아직 확보하지 않았다.
+
 입력·평가 계약과 합성 시험 결과는
 [전통 지표 A/B 홀드아웃 리뷰](docs/reviews/traditional-risk-ab-holdout-review.md)에 기록했다.
 
@@ -93,6 +121,25 @@ B0·B1은 훈련 기간에서만 표준화한 고정 패널티 Ridge이고
 제공하지 않는다. 다자산 공동 수익률 기준선은 `make portfolio-demo`로 별도 시험하며
 실제 투자 성과가 아니다. 구현 범위는 [15~16일차 리뷰](docs/reviews/day-15-16-review.md)와
 [17~18일차 리뷰](docs/reviews/day-17-18-review.md)를 따른다.
+
+## 종목별 과거 상태와 선택적 총변동률
+
+SPY 또는 TLT의 `session_date,adjusted_close` CSV를 **각각** 입력해 최근
+5·20·60개 입력 행의 가격 변화, 최근 관측 변동성의 과거 이력 내 위치,
+기간 내 최대 하락 폭을 JSON으로 계산한다. 서로 다른 종목의 입력은 이
+단계에서 필요하지 않다.
+
+```bash
+python scripts/analyze_asset_history.py --input /private/spy.csv \
+  --symbol SPY --source "SPY 공급원·수신일" --window 60 \
+  --output artifacts/private-spy-history.json
+```
+
+두 종목 요약의 시작·종료 날짜가 같을 때만 입력 비중의 총변동률을 별도
+계산한다. 초기 비중으로 기간 내 재조정 없이 보유한 경우이며, 종목별 위험
+점수를 섞거나 미래 성과를 예측하지 않는다. 출력은 비공개 과거 분석이고
+`public_display_allowed=false`다. SPY 이력·외부 표시 권리와 전체 거래소
+세션 대조가 남았다. [단일 종목 우선 리뷰](docs/reviews/asset-first-market-overview-review.md)를 참조한다.
 
 ## 비공개 TLT 가격 입력 점검
 
@@ -219,6 +266,24 @@ python scripts/evaluate_exploratory_history.py --input artifacts/tlt-private.csv
 [첫 모델 비교 리뷰](docs/reviews/tlt-price-only-model-review.md)에 기록했다.
 후속 GARCH(1,1)·HAR-RV와 시장 변수의 실험 순서는
 [논문 기반 TLT 모델 설계](docs/tlt-volatility-model-design.md)에 정리했다.
+
+#### 실제 가격 한 벌의 GARCH 탐색 시각화
+
+시각화 추가 의존성은 `python -m pip install -e '.[dev,viz]'`로 설치한다.
+기존 탐색 평가와 같은 두 열의 비공개 CSV로 그림과 상세 JSON을 생성한다.
+
+```bash
+python scripts/plot_exploratory_garch.py --input /private/tlt-adjusted-history.csv \
+  --source "가격 공급원과 내려받은 날짜" --holdout-start 2024-01-02 \
+  --output-dir /private/exploratory-visual
+```
+
+그림의 위 두 패널은 5·20일 미래 일별 변동성의 실제값·EWMA·GARCH 예측을
+보기 쉽도록 20개 평가 시점씩 평활화한다. 아래 막대는 같은 평가일의 **원래
+값**으로 계산한 최근 변동성·EWMA·Ridge·GARCH MAE다. 실제 한 벌의 과거
+수정종가만 사용했으므로 예측 당시 가격 버전이나 새 독립 시험을 확인한 성능은
+아니다. [GARCH 탐색 시각화 리뷰](docs/reviews/tlt-exploratory-garch-visual-review.md)에
+표본·오차·지표별 차이와 해석 제한을 기록했다.
 
 ## 기존 이벤트 연구 구현 상태
 

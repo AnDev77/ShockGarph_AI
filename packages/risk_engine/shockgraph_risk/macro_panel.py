@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -81,6 +81,7 @@ class PanelCoverage:
     probability_count: int
     unique_probability_events: int
     exclusions: tuple[tuple[str, int], ...]
+    indicator_exclusions: tuple[tuple[str, str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +100,7 @@ def build_macro_risk_panel(
     *,
     required_indicators: tuple[str, ...],
     max_indicator_age: timedelta,
+    indicator_max_ages: Mapping[str, timedelta] | None = None,
     max_probability_age: timedelta,
     max_release_lead: timedelta,
     include_probability_research: bool = True,
@@ -112,6 +114,12 @@ def build_macro_risk_panel(
         raise ValueError("required_indicators must be nonempty names")
     if len(set(required_indicators)) != len(required_indicators):
         raise ValueError("required_indicators must be unique")
+    configured_ages = dict(indicator_max_ages or {})
+    if set(configured_ages) - set(required_indicators):
+        raise ValueError("unknown indicator age override")
+    if any(not isinstance(age, timedelta) or age <= timedelta(0)
+           for age in configured_ages.values()):
+        raise ValueError("positive indicator age required")
     if any(age <= timedelta(0) for age in (
         max_indicator_age, max_probability_age, max_release_lead
     )):
@@ -182,6 +190,7 @@ def build_macro_risk_panel(
     traditional: list[TraditionalFeatureRow] = []
     joined: list[ProbabilityFeatureRow] = []
     excluded: Counter[str] = Counter()
+    indicator_excluded: Counter[tuple[str, str]] = Counter()
     for forecast in baseline:
         at = forecast.prediction_at
         selected_indicators = []
@@ -192,10 +201,12 @@ def build_macro_risk_panel(
             ]
             if not eligible:
                 excluded["missing_indicator"] += 1
+                indicator_excluded[(name, "missing_indicator")] += 1
                 break
             latest = max(eligible, key=lambda row: (row.observed_at, row.available_at))
-            if at - latest.observed_at > max_indicator_age:
+            if at - latest.observed_at > configured_ages.get(name, max_indicator_age):
                 excluded["stale_indicator"] += 1
+                indicator_excluded[(name, "stale_indicator")] += 1
                 break
             selected_indicators.append(latest)
         else:
@@ -233,5 +244,8 @@ def build_macro_risk_panel(
         probability_count=len(joined),
         unique_probability_events=len({row.event.event_id for row in joined}),
         exclusions=tuple(sorted(excluded.items())),
+        indicator_exclusions=tuple(
+            (name, reason, count) for (name, reason), count in sorted(indicator_excluded.items())
+        ),
     )
     return MacroRiskPanel(baseline, tuple(traditional), tuple(joined), coverage)
