@@ -8,6 +8,7 @@ import io
 import json
 import math
 import sys
+from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,8 @@ from shockgraph_risk.forward_risk_capture import (  # noqa: E402
     score_forward_risk_record,
 )
 
-from scripts.archive_forward_capture import audit_capture  # noqa: E402
+from scripts.archive_forward_capture import _encoded, _write_once, audit_capture  # noqa: E402
+from scripts.private_r2 import bucket_budget_guard  # noqa: E402
 
 _COLUMNS = ["session_date", "observed_at", "available_at", "close", "adjusted_close",
             "volume"]
@@ -101,3 +103,31 @@ def score_archived_pair(s3: Any, *, bucket: str, forecast_index_key: str,
     if not results:
         raise ValueError("no mature forward label exists")
     return tuple(results)
+
+
+def persist_private_scores(s3: Any, *, bucket: str, forecast_index_key: str,
+                           label_index_key: str) -> dict[str, Any]:
+    """Persist a verified score for one source/label pair without public values."""
+    scores = score_archived_pair(s3, bucket=bucket,
+                                 forecast_index_key=forecast_index_key,
+                                 label_index_key=label_index_key)
+    source_bytes = s3.get_object(Bucket=bucket, Key=forecast_index_key)["Body"].read()
+    label_bytes = s3.get_object(Bucket=bucket, Key=label_index_key)["Body"].read()
+    source_sha = hashlib.sha256(source_bytes).hexdigest()
+    label_sha = hashlib.sha256(label_bytes).hexdigest()
+    prefix = forecast_index_key.split("/captures/", 1)[0]
+    if prefix == forecast_index_key:
+        raise ValueError("score needs a private capture prefix")
+    key = f"{prefix}/scores/{source_sha}/{label_sha}.json"
+    payload = _encoded({
+        "schema_version": 1, "status": "private_forward_scores",
+        "forecast_index_key": forecast_index_key, "forecast_index_sha256": source_sha,
+        "label_index_key": label_index_key, "label_index_sha256": label_sha,
+        "public_performance_allowed": False,
+        "scores": [asdict(item) for item in scores],
+    })
+    bucket_budget_guard(s3, bucket)(len(payload))
+    created = _write_once(s3, bucket, key, payload)
+    return {"status": "private_scores_readback_verified", "created": created,
+            "score_count": len(scores), "score_key": key,
+            "public_performance_allowed": False}

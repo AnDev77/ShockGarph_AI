@@ -19,7 +19,7 @@ from scripts.audit_private_capture import capture_inventory, latest_capture
 from scripts.audit_private_capture import main as audit_main
 from scripts.check_capture_due import capture_due
 from scripts.private_r2 import MAX_BUCKET_BYTES, MAX_CAPTURE_BYTES, bucket_budget_guard
-from scripts.score_archived_forward import score_archived_pair
+from scripts.score_archived_forward import persist_private_scores, score_archived_pair
 
 
 class AlreadyExists(Exception):
@@ -171,6 +171,53 @@ def test_audited_later_vintage_scores_only_mature_five_day_outcomes(tmp_path) ->
         score_archived_pair(client, bucket="private-risk-research",
                             forecast_index_key=first["index_key"],
                             label_index_key=later["index_key"])
+
+
+def test_private_scores_are_write_once_and_pair_provenance_is_preserved(tmp_path) -> None:
+    first_manifest, first_root = _manifest(tmp_path / "first", full_history=True)
+    later_manifest, later_root = _manifest(tmp_path / "later", full_history=True,
+                                          extra_sessions=5)
+    client = MemoryS3()
+    first_at = (datetime.fromisoformat(json.loads(first_manifest.read_text())["prices"][0]
+                                        ["capture"]) + timedelta(hours=1))
+    client.written_at = first_at
+    first = archive_capture(first_manifest, raw_root=first_root, s3=client,
+                            bucket="private-risk-research", prefix="research",
+                            prediction_at=first_at, receipt_clock=lambda: first_at)
+    later_at = (datetime.fromisoformat(json.loads(later_manifest.read_text())["prices"][0]
+                                        ["capture"]) + timedelta(hours=1))
+    client.written_at = later_at
+    later = archive_capture(later_manifest, raw_root=later_root, s3=client,
+                            bucket="private-risk-research", prefix="research",
+                            prediction_at=later_at, receipt_clock=lambda: later_at)
+    client.listed_bytes_override = MAX_BUCKET_BYTES - 1
+    with pytest.raises(ValueError, match="bucket budget"):
+        persist_private_scores(client, bucket="private-risk-research",
+                               forecast_index_key=first["index_key"],
+                               label_index_key=later["index_key"])
+    assert all("/scores/" not in key for key in client.objects)
+    client.listed_bytes_override = None
+    first_score = persist_private_scores(client, bucket="private-risk-research",
+                                         forecast_index_key=first["index_key"],
+                                         label_index_key=later["index_key"])
+    assert first_score["created"] is True
+    assert first_score["score_count"] == 2
+    key = first_score["score_key"]
+    payload = json.loads(client.objects[key][0])
+    assert payload["public_performance_allowed"] is False
+    assert {item["horizon"] for item in payload["scores"]} == {5}
+    assert payload["forecast_index_key"] == first["index_key"]
+    assert payload["label_index_key"] == later["index_key"]
+    second = persist_private_scores(client, bucket="private-risk-research",
+                                    forecast_index_key=first["index_key"],
+                                    label_index_key=later["index_key"])
+    assert second["created"] is False
+    bytes_before, digest = client.objects[key]
+    client.objects[key] = bytes_before + b"tampered", digest
+    with pytest.raises(ValueError, match="collision"):
+        persist_private_scores(client, bucket="private-risk-research",
+                               forecast_index_key=first["index_key"],
+                               label_index_key=later["index_key"])
 
 
 def _manifest(tmp_path: Path, *, full_history: bool = False,
