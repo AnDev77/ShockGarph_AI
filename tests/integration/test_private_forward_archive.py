@@ -15,7 +15,7 @@ from shockgraph_data_pipeline.raw_store import ImmutableRawStore
 
 from scripts import private_r2
 from scripts.archive_forward_capture import archive_capture, audit_capture, main
-from scripts.audit_private_capture import latest_capture
+from scripts.audit_private_capture import capture_inventory, latest_capture
 from scripts.audit_private_capture import main as audit_main
 from scripts.check_capture_due import capture_due
 from scripts.private_r2 import MAX_BUCKET_BYTES, MAX_CAPTURE_BYTES, bucket_budget_guard
@@ -112,6 +112,29 @@ def test_capture_preflight_skips_existing_origin_and_rejects_corruption(tmp_path
     client.objects[source] = body + b"tampered", digest
     with pytest.raises(ValueError, match="readback hash"):
         capture_due(client, bucket="private-risk-research", prefix="research", end=origin)
+
+
+def test_inventory_counts_unique_origin_instead_of_duplicate_indices(tmp_path) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    client = MemoryS3()
+    captured = datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
+    first_at = captured + timedelta(hours=1)
+    client.written_at = first_at
+    first = archive_capture(manifest, raw_root=raw_root, s3=client,
+                            bucket="private-risk-research", prefix="research",
+                            prediction_at=first_at, receipt_clock=lambda: first_at)
+    second_at = first_at + timedelta(minutes=1)
+    client.written_at = second_at
+    archive_capture(manifest, raw_root=raw_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=second_at, receipt_clock=lambda: second_at)
+    result = capture_inventory(client, bucket="private-risk-research", prefix="research")
+    assert result == {"status": "archive_inventory_verified", "audited_index_count": 2,
+                      "unique_origin_session_count": 1, "duplicate_forecast_index_count": 1}
+    data, digest = client.objects[first["index_key"]]
+    client.objects[first["index_key"]] = data + b"tampered", digest
+    with pytest.raises(ValueError, match="readback hash"):
+        capture_inventory(client, bucket="private-risk-research", prefix="research")
 
 
 def _manifest(tmp_path: Path, *, full_history: bool = False) -> tuple[Path, Path]:

@@ -19,8 +19,7 @@ _INDEX = re.compile(r"^[0-9a-f]{64}/records/[0-9]{8}T[0-9]{6}\.[0-9]{6}Z\.json$"
 _PREFIX = re.compile(r"^[a-zA-Z0-9/_-]+$")
 
 
-def latest_capture(client: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
-    """Find the newest verified index without printing private object names."""
+def _listed_indices(client: Any, *, bucket: str, prefix: str) -> list[tuple[datetime, str]]:
     if not _PREFIX.fullmatch(prefix) or ".." in prefix:
         raise ValueError("invalid private archive prefix")
     root = prefix.strip("/") + "/captures/"
@@ -52,6 +51,12 @@ def latest_capture(client: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
         cursor = token
     if not indices:
         raise ValueError("no archive index exists")
+    return indices
+
+
+def latest_capture(client: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
+    """Find the newest verified index without printing private object names."""
+    indices = _listed_indices(client, bucket=bucket, prefix=prefix)
     _, key = max(indices)
     result = audit_capture(client, bucket=bucket, index_key=key)
     index = json.loads(client.get_object(Bucket=bucket, Key=key)["Body"].read())
@@ -62,11 +67,34 @@ def latest_capture(client: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
             "origin_session": next(iter(origins)) if origins else None}
 
 
+def capture_inventory(client: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
+    """Audit every index before counting distinct prospective origin sessions."""
+    indices = _listed_indices(client, bucket=bucket, prefix=prefix)
+    if len(indices) > 250:
+        raise ValueError("archive inventory exceeds the review limit")
+    origins: set[str] = set()
+    forecast_indices = 0
+    for _, key in indices:
+        verified = audit_capture(client, bucket=bucket, index_key=key)
+        if not verified["forecast_count"]:
+            continue
+        index = json.loads(client.get_object(Bucket=bucket, Key=key)["Body"].read())
+        days = {item.get("origin_session") for item in index["forecasts"]}
+        if len(days) != 1 or None in days:
+            raise ValueError("private forecast origins differ")
+        origins.update(days)
+        forecast_indices += 1
+    return {"status": "archive_inventory_verified", "audited_index_count": len(indices),
+            "unique_origin_session_count": len(origins),
+            "duplicate_forecast_index_count": forecast_indices - len(origins)}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="비공개 가격 빈티지 원격 재검증")
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--index-key")
     target.add_argument("--latest", action="store_true")
+    target.add_argument("--inventory", action="store_true")
     parser.add_argument("--prefix", default="shockgraph-research")
     args = parser.parse_args(argv)
     try:
@@ -78,8 +106,12 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"status": "private_archive_audit_failed"}))
         return 2
     try:
-        result = (latest_capture(client, bucket=bucket, prefix=args.prefix) if args.latest else
-                  audit_capture(client, bucket=bucket, index_key=args.index_key))
+        if args.inventory:
+            result = capture_inventory(client, bucket=bucket, prefix=args.prefix)
+        elif args.latest:
+            result = latest_capture(client, bucket=bucket, prefix=args.prefix)
+        else:
+            result = audit_capture(client, bucket=bucket, index_key=args.index_key)
     except Exception:
         print(json.dumps({"status": "private_archive_audit_failed"}))
         return 2
