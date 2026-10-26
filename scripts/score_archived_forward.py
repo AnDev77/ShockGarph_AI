@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
 import io
@@ -26,7 +27,8 @@ from shockgraph_risk.forward_risk_capture import (  # noqa: E402
 )
 
 from scripts.archive_forward_capture import _encoded, _write_once, audit_capture  # noqa: E402
-from scripts.private_r2 import bucket_budget_guard  # noqa: E402
+from scripts.audit_private_capture import _listed_indices  # noqa: E402
+from scripts.private_r2 import bucket_budget_guard, configured_r2  # noqa: E402
 
 _COLUMNS = ["session_date", "observed_at", "available_at", "close", "adjusted_close",
             "volume"]
@@ -106,11 +108,17 @@ def score_archived_pair(s3: Any, *, bucket: str, forecast_index_key: str,
 
 
 def persist_private_scores(s3: Any, *, bucket: str, forecast_index_key: str,
-                           label_index_key: str) -> dict[str, Any]:
+                           label_index_key: str, horizon: int | None = None) -> dict[str, Any]:
     """Persist a verified score for one source/label pair without public values."""
     scores = score_archived_pair(s3, bucket=bucket,
                                  forecast_index_key=forecast_index_key,
                                  label_index_key=label_index_key)
+    if horizon is not None:
+        if horizon not in (5, 20):
+            raise ValueError("unsupported official score horizon")
+        scores = tuple(item for item in scores if item.horizon == horizon)
+        if {item.symbol for item in scores} != {"TLT", "SPY"}:
+            raise ValueError("official score needs two assets at the same horizon")
     source_bytes = s3.get_object(Bucket=bucket, Key=forecast_index_key)["Body"].read()
     label_bytes = s3.get_object(Bucket=bucket, Key=label_index_key)["Body"].read()
     source_sha = hashlib.sha256(source_bytes).hexdigest()
@@ -118,7 +126,8 @@ def persist_private_scores(s3: Any, *, bucket: str, forecast_index_key: str,
     prefix = forecast_index_key.split("/captures/", 1)[0]
     if prefix == forecast_index_key:
         raise ValueError("score needs a private capture prefix")
-    key = f"{prefix}/scores/{source_sha}/{label_sha}.json"
+    suffix = "" if horizon is None else f"-{horizon}"
+    key = f"{prefix}/scores/{source_sha}/{label_sha}{suffix}.json"
     payload = _encoded({
         "schema_version": 1, "status": "private_forward_scores",
         "forecast_index_key": forecast_index_key, "forecast_index_sha256": source_sha,
@@ -131,3 +140,82 @@ def persist_private_scores(s3: Any, *, bucket: str, forecast_index_key: str,
     return {"status": "private_scores_readback_verified", "created": created,
             "score_count": len(scores), "score_key": key,
             "public_performance_allowed": False}
+
+
+def official_score_plan(s3: Any, *, bucket: str, prefix: str
+                        ) -> tuple[tuple[str, str, int], ...]:
+    """Fix one prospective forecast and the first complete label for each horizon."""
+    indices = sorted(_listed_indices(s3, bucket=bucket, prefix=prefix))
+    if len(indices) > 250:
+        raise ValueError("official score plan exceeds the review limit")
+    audited = []
+    for written, key in indices:
+        verified = audit_capture(s3, bucket=bucket, index_key=key)
+        data = json.loads(s3.get_object(Bucket=bucket, Key=key)["Body"].read())
+        audited.append((written, key, data, verified))
+
+    first: dict[str, tuple[datetime, str, dict[str, Any]]] = {}
+    for written, key, data, verified in audited:
+        if not verified["forecast_count"]:
+            continue
+        origins = {item["origin_session"] for item in data["forecasts"]}
+        if len(origins) != 1:
+            raise ValueError("private forecast origins differ")
+        origin = next(iter(origins))
+        first.setdefault(origin, (written, key, data))
+
+    plan = []
+    for _, forecast_key, forecast in first.values():
+        targets = forecast["forecasts"][0]["horizons"]
+        for target in sorted(targets, key=lambda item: item["horizon"]):
+            horizon = target["horizon"]
+            close = _utc(target["label_end_at"])
+            for written, key, _, _ in audited:
+                if written <= close or key == forecast_key:
+                    continue
+                label_prefix = key.split("/records/", 1)[0]
+                manifest = json.loads(s3.get_object(
+                    Bucket=bucket, Key=label_prefix + "/manifest.json")["Body"].read())
+                captures = [_utc(item["capture"]) for item in manifest["prices"]]
+                if len(captures) != 2 or min(captures) < close:
+                    continue
+                scores = score_archived_pair(s3, bucket=bucket,
+                                             forecast_index_key=forecast_key,
+                                             label_index_key=key)
+                if {item.symbol for item in scores if item.horizon == horizon} != {"TLT", "SPY"}:
+                    raise ValueError("first mature label lacks two assets")
+                plan.append((forecast_key, key, horizon))
+                break
+    return tuple(plan)
+
+
+def run_official_scores(s3: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
+    """Write selected private score artifacts; expose counts only to job logs."""
+    plan = official_score_plan(s3, bucket=bucket, prefix=prefix)
+    created = 0
+    for source, label, horizon in plan:
+        result = persist_private_scores(s3, bucket=bucket, forecast_index_key=source,
+                                        label_index_key=label, horizon=horizon)
+        created += int(result["created"])
+    return {"status": "private_official_scores_verified",
+            "origin_count": len({source for source, _, _ in plan}),
+            "score_count": len(plan) * 2, "new_artifact_count": created,
+            "public_performance_allowed": False}
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="성숙한 비공개 사전 위험 점수 저장")
+    parser.add_argument("--prefix", default="shockgraph-research")
+    args = parser.parse_args(argv)
+    try:
+        client, bucket = configured_r2()
+        report = run_official_scores(client, bucket=bucket, prefix=args.prefix)
+    except Exception:
+        print(json.dumps({"status": "private_official_scoring_failed"}))
+        return 2
+    print(json.dumps(report))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

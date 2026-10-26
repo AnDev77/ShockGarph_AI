@@ -19,7 +19,12 @@ from scripts.audit_private_capture import capture_inventory, latest_capture
 from scripts.audit_private_capture import main as audit_main
 from scripts.check_capture_due import capture_due
 from scripts.private_r2 import MAX_BUCKET_BYTES, MAX_CAPTURE_BYTES, bucket_budget_guard
-from scripts.score_archived_forward import persist_private_scores, score_archived_pair
+from scripts.score_archived_forward import (
+    official_score_plan,
+    persist_private_scores,
+    run_official_scores,
+    score_archived_pair,
+)
 
 
 class AlreadyExists(Exception):
@@ -218,6 +223,79 @@ def test_private_scores_are_write_once_and_pair_provenance_is_preserved(tmp_path
         persist_private_scores(client, bucket="private-risk-research",
                                forecast_index_key=first["index_key"],
                                label_index_key=later["index_key"])
+
+
+def test_official_plan_selects_earliest_forecast_and_first_mature_vintage(tmp_path) -> None:
+    first_manifest, first_root = _manifest(tmp_path / "first", full_history=True)
+    five_manifest, five_root = _manifest(tmp_path / "five", full_history=True,
+                                       extra_sessions=5)
+    twenty_manifest, twenty_root = _manifest(tmp_path / "twenty", full_history=True,
+                                             extra_sessions=20)
+    client = MemoryS3()
+    captured = datetime.fromisoformat(json.loads(first_manifest.read_text())["prices"][0]
+                                       ["capture"])
+    client.written_at = captured + timedelta(minutes=5)
+    first = archive_capture(first_manifest, raw_root=first_root, s3=client,
+                            bucket="private-risk-research", prefix="research",
+                            prediction_at=client.written_at,
+                            receipt_clock=lambda: client.written_at)
+    assert official_score_plan(client, bucket="private-risk-research", prefix="research") == ()
+    client.written_at += timedelta(minutes=1)
+    archive_capture(first_manifest, raw_root=first_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=client.written_at,
+                    receipt_clock=lambda: client.written_at)
+    client.written_at = datetime.fromisoformat(json.loads(five_manifest.read_text())["prices"]
+                                              [0]["capture"]) + timedelta(minutes=5)
+    five = archive_capture(five_manifest, raw_root=five_root, s3=client,
+                           bucket="private-risk-research", prefix="research",
+                           prediction_at=client.written_at,
+                           receipt_clock=lambda: client.written_at)
+    plan = official_score_plan(client, bucket="private-risk-research", prefix="research")
+    assert (first["index_key"], five["index_key"], 5) in plan
+    assert all(item[2] == 5 for item in plan)
+    client.written_at = datetime.fromisoformat(json.loads(twenty_manifest.read_text())
+                                               ["prices"][0]["capture"]) + timedelta(minutes=5)
+    twenty = archive_capture(twenty_manifest, raw_root=twenty_root, s3=client,
+                             bucket="private-risk-research", prefix="research",
+                             prediction_at=client.written_at,
+                             receipt_clock=lambda: client.written_at)
+    plan = official_score_plan(client, bucket="private-risk-research", prefix="research")
+    assert (first["index_key"], five["index_key"], 5) in plan
+    assert (first["index_key"], twenty["index_key"], 20) in plan
+    first_run = run_official_scores(client, bucket="private-risk-research", prefix="research")
+    assert first_run == {"status": "private_official_scores_verified", "origin_count": 2,
+                         "score_count": 6, "new_artifact_count": 3,
+                         "public_performance_allowed": False}
+    again = run_official_scores(client, bucket="private-risk-research", prefix="research")
+    assert again["new_artifact_count"] == 0
+    assert len([key for key in client.objects if "/scores/" in key]) == 3
+    assert sorted(len(json.loads(body)["scores"]) for key, (body, _) in client.objects.items()
+                  if "/scores/" in key) == [2, 2, 2]
+
+
+def test_official_plan_rejects_first_eligible_vintage_when_corrupt(tmp_path) -> None:
+    first_manifest, first_root = _manifest(tmp_path / "first", full_history=True)
+    later_manifest, later_root = _manifest(tmp_path / "later", full_history=True,
+                                          extra_sessions=5)
+    client = MemoryS3()
+    client.written_at = datetime.fromisoformat(json.loads(first_manifest.read_text())
+                                               ["prices"][0]["capture"]) + timedelta(minutes=5)
+    archive_capture(first_manifest, raw_root=first_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=client.written_at, receipt_clock=lambda: client.written_at)
+    client.written_at = datetime.fromisoformat(json.loads(later_manifest.read_text())
+                                               ["prices"][0]["capture"]) + timedelta(minutes=5)
+    later = archive_capture(later_manifest, raw_root=later_root, s3=client,
+                            bucket="private-risk-research", prefix="research",
+                            prediction_at=client.written_at,
+                            receipt_clock=lambda: client.written_at)
+    key = later["index_key"].split("/records/", 1)[0] + "/TLT/prices.csv"
+    body, digest = client.objects[key]
+    client.objects[key] = body + b"invalid", digest
+    with pytest.raises(ValueError, match="readback hash"):
+        run_official_scores(client, bucket="private-risk-research", prefix="research")
+    assert not any("/scores/" in key for key in client.objects)
 
 
 def _manifest(tmp_path: Path, *, full_history: bool = False,

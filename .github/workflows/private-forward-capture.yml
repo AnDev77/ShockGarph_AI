@@ -70,6 +70,8 @@ jobs:
         run: python scripts/audit_private_capture.py --latest
       - name: 고유한 사전 예측 거래일 수 감사
         run: python scripts/audit_private_capture.py --inventory
+      - name: 성숙한 정답의 공식 비공개 점수 저장
+        run: python scripts/score_archived_forward.py
       - name: TLT·SPY 가격 이력 탐색 분석
         if: steps.preflight.outputs.due == 'true'
         run: |
