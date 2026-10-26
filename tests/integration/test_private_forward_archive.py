@@ -17,6 +17,7 @@ from scripts import private_r2
 from scripts.archive_forward_capture import archive_capture, audit_capture, main
 from scripts.audit_private_capture import latest_capture
 from scripts.audit_private_capture import main as audit_main
+from scripts.check_capture_due import capture_due
 from scripts.private_r2 import MAX_BUCKET_BYTES, MAX_CAPTURE_BYTES, bucket_budget_guard
 
 
@@ -90,6 +91,27 @@ def test_latest_private_capture_requires_complete_listing_and_valid_timestamp() 
         latest_capture(IncompleteListing(), bucket="private-risk-research", prefix="research")
     with pytest.raises(ValueError, match="no archive"):
         latest_capture(MemoryS3(), bucket="private-risk-research", prefix="research")
+
+
+def test_capture_preflight_skips_existing_origin_and_rejects_corruption(tmp_path) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    client = MemoryS3()
+    origin = nasdaq_sessions(date(2026, 1, 2), date(2026, 9, 30))[:125][-1].session_date
+    assert capture_due(client, bucket="private-risk-research", prefix="research", end=origin)
+    recorded_at = (datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
+                   + timedelta(hours=1))
+    client.written_at = recorded_at
+    archived = archive_capture(manifest, raw_root=raw_root, s3=client,
+                               bucket="private-risk-research", prefix="research",
+                               prediction_at=recorded_at, receipt_clock=lambda: recorded_at)
+    assert not capture_due(client, bucket="private-risk-research", prefix="research",
+                           end=origin + timedelta(days=1))
+    index = json.loads(client.objects[archived["index_key"]][0])
+    source = index["source_objects"][0]["key"]
+    body, digest = client.objects[source]
+    client.objects[source] = body + b"tampered", digest
+    with pytest.raises(ValueError, match="readback hash"):
+        capture_due(client, bucket="private-risk-research", prefix="research", end=origin)
 
 
 def _manifest(tmp_path: Path, *, full_history: bool = False) -> tuple[Path, Path]:

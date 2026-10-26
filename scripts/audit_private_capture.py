@@ -54,7 +54,12 @@ def latest_capture(client: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
         raise ValueError("no archive index exists")
     _, key = max(indices)
     result = audit_capture(client, bucket=bucket, index_key=key)
-    return {**result, "capture_index_count": len(indices)}
+    index = json.loads(client.get_object(Bucket=bucket, Key=key)["Body"].read())
+    origins = {item.get("origin_session") for item in index["forecasts"]}
+    if result["forecast_count"] and (len(origins) != 1 or None in origins):
+        raise ValueError("private forecast origins differ")
+    return {**result, "capture_index_count": len(indices),
+            "origin_session": next(iter(origins)) if origins else None}
 
 
 def main(argv: list[str] | None = None) -> int:
