@@ -4,7 +4,7 @@
 
 ## 10월 31일에 보여줄 결과
 
-- TLT·SPY 종목 화면에서 실제로 사전에 기록한 가격 기반 5·20거래일 변동성 예상치, 예측 시각, 사용한 방법, 데이터의 상태를 볼 수 있다.
+- TLT·SPY 종목 화면에서 실제 사전 기록의 존재 여부와 예측 시각·방법·평가 상태를 볼 수 있다. 예상 수치는 공개 권리를 확인한 뒤에만 표시한다. 확인 전 화면은 숫자를 만들거나 비공개 원본을 보여주지 않는다.
 - 아직 실제 결과가 없는 예측은 “결과 확인 전”이라고 표시한다. 실제로 검증하지 않은 B 모델, 인공지능의 우위, 매수·매도 신호를 표시하지 않는다.
 - 로그인한 사용자가 종목별 대화방에 글을 쓰고 실시간으로 받으며, 새로 접속한 사용자가 과거 메시지를 읽을 수 있다. 서버는 토큰에서 작성자 신원을 얻고 전송·구독 권한을 검사한다.
 - 재현 가능한 배포 환경에서 Nginx가 정상 버전에 트래픽을 보내고, 새 버전 상태 검사 실패 시 기존 버전을 유지한다. 실제 클라우드 배포는 호스트·도메인·비밀값을 사용할 수 있을 때만 완료로 판정한다.
@@ -35,6 +35,6 @@
 |---|---|---|
 | 10/27 시작 | doChallenge의 채팅·JWT 구현, ShockGraph의 가격 기반 사전 보관, 기존 GitHub Actions 품질 게이트 확인 | WebSocket 신원 위조·무단 구독 차단, 실제 조회 API·웹·배포는 아직 미완료 |
 
-| 10/27 중간 | [doChallenge 초안 PR #6](https://github.com/AnDev77/doChallenge/pull/6)에서 STOMP JWT 신원·기존 모임 방 전송/구독 검사·클라이언트 제공 회원 ID 제거를 구현. [Java 21 원격 전체 시험](https://github.com/AnDev77/doChallenge/actions/runs/40440899981) 성공. [계획 PR #11 품질 게이트](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40440478233) 성공 | 금융 종목 방의 공개 읽기·로그인 글쓰기 정책, 실제 브라우저 연결 시험, ShockGraph API·웹·배포는 아직 미완료 |
+| 10/27 중간 | [doChallenge 초안 PR #6](https://github.com/AnDev77/doChallenge/pull/6)에서 STOMP JWT 신원·기존 모임 방 전송/구독 검사·클라이언트 제공 회원 ID 제거를 구현. [Java 21 원격 전체 시험](https://github.com/AnDev77/doChallenge/actions/runs/40440899981) 성공. [계획 PR #11 품질 게이트](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40440478233) 성공 | [읽기 전용 API 계약](api/forecast-read-v1.md)은 작성했으나 금융 종목 방 정책·실제 브라우저 연결 시험, ShockGraph API 구현·웹·배포는 아직 미완료 |
 
 매일 작업 종료 시 완료 증거·막힌 원인·다음 날의 범위 조정을 이 표에 기록한다. 일정 때문에 통과하지 않은 시험이나 검증되지 않은 예측 성과를 완료로 표시하지 않는다.
