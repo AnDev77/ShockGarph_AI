@@ -8,7 +8,7 @@
 
 ## 선택과 결과
 
-`docs/event-product-architecture-and-incident-response.md`에 현재와 목표 구성을 나눴다. 첫 제품 동선은 QQQ·SPY 사건 중심으로, TLT 예측은 별도 연구로 기록했다. R2/DB의 부분 실패와 가격 빈티지, 금융 공급자 429·timeout·스키마 오류, PostgreSQL/캐시 장애, 인증·채팅 저장·중복 전송의 사용자 응답과 장애 주입 기준을 작성했다. Kafka·Kubernetes·새 MSA는 현시점 도입하지 않으며 Redis·RabbitMQ에는 각각 실측 병목과 아웃박스/멱등 조건을 붙였다.
+`docs/event-product-architecture-and-incident-response.md`에 현재와 목표 구성을 나눴다. 첫 제품 동선은 QQQ·SPY 사건 중심으로, TLT 예측은 별도 연구로 기록했다. R2/DB의 부분 실패와 가격 빈티지, 금융 공급자 429·timeout·스키마 오류, PostgreSQL/캐시 장애, 인증·채팅 저장·중복 전송의 사용자 응답과 장애 주입 기준을 작성했다. 후속 사용자 결정에 따라 Kafka 금지 조항을 제거하고, 영속 아웃박스 이후 검증된 수집 사건의 비동기 처리를 목표로 명시했다. Kubernetes와 새 MSA는 초기 범위 밖이고 Redis에는 실측 병목 조건을 붙였다.
 
 ## 검증과 한계
 
