@@ -35,4 +35,6 @@
 |---|---|---|
 | 10/27 시작 | doChallenge의 채팅·JWT 구현, ShockGraph의 가격 기반 사전 보관, 기존 GitHub Actions 품질 게이트 확인 | WebSocket 신원 위조·무단 구독 차단, 실제 조회 API·웹·배포는 아직 미완료 |
 
+| 10/27 중간 | [doChallenge 초안 PR #6](https://github.com/AnDev77/doChallenge/pull/6)에서 STOMP JWT 신원·기존 모임 방 전송/구독 검사·클라이언트 제공 회원 ID 제거를 구현. [Java 21 원격 전체 시험](https://github.com/AnDev77/doChallenge/actions/runs/40440899981) 성공. [계획 PR #11 품질 게이트](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40440478233) 성공 | 금융 종목 방의 공개 읽기·로그인 글쓰기 정책, 실제 브라우저 연결 시험, ShockGraph API·웹·배포는 아직 미완료 |
+
 매일 작업 종료 시 완료 증거·막힌 원인·다음 날의 범위 조정을 이 표에 기록한다. 일정 때문에 통과하지 않은 시험이나 검증되지 않은 예측 성과를 완료로 표시하지 않는다.
