@@ -24,8 +24,8 @@
 {
   "symbol": "TLT",
   "horizonTradingDays": 5,
-  "status": "PENDING_OUTCOME",
-  "originSession": "2026-10-23",
+  "status": "NOT_AVAILABLE",
+  "originSession": null,
   "predictionAt": null,
   "outcomeEndsAt": null,
   "method": "PRICE_BASELINE",
@@ -34,7 +34,7 @@
 }
 ```
 
-예시의 null은 실제 보관 기록을 읽어 채운 값이 아니라 계약 모양을 설명한다. 운영 API에서 실제 기록의 시각을 확보하지 못하면 해당 항목을 추정하지 않는다. `forecastVolatility`는 향후 5일의 **일별** 실현 변동성 예측이며 가격 변화율의 방향이나 수익률 예측이 아니다. 화면에는 단위를 명시한다.
+예시의 null은 조회 가능한 기록이 없는 상태를 뜻한다. 운영 API에서 실제 기록의 시각을 확보하지 못하면 해당 항목을 추정하지 않는다. `forecastVolatility`는 향후 5일의 **일별** 실현 변동성 예측이며 가격 변화율의 방향이나 수익률 예측이 아니다. 화면에는 단위를 명시한다.
 
 ## 데이터 경계와 실패
 
