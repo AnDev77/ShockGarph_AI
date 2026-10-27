@@ -12,7 +12,7 @@
 
 ## 검증과 한계
 
-문서 자체는 구조적 대응 계약이며 장애 복구·채팅 영속성의 구현 시험이 아니다. 로컬 기존 코드 회귀 194개 통과, PostgreSQL 서버가 없는 환경의 실DB 시험 1개 skip, wheel 필수 소스 11개, Ruff/Pyright 오류·경고 0건이었다. 앞선 PR #11 격리 PostgreSQL 게이트는 실DB를 포함한 195개 시험을 통과했다. 이 문서 PR 게이트 결과는 실행 후 별도 기록한다. 공식 QQQ·SPY 관측값의 공개 권리, 실제 doChallenge 발급 토큰의 배포 연동, 금융 대화방 권한·신고·차단, R2/DB 복구, 실제 p95는 미확인이다. TLT 미래 모델 성능과 제품 수요는 HOLD다.
+문서 자체는 구조적 대응 계약이며 장애 복구·채팅 영속성의 구현 시험이 아니다. 로컬 기존 코드 회귀 194개 통과, PostgreSQL 서버가 없는 환경의 실DB 시험 1개 skip, wheel 필수 소스 11개, Ruff/Pyright 오류·경고 0건이었다. [원격 PR 게이트](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40476602576)는 격리 PostgreSQL의 실DB 시험을 건너뛰지 않고 포함해 전체 195개 시험 통과, wheel 소스 11개와 Ruff/Pyright 오류·경고 0건을 확인했다. 공식 QQQ·SPY 관측값의 공개 권리, 실제 doChallenge 발급 토큰의 배포 연동, 금융 대화방 권한·신고·차단, R2/DB 복구, 실제 p95는 미확인이다. TLT 미래 모델 성능과 제품 수요는 HOLD다.
 
 ## 사용자 점검
 
