@@ -45,6 +45,7 @@
 |---|---|---|
 | 10/27 시작 | doChallenge의 채팅·JWT 구현, ShockGraph의 가격 기반 사전 보관, 기존 GitHub Actions 품질 게이트 확인 | WebSocket 신원 위조·무단 구독 차단, 실제 조회 API·웹·배포는 아직 미완료 |
 | 10/27 중간 | [doChallenge 초안 PR #6](https://github.com/AnDev77/doChallenge/pull/6)에서 STOMP JWT 신원·기존 모임 방 전송/구독 검사·클라이언트 제공 회원 ID 제거를 구현. [Java 21 원격 전체 시험](https://github.com/AnDev77/doChallenge/actions/runs/40440899981) 성공. [계획 PR #11 품질 게이트](https://github.com/AnDev77/ShockGarph_AI/actions/runs/40440478233) 성공 | [읽기 전용 API 계약](api/forecast-read-v1.md)은 작성했으나 금융 종목 방 정책·실제 브라우저 연결 시험, ShockGraph API 구현·웹·배포는 아직 미완료 |
+| 10/27 관심 자산 API | QQQ·SPY 회원별 목록의 추가·조회·삭제와 공식 발표 목록 조회 경로, JWT 검증, PostgreSQL 스키마·저장 코드, 합성 인증·격리 시험을 [기능 리뷰](reviews/authenticated-watchlist-api-review.md)에 기록 | 실제 DB 연결, 실토큰 연동, FOMC 원문·가격 자료 수집, 웹·금융 대화방·공개 배포는 미완료. 이전 표의 API 미구현 표기는 당시 상태의 기록 |
 
 이용자 수요는 소규모 사용성 확인에서 관심 목록 선택, 대화방 진입, 재방문 의사를 별도로 기록한다. 예상 위험 수치의 정확도가 이 지표를 대신하지 않는다.
 
