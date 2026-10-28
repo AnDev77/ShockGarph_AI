@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup quality test test-fast collect collect-treasury collect-alpaca analyze-alpaca treasury-coverage train evaluate risk-evaluate risk-compare risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
+.PHONY: setup quality test test-fast collect collect-treasury collect-alpaca collect-qqq analyze-alpaca treasury-coverage train evaluate risk-evaluate risk-compare risk-explore report dev build research-demo risk-demo portfolio-demo research-probe research-audit-cpi research-paper-data
 
 setup:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -24,6 +24,10 @@ collect-treasury:
 collect-alpaca:
 	@test -n "$(PRICE_END)" || (echo "PRICE_END에 미국 마지막 거래일 YYYY-MM-DD를 지정하세요" && exit 2)
 	$(PYTHON) scripts/collect_alpaca_prices.py --end "$(PRICE_END)" $(if $(PRICE_START),--start "$(PRICE_START)",)
+
+collect-qqq:
+	@test -n "$(PRICE_END)" || (echo "PRICE_END에 미국 마지막 거래일 YYYY-MM-DD를 지정하세요" && exit 2)
+	$(PYTHON) scripts/collect_alpaca_prices.py --symbols QQQ --end "$(PRICE_END)" $(if $(PRICE_START),--start "$(PRICE_START)",)
 
 analyze-alpaca:
 	@test -n "$(ALPACA_MANIFEST)" || (echo "ALPACA_MANIFEST에 비공개 captures/*.json을 지정하세요" && exit 2)

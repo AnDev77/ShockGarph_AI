@@ -143,3 +143,48 @@ def test_alpaca_cli_writes_two_private_snapshots_and_source_manifest(
     assert (output / "SPY" / "20260409T220000.000000Z.csv").is_file()
     assert json.loads((output / "captures" / "2026-04-09T22-00-00+00-00.json")
                       .read_text(encoding="utf-8"))["prices"] == result["prices"]
+
+
+def test_qqq_only_cli_preserves_private_versions_without_changing_default_collection(
+    tmp_path, monkeypatch, capsys,
+) -> None:
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(request.url.path)
+        assert request.url.path == "/v2/stocks/QQQ/bars"
+        adjusted = request.url.params["adjustment"] == "all"
+        return httpx.Response(200, json={
+            "bars": [_bar(day, 200 + day - int(adjusted)) for day in (6, 7, 8)],
+            "next_page_token": None,
+        })
+
+    monkeypatch.setenv("APCA_API_KEY_ID", "test-id")
+    monkeypatch.setenv("APCA_API_SECRET_KEY", "test-secret")
+    monkeypatch.setattr(
+        "scripts.collect_alpaca_prices.AlpacaDailyCollector",
+        lambda key_id, secret: AlpacaDailyCollector(
+            key_id, secret, transport=httpx.MockTransport(handler), clock=lambda: CAPTURED
+        ),
+    )
+    output = tmp_path / "private"
+    assert main(["--start", START.isoformat(), "--end", END.isoformat(),
+                 "--symbols", "QQQ", "--raw-root", str(tmp_path / "raw"),
+                 "--output-dir", str(output)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert requested == ["/v2/stocks/QQQ/bars"] * 2
+    assert [row["symbol"] for row in report["prices"]] == ["QQQ"]
+    assert report["redistribution_rights_verified"] is False
+    assert report["historical_provider_release_times_verified"] is False
+    assert "test-secret" not in json.dumps(report)
+    assert (output / "QQQ" / "20260409T220000.000000Z.csv").is_file()
+    assert not (output / "TLT").exists() and not (output / "SPY").exists()
+    assert len(report["prices"][0]["source_raw_artifact_paths"]) == 2
+
+
+def test_qqq_cli_rejects_duplicate_symbol_before_request(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("APCA_API_KEY_ID", "test-id")
+    monkeypatch.setenv("APCA_API_SECRET_KEY", "test-secret")
+    with pytest.raises(SystemExit, match="2"):
+        main(["--end", END.isoformat(), "--symbols", "QQQ", "QQQ"])
+    assert "symbols must be distinct" in capsys.readouterr().err

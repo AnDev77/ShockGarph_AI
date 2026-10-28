@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feat/alpaca-price-snapshots
+      - feat/qqq-private-intake
     paths:
       - .github/workflows/alpaca-price-collection.yml
       - apps/collector/shockgraph_collector/alpaca_bars.py
+      - packages/data_pipeline/shockgraph_data_pipeline/daily_price_import.py
       - scripts/collect_alpaca_prices.py
       - scripts/analyze_alpaca_history.py
   workflow_dispatch:
@@ -16,6 +18,7 @@ permissions:
 
 jobs:
   collect:
+    if: github.ref != 'refs/heads/feat/qqq-private-intake'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -82,3 +85,31 @@ jobs:
                       print(json.dumps({"case": name, "status": "network_error"}))
           PY
           exit 2
+
+  qqq-private:
+    if: github.ref == 'refs/heads/feat/qqq-private-intake'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID || secrets.ALPACA_API_KEY_ID }}
+      APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY || secrets.ALPACA_API_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: 의존성 설치
+        run: python -m pip install -e .
+      - name: 키 존재 여부만 확인
+        run: |
+          if [ -z "$APCA_API_KEY_ID" ] || [ -z "$APCA_API_SECRET_KEY" ]; then
+            echo '비공개 QQQ 수집에 필요한 Alpaca 키가 연결되지 않았습니다.'
+            exit 2
+          fi
+      - name: QQQ 원본 비공개 수집과 구조 검사
+        run: |
+          PRICE_END=$(python -c 'from datetime import datetime, timedelta; from zoneinfo import ZoneInfo; print((datetime.now(ZoneInfo("America/New_York")).date() - timedelta(days=1)).isoformat())')
+          python scripts/collect_alpaca_prices.py --symbols QQQ --start 2024-01-02 --end "$PRICE_END" > /dev/null
+          echo 'QQQ 원본 수집과 거래일 구조 검사를 완료했습니다. 가격과 원본은 업로드하지 않았습니다.'

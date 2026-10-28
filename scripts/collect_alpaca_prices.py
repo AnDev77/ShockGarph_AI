@@ -1,4 +1,4 @@
-"""Privately archive Alpaca TLT/SPY SIP history with raw and all-adjusted versions."""
+"""Privately archive selected ETF SIP history with raw and all-adjusted versions."""
 
 from __future__ import annotations
 
@@ -20,13 +20,17 @@ from shockgraph_data_pipeline.raw_store import ImmutableRawStore  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Alpaca TLT·SPY SIP 일봉 원본과 수정본 수집")
+    parser = argparse.ArgumentParser(description="Alpaca ETF SIP 일봉 원본과 수정본 비공개 수집")
     parser.add_argument("--start", type=date.fromisoformat, default=date(2024, 1, 2))
     parser.add_argument("--end", type=date.fromisoformat, required=True,
                         help="미국 수신일 이전의 마지막 거래일 YYYY-MM-DD")
     parser.add_argument("--raw-root", type=Path, default=ROOT / "data/raw")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "artifacts/alpaca-private")
+    parser.add_argument("--symbols", nargs="+", choices=("TLT", "SPY", "QQQ"),
+                        default=("TLT", "SPY"), help="기본 TLT SPY; QQQ 단독 수집 가능")
     args = parser.parse_args(argv)
+    if len(set(args.symbols)) != len(args.symbols):
+        parser.error("symbols must be distinct")
     key_id = os.environ.get("APCA_API_KEY_ID")
     secret = os.environ.get("APCA_API_SECRET_KEY")
     if not key_id or not secret:
@@ -38,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
         summaries = []
         staged = []
         with AlpacaDailyCollector(key_id, secret) as collector:
-            for symbol in ("TLT", "SPY"):
+            for symbol in args.symbols:
                 capture = collector.collect(symbol, args.start, args.end, store)
                 imported = import_daily_prices(
                     capture.csv_bytes, store=store, source="alpaca-sip",
