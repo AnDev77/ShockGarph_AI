@@ -34,7 +34,7 @@ _COLUMNS = ["session_date", "observed_at", "available_at", "close",
 
 def _read_symbol(row: dict[str, Any], base: Path) -> tuple[list[HistoryPrice], int]:
     symbol = row.get("symbol")
-    if symbol not in ("TLT", "SPY") or row.get("feed") != "sip":
+    if symbol not in ("TLT", "SPY", "QQQ") or row.get("feed") != "sip":
         raise ValueError("manifest requires a supported SIP symbol")
     path = Path(row["snapshot_path"]).resolve()
     if not path.is_relative_to(base / symbol):
