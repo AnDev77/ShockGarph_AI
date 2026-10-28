@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>ShockGraph | 시장과 발표 일정</title>
+    <link rel="stylesheet" href="./market.css">
+    <script type="module" src="https://widgets.tradingview-widget.com/w/en/tv-advanced-chart.js"></script>
+    <script type="module" src="./market.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 이동</a>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="./index.html" aria-label="ShockGraph 홈"><span class="brand-mark">S<span>G</span></span><span>ShockGraph</span></a>
+        <span class="header-label">시장의 움직임을 사건과 함께</span>
+      </div>
+    </header>
+
+    <main class="shell" id="main">
+      <section class="intro" aria-labelledby="intro-title">
+        <p class="eyebrow">MARKET RESEARCH · QQQ / SPY</p>
+        <h1 id="intro-title">발표 일정을 확인하고,<br><em>시장 흐름을 살펴보세요.</em></h1>
+        <p class="intro-copy">공식 발표 자료와 ETF 차트를 한곳에서 확인합니다. 가격 차트는 TradingView가 직접 제공하며, 자체 예측 결과는 검증 전까지 표시하지 않습니다.</p>
+      </section>
+
+      <div class="main-grid">
+        <section class="panel chart-panel" aria-labelledby="chart-heading">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">ETF CHART</p>
+              <h2 id="chart-heading">가격 흐름</h2>
+            </div>
+            <span class="source-pill">TradingView 제공</span>
+          </div>
+          <div class="tabs" role="group" aria-label="차트 종목 선택">
+            <button class="tab" type="button" data-symbol="QQQ" aria-pressed="true">QQQ <span>나스닥 100 ETF</span></button>
+            <button class="tab" type="button" data-symbol="SPY" aria-pressed="false">SPY <span>S&amp;P 500 ETF</span></button>
+          </div>
+          <div class="chart-frame">
+            <tv-advanced-chart symbol="NASDAQ:QQQ" interval="1D" timezone="America/New_York" theme="light" autosize></tv-advanced-chart>
+          </div>
+          <p class="chart-note">차트의 시세·기간·표시 지연은 TradingView와 해당 거래소의 제공 조건을 따릅니다. ShockGraph의 과거 충격 분석이나 예측값이 아닙니다.</p>
+          <p class="chart-fallback">차트가 보이지 않는다면 <a id="chart-link" href="https://www.tradingview.com/symbols/NASDAQ-QQQ/" target="_blank" rel="noopener noreferrer">TradingView에서 QQQ 보기 <span aria-hidden="true">↗</span></a></p>
+        </section>
+
+        <aside class="side-stack" aria-label="공식 발표 자료와 연구 상태">
+          <section class="panel source-panel" aria-labelledby="source-heading">
+            <p class="eyebrow">OFFICIAL SOURCES</p>
+            <h2 id="source-heading">발표 일정·원문</h2>
+            <p class="section-copy">발표 예정일과 실제 발표 내용을 각 기관의 공식 페이지에서 확인하세요. 자동 일정 목록은 준비 중입니다.</p>
+            <ul class="source-list">
+              <li><a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" rel="noopener noreferrer"><span><strong>FOMC</strong><small>연방준비제도 회의 일정과 성명</small></span><span aria-hidden="true">↗</span></a></li>
+              <li><a href="https://www.bls.gov/schedule/news_release/current_year.asp" target="_blank" rel="noopener noreferrer"><span><strong>CPI · 고용</strong><small>미 노동통계국 발표 일정</small></span><span aria-hidden="true">↗</span></a></li>
+              <li><a href="https://www.bea.gov/news/schedule" target="_blank" rel="noopener noreferrer"><span><strong>PCE · GDP</strong><small>미 경제분석국 발표 일정</small></span><span aria-hidden="true">↗</span></a></li>
+            </ul>
+          </section>
+          <section class="panel research-panel" aria-labelledby="research-heading">
+            <p class="eyebrow">RESEARCH STATUS</p>
+            <h2 id="research-heading">예측 성능 검증 중</h2>
+            <p class="section-copy">미래 결과가 충분히 쌓이고 시간순 평가를 마칠 때까지 QQQ·SPY 방향이나 위험 예측을 공개하지 않습니다.</p>
+            <span class="status-badge">검증 전 · 수치 비공개</span>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="shell footer"><span>ShockGraph · 시장 자료 탐색</span><span>거래 지시나 투자 권유를 제공하지 않습니다.</span></footer>
+  </body>
+</html>
