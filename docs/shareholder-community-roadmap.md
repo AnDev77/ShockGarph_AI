@@ -58,4 +58,4 @@ flowchart TD
 
 [doChallenge](https://github.com/AnDev77/doChallenge)의 `ChatService` 분리, MySQL 메시지 원장과 `(room_id,id)` 커서 조회, 읽음 커서, Redis 최근 메시지 캐시, 다중 SSE emitter, WebSocket 세션 종료 cleanup은 참고할 만한 기반이다. 다만 현재 코드에서 WebSocket 요청의 `memberId`를 신원으로 사용하고 `/topic` 구독 검사와 CONNECT JWT 검증이 없으므로 **있는 그대로 재사용하거나 공개 배포하지 않는다.** 방 참여 조건은 모임 가입 대신 `HoldingEntitlement` 검사로 교체한다. 봇·광고·시세 조작 유도 신고, 차단, 운영자 조치와 감사 기록도 새 도메인 요구사항이다.
 
-기술 선택은 커뮤니티 출시 시점에 확정한다. 분석 FastAPI와 별도로 Spring Boot 채팅 경계를 두면 doChallenge 코드 일부를 이식할 수 있지만, 신원 연동과 운영 비용이 생긴다. 초기 분석 MVP에는 채팅 서버, 브로커, Kafka를 추가하지 않는다. 출시 전에는 ① 인증 공급원 계약, ② CONNECT/SUBSCRIBE/SEND 권한 통합 시험, ③ 차단·신고·삭제, ④ 재연결·다중 기기·다중 서버 검증을 통과시킨다.
+기술 선택은 커뮤니티 출시 시점에 확정한다. 분석 FastAPI와 별도로 Spring Boot 채팅 경계를 두면 doChallenge 코드 일부를 이식할 수 있지만, 신원 연동과 운영 비용이 생긴다. Kafka는 [검증된 수집 사건 전달](kafka-event-pipeline-decision.md)에 사용할 수 있으나, 채팅 메시지 저장이나 브라우저 전송 성공의 대용으로 쓰지 않는다. 출시 전에는 ① 인증 공급원 계약, ② CONNECT/SUBSCRIBE/SEND 권한 통합 시험, ③ 차단·신고·삭제, ④ 재연결·다중 기기·다중 서버 검증을 통과시킨다.

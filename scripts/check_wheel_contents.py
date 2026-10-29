@@ -7,11 +7,15 @@ from pathlib import Path
 from zipfile import ZipFile
 
 EXPECTED = {
+    "shockgraph_api/__init__.py",
+    "shockgraph_api/app.py",
+    "shockgraph_api/watchlist.py",
     "shockgraph_analytics/__init__.py",
     "shockgraph_calibration/__init__.py",
     "shockgraph_collector/__init__.py",
     "shockgraph_data_pipeline/__init__.py",
     "shockgraph_domain/__init__.py",
+    "shockgraph_domain/event_feed.py",
     "shockgraph_risk/__init__.py",
     "shockgraph_risk/forward_risk_capture.py",
 }

@@ -8,9 +8,13 @@ version = "0.1.0"
 description = "Daily market risk and event research MVP"
 requires-python = ">=3.12"
 dependencies = [
+  "fastapi>=0.115,<1",
   "httpx[socks]>=0.28,<1",
+  "psycopg[binary]>=3.2,<4",
+  "PyJWT>=2.9,<3",
   "pydantic>=2.10,<3",
   "scipy>=1.15,<2",
+  "uvicorn>=0.34,<1",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +29,7 @@ archive = ["boto3>=1.35,<2"]
 [tool.setuptools]
 packages = [
   "shockgraph_analytics",
+  "shockgraph_api",
   "shockgraph_calibration",
   "shockgraph_collector",
   "shockgraph_data_pipeline",
@@ -34,6 +39,7 @@ packages = [
 
 [tool.setuptools.package-dir]
 shockgraph_analytics = "packages/event_study/shockgraph_analytics"
+shockgraph_api = "apps/api/shockgraph_api"
 shockgraph_calibration = "packages/calibration/shockgraph_calibration"
 shockgraph_collector = "apps/collector/shockgraph_collector"
 shockgraph_data_pipeline = "packages/data_pipeline/shockgraph_data_pipeline"
@@ -43,6 +49,7 @@ shockgraph_risk = "packages/risk_engine/shockgraph_risk"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [
+  "apps/api",
   "packages/event_study",
   "apps/collector",
   "packages/calibration",
@@ -64,6 +71,7 @@ pythonVersion = "3.12"
 typeCheckingMode = "basic"
 include = ["apps", "packages", "scripts", "tests"]
 extraPaths = [
+  "apps/api",
   "scripts",
   "packages/event_study",
   "apps/collector",
