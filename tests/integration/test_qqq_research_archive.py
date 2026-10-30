@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 from datetime import UTC, date, datetime
@@ -44,6 +45,23 @@ class MemoryS3:
 
     def get_object(self, *, Bucket: str, Key: str) -> dict[str, object]:
         return {"Body": io.BytesIO(self.objects[Key][0])}
+
+
+def _replace_hashed_source(client: MemoryS3, index_key: str, source_key: str,
+                           changed: bytes) -> None:
+    """Simulate a self-consistent object/index rewrite, beyond a simple bit flip."""
+    _, metadata = client.objects[source_key]
+    digest = hashlib.sha256(changed).hexdigest()
+    client.objects[source_key] = changed, {**metadata, "sha256": digest}
+    index = json.loads(client.objects[index_key][0])
+    for source in index["source_objects"]:
+        if source["key"] == source_key:
+            source["sha256"] = digest
+    encoded = json.dumps(index, sort_keys=True, separators=(",", ":")).encode()
+    _, index_metadata = client.objects[index_key]
+    client.objects[index_key] = encoded, {
+        **index_metadata, "sha256": hashlib.sha256(encoded).hexdigest(),
+    }
 
 
 def _manifest(tmp_path: Path, monkeypatch, capsys, symbol: str = "QQQ") -> tuple[Path, Path]:
@@ -136,3 +154,31 @@ def test_qqq_archive_cli_reports_audit_without_source_or_object_names(
     assert report["forecast_count"] == 0
     assert "index_key" not in report and "prices" not in report
     assert "test-secret" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("change", ["reorder", "late_availability", "wrong_close_time",
+                                    "missing_session"])
+def test_qqq_readback_rejects_coherently_rehashed_bad_time_series(
+    tmp_path, monkeypatch, capsys, change: str,
+) -> None:
+    manifest, raw_root = _manifest(tmp_path, monkeypatch, capsys)
+    client = MemoryS3()
+    report = archive_qqq_capture(manifest, raw_root=raw_root, s3=client,
+                                 bucket="private-risk-research", prefix="research")
+    index_key = report["index_key"]
+    csv_key = index_key.removesuffix("records/index.json") + "QQQ/prices.csv"
+    lines = client.objects[csv_key][0].decode().splitlines()
+    if change == "reorder":
+        lines[1], lines[2] = lines[2], lines[1]
+    elif change == "missing_session":
+        del lines[2]
+    else:
+        cells = lines[1].split(",")
+        if change == "late_availability":
+            cells[2] = "2026-04-10T00:00:00+00:00"
+        else:
+            cells[1] = "2026-04-06T00:00:00+00:00"
+        lines[1] = ",".join(cells)
+    _replace_hashed_source(client, index_key, csv_key, ("\n".join(lines) + "\n").encode())
+    with pytest.raises(ValueError, match="QQQ research (snapshot|time)"):
+        audit_qqq_capture(client, bucket="private-risk-research", index_key=index_key)

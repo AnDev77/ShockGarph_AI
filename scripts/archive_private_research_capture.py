@@ -3,18 +3,25 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
+import math
 import re
 import sys
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.analyze_alpaca_history import _read_symbol  # noqa: E402
+from scripts.analyze_alpaca_history import (  # noqa: E402
+    _COLUMNS,
+    _read_symbol,
+    nasdaq_sessions,
+)
 from scripts.archive_forward_capture import (  # noqa: E402
     S3Like,
     _digest,
@@ -27,6 +34,45 @@ from scripts.private_r2 import bucket_budget_guard, configured_r2  # noqa: E402
 _BUCKET = re.compile(r"^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$")
 _PREFIX = re.compile(r"^[a-zA-Z0-9/_-]+$")
 _SHA = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _audit_qqq_snapshot(data: bytes, entry: dict[str, Any],
+                        index_written: datetime) -> None:
+    """Check the archived daily series without publishing its dates or values."""
+    try:
+        capture = datetime.fromisoformat(entry["capture"])
+        reader = csv.DictReader(io.StringIO(data.decode("utf-8-sig"), newline=""),
+                                strict=True)
+        if (capture.tzinfo is None or capture.utcoffset() != timedelta(0)
+                or capture > index_written or reader.fieldnames != _COLUMNS):
+            raise ValueError("QQQ research time or snapshot header is invalid")
+        days: list[date] = []
+        observed_closes: list[datetime] = []
+        for row in reader:
+            if None in row or any(value is None or not value for value in row.values()):
+                raise ValueError("QQQ research snapshot row is incomplete")
+            day = date.fromisoformat(row["session_date"])
+            observed = datetime.fromisoformat(row["observed_at"])
+            available = datetime.fromisoformat(row["available_at"])
+            if (observed.tzinfo is None or observed.utcoffset() != timedelta(0)
+                    or available != capture or observed > available
+                    or days and day <= days[-1]):
+                raise ValueError("QQQ research time order is invalid")
+            values = (float(row["close"]), float(row["adjusted_close"]),
+                      float(row["volume"]))
+            if any(not math.isfinite(value) or value < 0 for value in values) or (
+                values[0] == 0 or values[1] == 0
+            ):
+                raise ValueError("QQQ research snapshot values are invalid")
+            days.append(day)
+            observed_closes.append(observed)
+        sessions = nasdaq_sessions(days[0], days[-1]) if days else ()
+        if (not days or len(days) != entry.get("session_count")
+                or days != [session.session_date for session in sessions]
+                or observed_closes != [session.close_at for session in sessions]):
+            raise ValueError("QQQ research snapshot sessions are incomplete")
+    except (KeyError, TypeError, UnicodeError, csv.Error, OverflowError) as exc:
+        raise ValueError("QQQ research snapshot is invalid") from exc
 
 
 def _verified_object(s3: S3Like, bucket: str, key: str,
@@ -67,6 +113,8 @@ def audit_qqq_capture(s3: S3Like, *, bucket: str, index_key: str) -> dict[str, A
     seen: set[str] = set()
     latest_source = datetime.min.replace(tzinfo=UTC)
     manifest_digest = None
+    manifest: dict[str, Any] | None = None
+    snapshot: bytes | None = None
     for item in sources:
         key, expected = item.get("key"), item.get("sha256")
         if (not isinstance(key, str) or not key.startswith(archive_prefix + "/")
@@ -76,16 +124,28 @@ def audit_qqq_capture(s3: S3Like, *, bucket: str, index_key: str) -> dict[str, A
         seen.add(key)
         body, written = _verified_object(s3, bucket, key, expected)
         latest_source = max(latest_source, written)
+        if key == archive_prefix + "/QQQ/prices.csv":
+            snapshot = body
         if key == archive_prefix + "/manifest.json":
             manifest_digest = expected
             manifest = json.loads(body)
-            if (manifest.get("redistribution_rights_verified") is not False
-                    or [row.get("symbol") for row in manifest.get("prices", [])] != ["QQQ"]):
+            if (not isinstance(manifest, dict)
+                    or manifest.get("redistribution_rights_verified") is not False
+                    or not isinstance(manifest.get("prices"), list)
+                    or len(manifest["prices"]) != 1
+                    or not isinstance(manifest["prices"][0], dict)
+                    or manifest["prices"][0].get("symbol") != "QQQ"):
                 raise ValueError("QQQ research manifest differs from index")
     if (manifest_digest != index.get("archive_manifest_sha256")
             or archive_prefix + "/QQQ/prices.csv" not in seen
-            or latest_source > index_written):
+            or latest_source > index_written or manifest is None or snapshot is None):
         raise ValueError("QQQ research index precedes or differs from sources")
+    entry = manifest["prices"][0]
+    if not isinstance(entry, dict):
+        raise ValueError("QQQ research snapshot entry is invalid")
+    _audit_qqq_snapshot(snapshot, entry, index_written)
+    if _digest(snapshot) != entry.get("normalized_csv_sha256"):
+        raise ValueError("QQQ research snapshot differs from manifest")
     return {"status": "research_price_readback_verified",
             "source_object_count": len(sources), "forecast_count": 0}
 
