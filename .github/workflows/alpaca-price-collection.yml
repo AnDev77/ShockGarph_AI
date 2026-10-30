@@ -4,10 +4,13 @@ on:
   push:
     branches:
       - feat/alpaca-price-snapshots
+      - feat/qqq-private-intake
     paths:
       - .github/workflows/alpaca-price-collection.yml
       - apps/collector/shockgraph_collector/alpaca_bars.py
+      - packages/data_pipeline/shockgraph_data_pipeline/daily_price_import.py
       - scripts/collect_alpaca_prices.py
+      - scripts/archive_private_research_capture.py
       - scripts/analyze_alpaca_history.py
   workflow_dispatch:
 
@@ -16,6 +19,7 @@ permissions:
 
 jobs:
   collect:
+    if: github.ref != 'refs/heads/feat/qqq-private-intake'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -82,3 +86,39 @@ jobs:
                       print(json.dumps({"case": name, "status": "network_error"}))
           PY
           exit 2
+
+  qqq-private:
+    if: github.ref == 'refs/heads/feat/qqq-private-intake'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID || secrets.ALPACA_API_KEY_ID }}
+      APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY || secrets.ALPACA_API_SECRET_KEY }}
+      SHOCKGRAPH_R2_ACCOUNT_ID: ${{ vars.SHOCKGRAPH_R2_ACCOUNT_ID }}
+      SHOCKGRAPH_R2_BUCKET: ${{ vars.SHOCKGRAPH_R2_BUCKET }}
+      SHOCKGRAPH_R2_ACCESS_KEY_ID: ${{ secrets.SHOCKGRAPH_R2_ACCESS_KEY_ID }}
+      SHOCKGRAPH_R2_SECRET_ACCESS_KEY: ${{ secrets.SHOCKGRAPH_R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: 의존성 설치
+        run: python -m pip install -e '.[archive]'
+      - name: 비공개 수집·보관 설정 확인
+        run: |
+          if [ -z "$APCA_API_KEY_ID" ] || [ -z "$APCA_API_SECRET_KEY" ] || \
+             [ -z "$SHOCKGRAPH_R2_ACCOUNT_ID" ] || [ -z "$SHOCKGRAPH_R2_BUCKET" ] || \
+             [ -z "$SHOCKGRAPH_R2_ACCESS_KEY_ID" ] || [ -z "$SHOCKGRAPH_R2_SECRET_ACCESS_KEY" ]; then
+            echo '비공개 QQQ 수집·R2 보관 설정이 필요합니다.'
+            exit 2
+          fi
+      - name: QQQ 원본 수집·불변 보관·독립 재조회
+        run: |
+          PRICE_END=$(python -c 'from datetime import datetime, timedelta; from zoneinfo import ZoneInfo; print((datetime.now(ZoneInfo("America/New_York")).date() - timedelta(days=1)).isoformat())')
+          python scripts/collect_alpaca_prices.py --symbols QQQ --start 2024-01-02 --end "$PRICE_END" > /dev/null
+          MANIFEST=$(find artifacts/alpaca-private/captures -maxdepth 1 -type f -name '*.json' -print -quit)
+          test -n "$MANIFEST"
+          python scripts/archive_private_research_capture.py --manifest "$MANIFEST"

@@ -99,8 +99,8 @@ def import_daily_prices(
     This import does not produce a public performance claim or infer publication times.
     """
     captured_at = _utc(captured_at, "captured_at")
-    if not source or symbol not in ("TLT", "SPY") or venue not in ("XNAS", "US_SIP"):
-        raise ValueError("price import supports TLT/SPY and a reviewed venue only")
+    if not source or symbol not in ("TLT", "SPY", "QQQ") or venue not in ("XNAS", "US_SIP"):
+        raise ValueError("price import supports TLT/SPY/QQQ and a reviewed venue only")
     if not timedelta(0) < prediction_delay <= timedelta(days=1):
         raise ValueError("prediction_delay must be positive and at most one day")
     sessions = nasdaq_sessions(start, end)

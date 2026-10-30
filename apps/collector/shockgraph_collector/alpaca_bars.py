@@ -96,8 +96,8 @@ class AlpacaDailyCollector:
 
     def collect(self, symbol: str, start: date, end: date,
                 store: ImmutableRawStore) -> AlpacaPriceCapture:
-        if symbol not in ("TLT", "SPY"):
-            raise ValueError("initial Alpaca collector supports TLT and SPY")
+        if symbol not in ("TLT", "SPY", "QQQ"):
+            raise ValueError("Alpaca collector supports TLT, SPY and QQQ")
         sessions = {row.session_date: row.close_at for row in nasdaq_sessions(start, end)}
         if not sessions:
             raise ValueError("Alpaca request needs scheduled sessions")
