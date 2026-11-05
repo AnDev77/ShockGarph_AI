@@ -25,6 +25,8 @@ class RebalanceDay:
     traded_notional: float
     cost: float
     rebalanced: bool
+    withdrawal: float
+    forced_sale_notional: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,12 +48,14 @@ def simulate_rebalance(
     cost_rate: float = 0.0,
     initial_value: float = 1.0,
     contributions: Mapping[date, float] | None = None,
+    withdrawals: Mapping[date, float] | None = None,
 ) -> RebalanceResult:
     """Value holdings at each close, then decide trades for the *next* return interval.
 
     Prices must be aligned USD adjusted closes available by the decision time.
-    Contributions enter cash at that close; only a scheduled rebalance invests them.
-    Withdrawals, tax, spreads, and fractional-share restrictions are not modeled.
+    Contributions enter cash at that close. Withdrawals use cash first, then sell
+    holdings proportionally; a scheduled review may rebalance after the withdrawal.
+    Tax, spreads, and fractional-share restrictions are not modeled.
     """
     if policy not in ("hold", "periodic", "threshold"):
         raise ValueError("unknown policy")
@@ -76,6 +80,11 @@ def simulate_rebalance(
         raise ValueError("contribution dates must belong to the panel")
     if any(not math.isfinite(amount) or amount < 0 for amount in flows.values()):
         raise ValueError("contributions must be finite and non-negative")
+    outflows = withdrawals or {}
+    if not set(outflows) <= set(sessions):
+        raise ValueError("withdrawal dates must belong to the panel")
+    if any(not math.isfinite(amount) or amount < 0 for amount in outflows.values()):
+        raise ValueError("withdrawals must be finite and non-negative")
 
     symbols = tuple(position.symbol for position in positions)
     targets = tuple(position.weight for position in positions)
@@ -93,6 +102,26 @@ def simulate_rebalance(
             if row.available_at is None or row.available_at > times[index]:
                 raise ValueError("a price is unavailable at decision_at")
         cash += flows.get(session, 0.0)
+        marked_total = math.fsum(holdings) + cash
+        if not math.isfinite(marked_total) or marked_total <= 0:
+            raise ValueError("portfolio value must stay finite and positive")
+        withdrawal = outflows.get(session, 0.0)
+        if withdrawal >= marked_total:
+            raise ValueError("withdrawal exceeds available portfolio value")
+        forced_sale = 0.0
+        cost = 0.0
+        if withdrawal <= cash:
+            cash -= withdrawal
+        else:
+            shortfall = withdrawal - cash
+            cash = 0.0
+            held_total = math.fsum(holdings)
+            forced_sale = shortfall / (1 - cost_rate)
+            if not math.isfinite(forced_sale) or forced_sale >= held_total:
+                raise ValueError("withdrawal exceeds available portfolio after costs")
+            fraction_remaining = 1 - forced_sale / held_total
+            holdings = [held * fraction_remaining for held in holdings]
+            cost = forced_sale * cost_rate
         total = math.fsum(holdings) + cash
         if not math.isfinite(total) or total <= 0:
             raise ValueError("portfolio value must stay finite and positive")
@@ -105,34 +134,35 @@ def simulate_rebalance(
                 )
             ) > threshold)
         )
-        turnover = 0.0
-        cost = 0.0
+        turnover = forced_sale
         if should_trade:
             old_holdings = tuple(holdings)
             # Solve the fee/target-value fixed point. A fee changes the amount
             # available to buy; charging it after setting target weights would
             # silently leave a negative cash balance.
+            rebalance_cost = 0.0
             for _ in range(100):
-                turnover = math.fsum(
-                    abs(target * (total - cost) - held)
+                rebalance_turnover = math.fsum(
+                    abs(target * (total - rebalance_cost) - held)
                     for target, held in zip(targets, holdings, strict=True)
                 )
-                updated = turnover * cost_rate
-                if math.isclose(updated, cost, rel_tol=1e-13, abs_tol=1e-14):
-                    cost = updated
+                updated = rebalance_turnover * cost_rate
+                if math.isclose(updated, rebalance_cost, rel_tol=1e-13, abs_tol=1e-14):
+                    rebalance_cost = updated
                     break
-                cost = updated
+                rebalance_cost = updated
             else:
                 raise ValueError("transaction cost did not converge")
-            net = total - cost
+            net = total - rebalance_cost
             if net <= 0:
                 raise ValueError("transaction cost exhausts the portfolio")
             holdings = [target * net for target in targets]
             cash = net - math.fsum(holdings)
             total = net
-            turnover = math.fsum(
+            turnover += math.fsum(
                 abs(new - old) for new, old in zip(holdings, old_holdings, strict=True)
             )
+            cost += rebalance_cost
         days.append(RebalanceDay(
             session_date=session,
             value=total,
@@ -141,5 +171,7 @@ def simulate_rebalance(
             traded_notional=turnover,
             cost=cost,
             rebalanced=should_trade,
+            withdrawal=withdrawal,
+            forced_sale_notional=forced_sale,
         ))
     return RebalanceResult(policy=policy, symbols=symbols, days=tuple(days))
