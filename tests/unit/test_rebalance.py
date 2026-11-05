@@ -34,6 +34,7 @@ def run(
     policy: Policy = "hold", *,
     review_sessions: tuple[date, ...] = (), threshold: float = 0.05,
     cost_rate: float = 0.0, contributions: dict[date, float] | None = None,
+    withdrawals: dict[date, float] | None = None,
 ):
     rows, sessions, times = panel()
     portfolio = validate_positions([
@@ -42,7 +43,7 @@ def run(
     return simulate_rebalance(
         rows, sessions, times, portfolio, policy=policy,
         review_sessions=review_sessions, threshold=threshold,
-        cost_rate=cost_rate, contributions=contributions,
+        cost_rate=cost_rate, contributions=contributions, withdrawals=withdrawals,
     )
 
 
@@ -116,3 +117,57 @@ def test_future_price_change_does_not_change_earlier_trade_decision() -> None:
     revised = simulate_rebalance(changed, sessions, times, portfolio, **kwargs)
     assert revised.days[:2] == original.days[:2]
     assert revised.days[2] != original.days[2]
+
+
+def test_withdrawal_uses_new_and_existing_cash_before_any_sale() -> None:
+    session = panel()[1][1]
+    result = run(contributions={session: 0.3}, withdrawals={session: 0.2})
+    day = result.days[1]
+    assert day.value == pytest.approx(1.6)
+    assert day.cash == pytest.approx(0.1)
+    assert day.withdrawal == pytest.approx(0.2)
+    assert day.forced_sale_notional == 0
+    assert day.traded_notional == 0
+
+
+def test_forced_sale_funds_shortfall_and_charges_fee() -> None:
+    session = panel()[1][1]
+    result = run(withdrawals={session: 0.4}, cost_rate=0.01)
+    day = result.days[1]
+    assert not day.rebalanced
+    assert day.forced_sale_notional == pytest.approx(0.4 / 0.99)
+    assert day.traded_notional == pytest.approx(day.forced_sale_notional)
+    assert day.cost == pytest.approx(day.forced_sale_notional * 0.01)
+    assert day.value == pytest.approx(1.5 - 0.4 - day.cost)
+    assert day.cash == pytest.approx(0)
+    assert day.weights == pytest.approx((2 / 3, 1 / 3))
+
+
+def test_forced_sale_and_review_trade_have_separate_accounting() -> None:
+    session = panel()[1][1]
+    result = run("periodic", review_sessions=(session,), withdrawals={session: 0.4},
+                 cost_rate=0.01)
+    day = result.days[1]
+    assert day.rebalanced
+    assert day.weights == pytest.approx((0.5, 0.5))
+    assert day.traded_notional > day.forced_sale_notional
+    assert day.cost == pytest.approx(day.traded_notional * 0.01)
+    assert day.value == pytest.approx(1.5 - day.withdrawal - day.cost)
+
+
+def test_invalid_or_unfunded_withdrawals_fail_closed() -> None:
+    session = panel()[1][1]
+    for amount in (-0.1, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="withdrawals"):
+            run(withdrawals={session: amount})
+    with pytest.raises(ValueError, match="withdrawal dates"):
+        run(withdrawals={date(2026, 1, 8): 0.1})
+    with pytest.raises(ValueError, match="withdrawal exceeds"):
+        run(withdrawals={session: 1.5})
+    with pytest.raises(ValueError, match="withdrawal exceeds"):
+        run(withdrawals={session: 1.495}, cost_rate=0.01)
+
+
+def test_future_withdrawal_does_not_change_past_policy_result() -> None:
+    session = panel()[1][2]
+    assert run(withdrawals={session: 0.1}).days[:2] == run().days[:2]
