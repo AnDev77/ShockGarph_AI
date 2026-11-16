@@ -39,3 +39,38 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 - 실제 로컬 HTTP에 웹 #9의 Zod 파서를 붙여 현재 `insufficient_sources`를 확인했다. 동일 공시를 과거 날짜로 재현한 별도 임시 데이터에서 사람이 작성·대조한 요약은 `ready/stale/withheld`와 원문 인용으로 검증했다. 과거 날짜를 재현한 시험이며 그날 수집했거나 LLM이 요약한 기록으로 계산하지 않는다.
 - 로컬 Ruff·Pyright, 전체 pytest 188건, wheel 빌드와 필수 포함 파일 11개 검사 통과. 설치한 Starlette의 TestClient가 httpx 사용 중단 예정 경고를 반환했으며 실패는 없었다.
 - 실제 LLM 생성은 API 키·모델 설정 부재와 7일 범위 내 공시 부재로 미실행이다. 구조화 모델 응답과 오류는 합성 응답으로 검증했다. 공개 배포, 회원 데이터 결합, 임베딩·LangGraph, MySQL 발행 저장, 독립 출처 검증 및 방향 판단은 이 단계의 완료 범위가 아니다.
+
+
+## RAG 초안의 Kafka 작업 전달 실험
+
+### 결정과 추가 기능
+
+2026-11-17 KST. 예측 워커보다 먼저 CAMT 공시 RAG·LLM 요약에 Kafka를 연결한다. 기존 수집·검색·요약·사람 검토·읽기 API의 책임을 유지한다. 화면 조회나 Java 회원·채팅을 Kafka 소비자로 만들지 않는다. Kafka 사용은 격리 시험이며 실제 운영 연결 완료가 아니다.
+
+| 바뀐 파일 | 추가·변경된 기능 | 그렇게 만든 이유 |
+|---|---|---|
+| packages/briefing/shockgraph_briefing/kafka_jobs.py | enqueue가 CAMT 수집 결과의 해시별 스냅샷과 작업 의도를 기록한다. relay가 Kafka 작업 이벤트를 발행하고 성공 확인 후 전송 표식을 남긴다. work-once가 한 건을 읽어 초안을 만들고 저장 뒤 offset을 확정한다. | 수집·LLM·공개를 서로 분리한다. 브로커 메시지에는 ID·원본 해시·모델·요청 시각만 포함하고 원문·키·모델 출력을 넣지 않는다. Kafka가 느리거나 중복 전달해도 HTTP 조회에서 LLM을 실행하지 않는다. |
+| tests/unit/test_kafka_briefing_jobs.py | 합성 공시와 가짜 생산자·소비자로 발행 실패·중복·출처 불일치·기간 초과·이전 작업의 스냅샷 보존·offset 순서를 확인한다. | 실제 SEC·유료 LLM·비밀값 없이 실패 경계를 재현한다. 실브로커 통합 시험을 대체한다고 주장하지 않는다. |
+| pyproject.toml, scripts/check_wheel_contents.py | Kafka Python 클라이언트는 선택 설치로 분리하고 wheel에 새 모듈이 들어가는지 검사한다. | Kafka를 사용하지 않는 기존 분석·API 설치가 브로커 의존성을 강제로 받지 않도록 한다. |
+| AGENTS.md, docs/current-product-direction.md, Review.md | Kafka 첫 적용 경계와 이후 리뷰 작성 규칙을 갱신한다. | 이전의 Kafka 금지보다 최신 사용자 결정을 우선하고, 향후 기능별로 변경 이유와 한계를 찾을 수 있게 한다. |
+
+### 순서와 확인할 코드
+
+1. 기존 python -m shockgraph_briefing collect로 수집한 뒤 python -m shockgraph_briefing.kafka_jobs enqueue를 실행한다. 수집 파일과 SHA-256별 스냅샷은 공유된 작업 디렉터리에 남고 작은 작업 의도를 기록한다.
+2. 별도 relay 프로세스가 작업 ID를 key로 shockgraph.briefing.draft.v1 토픽에 보낸다. 브로커 승인 전에 전송 완료를 기록하지 않는다. 확인 응답 유실 때 재발행될 수 있다.
+3. 별도 work-once --allow-source-transfer 프로세스가 해당 해시 스냅샷과 7일 적격성, 설정된 모델을 재확인하고 기존 retrieve와 openai_summary로 초안을 만든다. 초안 파일이 저장된 다음에만 Kafka offset을 확정한다. 같은 작업의 중복 메시지는 이미 저장한 초안을 재사용한다.
+4. 초안은 여전히 비공개다. 사람이 내용·인용을 대조한 뒤 기존 publish --reviewed-sha256 명령을 실행해야 공개 조회 API가 결과를 보여준다.
+
+격리 시험 순서: python -m pip install -e '.[dev,viz,briefing,kafka]' → collect → SHOCKGRAPH_BRIEFING_MODEL을 설정한 enqueue → SHOCKGRAPH_KAFKA_BOOTSTRAP을 추가한 relay → OPENAI_API_KEY를 비밀 설정에서 주입한 work-once --allow-source-transfer. 이는 운영 절차가 아니다. 원문을 외부 LLM에 전송할 권리와 운영자 동의가 확인되어야 마지막 단계를 실행한다. 키·원문을 채팅·공개 로그·커밋에 입력하지 않는다.
+
+### 전달 보장과 한계
+
+- 파일 기록은 원자적 교체를 이용하지만 수집 파일·스냅샷·작업 의도·Kafka 발행이 하나의 DB 트랜잭션은 아니다. 중간 중단 시 재실행·대조가 필요한 파일 기반 실험이다. 브로커 전송 확인이 유실되면 중복 전송될 수 있으므로 작업 ID와 해시별 초안으로 중복을 줄인다. 중복 LLM 호출을 모든 경쟁 조건에서 막는다고 주장하지 않는다.
+- 현재 코드는 동일 공유 디렉터리를 보는 생산자와 소비자만 지원한다. 여러 EC2나 독립 워커로 확장하려면 불변 객체 저장소, DB 트랜잭션 아웃박스, 공유 작업·결과 DB와 접근 권한이 필요하다. 실브로커 연결, 인증/TLS, 토픽 생성, 죽은 메시지 처리, 소비 지연 계측 및 워커 운영은 아직 검증 대상이다.
+- 과거 작업은 자기 해시의 스냅샷과 초안 파일을 사용하며 최신 초안 포인터를 덮어쓰지 않는다. 현재 공개 API는 사람이 검토한 결과 파일만 읽고, 예측 성능 판정은 계속 HOLD다.
+
+### 시작·중간·완료 검증 기록
+
+- 시작: Python main과 열린 PR을 조회했다. RAG 구현은 초안 PR #18에 있으며 main에는 아직 없다. 기존 CLI는 동기 LLM 초안 명령, 조회 API는 검토된 결과만 읽는 상태였다.
+- 중간: 원문 대신 작업 참조를 보내고, 브로커 확인 후 표식 기록·초안 저장 후 offset 확정·중복 작업 재사용을 설계했다. 스냅샷 없이 최신 수집 파일만 읽으면 다음 공시가 이전 작업을 밀어낼 수 있어 SHA-256별 불변 파일을 추가했다.
+- 완료 판정은 새 커밋의 wheel, Ruff/Pyright, 전체 시험, 원격 PR 게이트에서 따로 확인한다. 이 환경에서는 로컬 Python 실행기가 없어 코드 실행 결과를 검증했다고 적지 않는다. 실제 Kafka/LLM/SEC 호출과 운영 배포는 미실행이다.
