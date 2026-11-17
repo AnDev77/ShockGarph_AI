@@ -9,6 +9,11 @@ from zipfile import ZipFile
 EXPECTED = {
     "shockgraph_analytics/__init__.py",
     "shockgraph_calibration/__init__.py",
+    "shockgraph_briefing/filings.py",
+    "shockgraph_briefing/pipeline.py",
+    "shockgraph_briefing/kafka_jobs.py",
+    "shockgraph_briefing/__main__.py",
+    "shockgraph_briefing_api/app.py",
     "shockgraph_collector/__init__.py",
     "shockgraph_data_pipeline/__init__.py",
     "shockgraph_domain/__init__.py",

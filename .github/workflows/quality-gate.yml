@@ -23,7 +23,7 @@ jobs:
       - name: 개발 의존성 설치
         run: |
           python -m venv .venv
-          .venv/bin/python -m pip install -e '.[dev,viz]' build
+          .venv/bin/python -m pip install -e '.[dev,viz,briefing]' build
       - name: 배포 패키지 빌드
         run: .venv/bin/python -m build --wheel --outdir dist
       - name: 빌드 산출물 검사
