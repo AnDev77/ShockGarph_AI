@@ -1,5 +1,9 @@
 # Review: CAMT 공시 수집과 검토된 브리핑 조회
 
+## 현재 작업 대기열과 브랜치 정리
+
+2026-11-17 KST, [브랜치 정리 기록](docs/reviews/branch-cleanup-2026-11-17.md)에 원래 브랜치·head SHA·보관 경로, PR별 제외 이유, 바뀐 문서 구조와 검증 결과를 기록했다. 원격 23개 분기는 main·현재 기능·보관 8개로 정리했고 열린 PR은 #18 하나다. 최신 후속 순서는 [일일 계획](docs/daily-work-plan.md)을 따른다. 실행 코드나 신규 런타임 기능은 바꾸지 않았으며, 이번 환경에서 기존 #18의 194개 시험·정적 검사·wheel 소스 12개 검사를 직접 통과했다. main 병합과 운영 배포는 수행하지 않았다.
+
 ## 시작과 목적
 
 2026-11-15 KST. Python main `a993373`에서 새 브랜치를 만들었다. [웹 계획 #8](https://github.com/AnDev77/shockgraph-web/pull/8)과 [웹 구현 #9](https://github.com/AnDev77/shockgraph-web/pull/9)의 브리핑 JSON 계약을 기준으로 작업했다. 기존 포트폴리오·가격 수집 초안을 합치지 않고 자료 수집부터 조회까지 구현했다.
