@@ -80,6 +80,7 @@ def test_latest_private_capture_audits_remote_bytes_without_exposing_key(tmp_pat
     checked = latest_capture(client, bucket="private-risk-research", prefix="research")
     assert checked["capture_index_count"] == 1
     assert checked["forecast_count"] == 2
+    assert checked["capture_status"] == "forward_forecasts_archived"
     assert first["index_key"] not in json.dumps(checked)
     source = json.loads(client.objects[first["index_key"]][0])["source_objects"][0]["key"]
     data, digest = client.objects[source]
@@ -136,11 +137,83 @@ def test_inventory_counts_unique_origin_instead_of_duplicate_indices(tmp_path) -
                     prediction_at=second_at, receipt_clock=lambda: second_at)
     result = capture_inventory(client, bucket="private-risk-research", prefix="research")
     assert result == {"status": "archive_inventory_verified", "audited_index_count": 2,
+                      "forecast_index_count": 2, "snapshot_only_index_count": 0,
+                      "snapshot_only_reason_counts": {
+                          "snapshot_only_preopen_gate_failed": 0,
+                          "snapshot_only_reviewed_calendar_exhausted": 0,
+                      },
                       "unique_origin_session_count": 1, "duplicate_forecast_index_count": 1}
     data, digest = client.objects[first["index_key"]]
     client.objects[first["index_key"]] = data + b"tampered", digest
     with pytest.raises(ValueError, match="readback hash"):
         capture_inventory(client, bucket="private-risk-research", prefix="research")
+
+
+
+def test_inventory_explains_snapshot_only_without_counting_it_as_forecast(tmp_path) -> None:
+    manifest, raw_root = _manifest(tmp_path)
+    client = MemoryS3()
+    first_at = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
+    for minute in (0, 1):
+        receipt = first_at + timedelta(minutes=minute)
+        client.written_at = receipt
+        archive_capture(manifest, raw_root=raw_root, s3=client,
+                        bucket="private-risk-research", prefix="research",
+                        prediction_at=receipt, receipt_clock=lambda value=receipt: value)
+    result = capture_inventory(client, bucket="private-risk-research", prefix="research")
+    assert result["audited_index_count"] == 2
+    assert result["forecast_index_count"] == result["unique_origin_session_count"] == 0
+    assert result["duplicate_forecast_index_count"] == 0
+    assert result["snapshot_only_index_count"] == 2
+    assert result["snapshot_only_reason_counts"] == {
+        "snapshot_only_preopen_gate_failed": 2,
+        "snapshot_only_reviewed_calendar_exhausted": 0,
+    }
+    latest = latest_capture(client, bucket="private-risk-research", prefix="research")
+    assert latest["capture_status"] == "snapshot_only_preopen_gate_failed"
+    assert latest["origin_session"] is None
+    public = json.dumps(result)
+    for value in ("private-risk-research", "research/captures/", "adjusted_close", "MAE"):
+        assert value not in public
+
+
+def test_inventory_counts_mixed_forecasts_and_late_snapshots_separately(tmp_path) -> None:
+    client = MemoryS3()
+    forecast, forecast_root = _manifest(tmp_path / "forecast", full_history=True)
+    start = datetime.fromisoformat(json.loads(forecast.read_text())["prices"][0]["capture"])
+    client.written_at = start + timedelta(hours=1)
+    archive_capture(forecast, raw_root=forecast_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=client.written_at, receipt_clock=lambda: client.written_at)
+    snapshot, snapshot_root = _manifest(tmp_path / "snapshot")
+    client.written_at = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
+    archive_capture(snapshot, raw_root=snapshot_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=client.written_at, receipt_clock=lambda: client.written_at)
+    result = capture_inventory(client, bucket="private-risk-research", prefix="research")
+    assert result["audited_index_count"] == 2
+    assert result["forecast_index_count"] == result["snapshot_only_index_count"] == 1
+    assert result["unique_origin_session_count"] == 1
+    assert result["duplicate_forecast_index_count"] == 0
+
+
+
+def test_inventory_distinguishes_calendar_exhaustion(tmp_path, monkeypatch) -> None:
+    from scripts import archive_forward_capture
+
+    manifest, raw_root = _manifest(tmp_path)
+    client = MemoryS3()
+    receipt = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
+    monkeypatch.setattr(archive_forward_capture, "nasdaq_sessions", lambda *_: ())
+    archive_capture(manifest, raw_root=raw_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=receipt, receipt_clock=lambda value=receipt: value)
+    result = capture_inventory(client, bucket="private-risk-research", prefix="research")
+    assert result["snapshot_only_reason_counts"] == {
+        "snapshot_only_preopen_gate_failed": 0,
+        "snapshot_only_reviewed_calendar_exhausted": 1,
+    }
+    assert result["forecast_index_count"] == result["unique_origin_session_count"] == 0
 
 
 def test_audited_later_vintage_scores_only_mature_five_day_outcomes(tmp_path) -> None:

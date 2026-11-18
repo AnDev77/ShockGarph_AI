@@ -83,3 +83,9 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 ### 원격 품질 게이트 결과
 
 2026-11-17 KST, PR #18 새 커밋 4e5fd34의 빌드와 품질 게이트에서 wheel 빌드와 필수 소스 파일 12개 포함 검사가 성공했다. Ruff는 위반 0건, Pyright는 오류·경고·정보 0건이었다. 전체 pytest는 194건 성공·경고 1건으로 종료됐으며, 새 작업 전달 시험 6건은 합성 공시와 가짜 Kafka 생산자·소비자로 실행됐다. 이는 파일 의도·메시지 계약·중복·오류 때 offset 미확정 경로의 자동 시험 결과이며 실제 브로커 기동, 소비자 재균형, 네트워크 단절 뒤 재처리, 실제 LLM 호출이나 운영 전환을 증명하지 않는다. 실행 환경에 로컬 Python 실행기가 없어 로컬 make quality/test는 별도로 수행하지 못했다. 문서 갱신 뒤 최종 커밋의 CI 상태는 다시 확인한다.
+
+## 사전 예측 표본이 늘지 않는 이유의 감사 (2026-11-18)
+
+- 변경 구조: 원본 해시·시각 재검사 뒤 예측 기록과 원본 전용 기록을 나누고, 원본 전용 기록을 시간 조건 실패·거래일 달력 부족으로 집계한다.
+- 기능과 이유: 작업 성공을 새 예측 성공으로 오해하지 않고 고유 거래일 수와 보류 원인을 따로 확인한다. scripts/audit_private_capture.py와 tests/integration/test_private_forward_archive.py를 함께 읽는다.
+- 상세 시작·중간·완료 근거와 한계는 [기능 리뷰](docs/reviews/forecast-capture-coverage-diagnostics.md)에 기록한다. 이번 변경은 읽기 전용 진단이며 모델·일정·원본·점수를 바꾸지 않는다.

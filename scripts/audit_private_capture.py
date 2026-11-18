@@ -64,6 +64,7 @@ def latest_capture(client: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
     if result["forecast_count"] and (len(origins) != 1 or None in origins):
         raise ValueError("private forecast origins differ")
     return {**result, "capture_index_count": len(indices),
+            "capture_status": index["status"],
             "origin_session": next(iter(origins)) if origins else None}
 
 
@@ -74,17 +75,28 @@ def capture_inventory(client: Any, *, bucket: str, prefix: str) -> dict[str, Any
         raise ValueError("archive inventory exceeds the review limit")
     origins: set[str] = set()
     forecast_indices = 0
+    snapshot_reasons = {
+        "snapshot_only_preopen_gate_failed": 0,
+        "snapshot_only_reviewed_calendar_exhausted": 0,
+    }
     for _, key in indices:
         verified = audit_capture(client, bucket=bucket, index_key=key)
-        if not verified["forecast_count"]:
-            continue
         index = json.loads(client.get_object(Bucket=bucket, Key=key)["Body"].read())
+        if not verified["forecast_count"]:
+            reason = index.get("status")
+            if reason not in snapshot_reasons:
+                raise ValueError("snapshot-only archive has an unrecognized reason")
+            snapshot_reasons[reason] += 1
+            continue
         days = {item.get("origin_session") for item in index["forecasts"]}
         if len(days) != 1 or None in days:
             raise ValueError("private forecast origins differ")
         origins.update(days)
         forecast_indices += 1
     return {"status": "archive_inventory_verified", "audited_index_count": len(indices),
+            "forecast_index_count": forecast_indices,
+            "snapshot_only_index_count": sum(snapshot_reasons.values()),
+            "snapshot_only_reason_counts": snapshot_reasons,
             "unique_origin_session_count": len(origins),
             "duplicate_forecast_index_count": forecast_indices - len(origins)}
 
