@@ -89,3 +89,9 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 - 변경 구조: 원본 해시·시각 재검사 뒤 예측 기록과 원본 전용 기록을 나누고, 원본 전용 기록을 시간 조건 실패·거래일 달력 부족으로 집계한다.
 - 기능과 이유: 작업 성공을 새 예측 성공으로 오해하지 않고 고유 거래일 수와 보류 원인을 따로 확인한다. scripts/audit_private_capture.py와 tests/integration/test_private_forward_archive.py를 함께 읽는다.
 - 상세 시작·중간·완료 근거와 한계는 [기능 리뷰](docs/reviews/forecast-capture-coverage-diagnostics.md)에 기록한다. 이번 변경은 읽기 전용 진단이며 모델·일정·원본·점수를 바꾸지 않는다.
+
+## 실행 성공과 사전 예측 마감의 분리 (2026-11-19)
+
+- scripts/audit_capture_timing.py와 tests/unit/test_capture_timing_audit.py를 기존 연구 감사 #20에 추가했다. 원본 마지막 거래일과 공개 실행 시각으로 개장 전 시간 여유를 검증하고, 원본 보관 완료 여부는 미확인으로 남긴다.
+- 공개 실행이 늦은 것과 워커 시작이 늦은 것을 구분하기 위한 구조다. 원문·가격·비밀값·점수 없이 원인을 좁히며 원본을 과거 시각으로 소급하거나 모델 성능 판정을 바꾸지 않는다.
+- 주말·공휴일·서머타임·마감 경계·잘못된 시각을 시험한다. 시작·중간·완료와 실제 메타데이터 가정, 오류·미검증 범위는 [감사 리뷰](docs/reviews/forecast-capture-coverage-diagnostics.md)에 기록했다. 예약·Java·웹·운영 배포는 변경하지 않았다.
