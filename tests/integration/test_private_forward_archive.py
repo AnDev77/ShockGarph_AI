@@ -648,3 +648,32 @@ def test_preflight_reports_actual_trading_origin_on_holiday(monkeypatch, capsys)
     result = json.loads(capsys.readouterr().out)
     assert result["origin_session"] == "2026-11-25"
     assert result["due"] is True
+
+
+@pytest.mark.parametrize('field', ['origin', 'first', 'last', 'label_end', 'duplicate'])
+def test_archive_audit_checks_forecast_calendar_against_source_bytes(tmp_path, field) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    captured = datetime.fromisoformat(json.loads(manifest.read_text())['prices'][0]['capture'])
+    client = MemoryS3()
+    client.written_at = captured + timedelta(minutes=5)
+    result = archive_capture(manifest, raw_root=raw_root, s3=client,
+                             bucket='private-risk-research', prefix='research',
+                             prediction_at=client.written_at,
+                             receipt_clock=lambda: client.written_at)
+    key = result['index_key']
+    index = json.loads(client.objects[key][0])
+    forecast = index['forecasts'][0]
+    if field == 'origin':
+        forecast['origin_session'] = '2026-07-01'
+    elif field == 'duplicate':
+        forecast['horizons'].append(dict(forecast['horizons'][0]))
+    else:
+        target = forecast['horizons'][1]
+        name = {'first': 'first_outcome_session', 'last': 'last_outcome_session',
+                'label_end': 'label_end_at'}[field]
+        target[name] = '2026-07-10T20:00:00+00:00' if field == 'label_end' else '2026-07-10'
+    # Recompute the object hash: integrity alone cannot prove date semantics.
+    body = json.dumps(index).encode()
+    client.objects[key] = body, hashlib.sha256(body).hexdigest()
+    with pytest.raises(ValueError, match='calendar|origin'):
+        audit_capture(client, bucket='private-risk-research', index_key=key)
