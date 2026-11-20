@@ -80,6 +80,7 @@ def test_latest_private_capture_audits_remote_bytes_without_exposing_key(tmp_pat
     checked = latest_capture(client, bucket="private-risk-research", prefix="research")
     assert checked["capture_index_count"] == 1
     assert checked["forecast_count"] == 2
+    assert checked["capture_status"] == "forward_forecasts_archived"
     assert first["index_key"] not in json.dumps(checked)
     source = json.loads(client.objects[first["index_key"]][0])["source_objects"][0]["key"]
     data, digest = client.objects[source]
@@ -136,11 +137,83 @@ def test_inventory_counts_unique_origin_instead_of_duplicate_indices(tmp_path) -
                     prediction_at=second_at, receipt_clock=lambda: second_at)
     result = capture_inventory(client, bucket="private-risk-research", prefix="research")
     assert result == {"status": "archive_inventory_verified", "audited_index_count": 2,
+                      "forecast_index_count": 2, "snapshot_only_index_count": 0,
+                      "snapshot_only_reason_counts": {
+                          "snapshot_only_preopen_gate_failed": 0,
+                          "snapshot_only_reviewed_calendar_exhausted": 0,
+                      },
                       "unique_origin_session_count": 1, "duplicate_forecast_index_count": 1}
     data, digest = client.objects[first["index_key"]]
     client.objects[first["index_key"]] = data + b"tampered", digest
     with pytest.raises(ValueError, match="readback hash"):
         capture_inventory(client, bucket="private-risk-research", prefix="research")
+
+
+
+def test_inventory_explains_snapshot_only_without_counting_it_as_forecast(tmp_path) -> None:
+    manifest, raw_root = _manifest(tmp_path)
+    client = MemoryS3()
+    first_at = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
+    for minute in (0, 1):
+        receipt = first_at + timedelta(minutes=minute)
+        client.written_at = receipt
+        archive_capture(manifest, raw_root=raw_root, s3=client,
+                        bucket="private-risk-research", prefix="research",
+                        prediction_at=receipt, receipt_clock=lambda value=receipt: value)
+    result = capture_inventory(client, bucket="private-risk-research", prefix="research")
+    assert result["audited_index_count"] == 2
+    assert result["forecast_index_count"] == result["unique_origin_session_count"] == 0
+    assert result["duplicate_forecast_index_count"] == 0
+    assert result["snapshot_only_index_count"] == 2
+    assert result["snapshot_only_reason_counts"] == {
+        "snapshot_only_preopen_gate_failed": 2,
+        "snapshot_only_reviewed_calendar_exhausted": 0,
+    }
+    latest = latest_capture(client, bucket="private-risk-research", prefix="research")
+    assert latest["capture_status"] == "snapshot_only_preopen_gate_failed"
+    assert latest["origin_session"] is None
+    public = json.dumps(result)
+    for value in ("private-risk-research", "research/captures/", "adjusted_close", "MAE"):
+        assert value not in public
+
+
+def test_inventory_counts_mixed_forecasts_and_late_snapshots_separately(tmp_path) -> None:
+    client = MemoryS3()
+    forecast, forecast_root = _manifest(tmp_path / "forecast", full_history=True)
+    start = datetime.fromisoformat(json.loads(forecast.read_text())["prices"][0]["capture"])
+    client.written_at = start + timedelta(hours=1)
+    archive_capture(forecast, raw_root=forecast_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=client.written_at, receipt_clock=lambda: client.written_at)
+    snapshot, snapshot_root = _manifest(tmp_path / "snapshot")
+    client.written_at = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
+    archive_capture(snapshot, raw_root=snapshot_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=client.written_at, receipt_clock=lambda: client.written_at)
+    result = capture_inventory(client, bucket="private-risk-research", prefix="research")
+    assert result["audited_index_count"] == 2
+    assert result["forecast_index_count"] == result["snapshot_only_index_count"] == 1
+    assert result["unique_origin_session_count"] == 1
+    assert result["duplicate_forecast_index_count"] == 0
+
+
+
+def test_inventory_distinguishes_calendar_exhaustion(tmp_path, monkeypatch) -> None:
+    from scripts import archive_forward_capture
+
+    manifest, raw_root = _manifest(tmp_path)
+    client = MemoryS3()
+    receipt = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
+    monkeypatch.setattr(archive_forward_capture, "nasdaq_sessions", lambda *_: ())
+    archive_capture(manifest, raw_root=raw_root, s3=client,
+                    bucket="private-risk-research", prefix="research",
+                    prediction_at=receipt, receipt_clock=lambda value=receipt: value)
+    result = capture_inventory(client, bucket="private-risk-research", prefix="research")
+    assert result["snapshot_only_reason_counts"] == {
+        "snapshot_only_preopen_gate_failed": 0,
+        "snapshot_only_reviewed_calendar_exhausted": 1,
+    }
+    assert result["forecast_index_count"] == result["unique_origin_session_count"] == 0
 
 
 def test_audited_later_vintage_scores_only_mature_five_day_outcomes(tmp_path) -> None:
@@ -512,3 +585,95 @@ def test_cli_requires_private_bucket_before_loading_the_archive(monkeypatch, cap
     assert json.loads(capsys.readouterr().out) == {"status": "private_archive_not_configured"}
     assert audit_main(["--index-key", "private/index.json"]) == 2
     assert json.loads(capsys.readouterr().out) == {"status": "private_archive_not_configured"}
+
+
+@pytest.mark.parametrize("case", ["success", "stale", "late", "corrupt"])
+def test_required_origin_gate_reads_remote_archive_and_rejects_false_success(
+    tmp_path, monkeypatch, capsys, case,
+) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    captured = datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
+    origin = captured.astimezone(ZoneInfo("America/New_York")).date()
+    client = MemoryS3()
+    client.written_at = captured + timedelta(minutes=5 if case != "late" else 4 * 24 * 60)
+    archived = archive_capture(manifest, raw_root=raw_root, s3=client,
+                               bucket="private-risk-research", prefix="research",
+                               prediction_at=client.written_at,
+                               receipt_clock=lambda: client.written_at)
+    if case == "corrupt":
+        key = archived["index_key"]
+        body, digest = client.objects[key]
+        client.objects[key] = body + b"private-canary", digest
+    monkeypatch.setattr("scripts.audit_private_capture.configured_r2",
+                        lambda: (client, "private-risk-research"))
+    expected = origin + timedelta(days=4) if case == "stale" else origin
+    result = audit_main(["--latest", "--prefix", "research", "--expected-origin",
+                         expected.isoformat()])
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert result == (0 if case == "success" else 2 if case == "corrupt" else 1)
+    assert payload["status"] == (
+        "prospective_capture_verified" if case == "success" else
+        "private_archive_audit_failed" if case == "corrupt" else "prospective_capture_missing"
+    )
+    assert "private-canary" not in output
+    assert archived["index_key"] not in output
+    assert "private-risk-research" not in output
+    if case != "corrupt":
+        assert payload["public_performance_allowed"] is False
+    if case == "success":
+        before = dict(client.objects)
+        assert not capture_due(client, bucket="private-risk-research", prefix="research",
+                               end=origin + timedelta(days=1))
+        assert audit_main(["--latest", "--prefix", "research", "--expected-origin",
+                           origin.isoformat()]) == 0
+        assert client.objects == before
+
+
+def test_required_origin_cannot_be_used_for_inventory_or_non_session() -> None:
+    with pytest.raises(SystemExit) as error:
+        audit_main(["--inventory", "--expected-origin", "2026-11-19"])
+    assert error.value.code == 2
+    with pytest.raises(SystemExit) as error:
+        audit_main(["--latest", "--expected-origin", "2026-11-22"])
+    assert error.value.code == 2
+
+
+def test_preflight_reports_actual_trading_origin_on_holiday(monkeypatch, capsys) -> None:
+    from scripts.check_capture_due import main as preflight_main
+
+    monkeypatch.setattr("scripts.check_capture_due.configured_r2",
+                        lambda: (MemoryS3(), "private-risk-research"))
+    assert preflight_main(["--end", "2026-11-26", "--prefix", "research"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["origin_session"] == "2026-11-25"
+    assert result["due"] is True
+
+
+@pytest.mark.parametrize('field', ['origin', 'first', 'last', 'label_end', 'duplicate'])
+def test_archive_audit_checks_forecast_calendar_against_source_bytes(tmp_path, field) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    captured = datetime.fromisoformat(json.loads(manifest.read_text())['prices'][0]['capture'])
+    client = MemoryS3()
+    client.written_at = captured + timedelta(minutes=5)
+    result = archive_capture(manifest, raw_root=raw_root, s3=client,
+                             bucket='private-risk-research', prefix='research',
+                             prediction_at=client.written_at,
+                             receipt_clock=lambda: client.written_at)
+    key = result['index_key']
+    index = json.loads(client.objects[key][0])
+    forecast = index['forecasts'][0]
+    if field == 'origin':
+        forecast['origin_session'] = '2026-07-01'
+    elif field == 'duplicate':
+        forecast['horizons'].append(dict(forecast['horizons'][0]))
+    else:
+        target = forecast['horizons'][1]
+        name = {'first': 'first_outcome_session', 'last': 'last_outcome_session',
+                'label_end': 'label_end_at'}[field]
+        target[name] = '2026-07-10T20:00:00+00:00' if field == 'label_end' else '2026-07-10'
+    # Recompute the object hash: integrity alone cannot prove date semantics.
+    body = json.dumps(index).encode()
+    client.objects[key] = body, hashlib.sha256(body).hexdigest()
+    with pytest.raises(ValueError, match='calendar|origin'):
+        audit_capture(client, bucket='private-risk-research', index_key=key)

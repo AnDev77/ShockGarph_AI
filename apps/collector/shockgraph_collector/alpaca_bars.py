@@ -15,6 +15,7 @@ from typing import Self
 from zoneinfo import ZoneInfo
 
 import httpx
+from shockgraph_data_pipeline.capture_window import alpaca_request_end
 from shockgraph_data_pipeline.market_calendar import nasdaq_sessions
 from shockgraph_data_pipeline.raw_store import ImmutableRawStore, RawArtifact
 
@@ -101,6 +102,8 @@ class AlpacaDailyCollector:
         sessions = {row.session_date: row.close_at for row in nasdaq_sessions(start, end)}
         if not sessions:
             raise ValueError("Alpaca request needs scheduled sessions")
+        requested_at = self.clock()
+        request_end = alpaca_request_end(end, requested_at)
         versions: dict[str, dict[date, tuple[Decimal, Decimal]]] = {}
         artifacts: list[RawArtifact] = []
         hashes: list[str] = []
@@ -110,10 +113,10 @@ class AlpacaDailyCollector:
             cursor: str | None = None
             seen_cursors: set[str] = set()
             for _ in range(_MAX_PAGES):
-                # Explicit UTC end includes the NY midnight-stamped daily bar
-                # without asking a free SIP plan for a current-date range.
+                # Keep one bounded end across raw/adjusted pages. A completed
+                # same-day bar is allowed; an in-progress session is not.
                 params = {"timeframe": "1Day", "start": start.isoformat(),
-                          "end": f"{end.isoformat()}T23:59:59Z", "adjustment": adjustment,
+                          "end": request_end, "adjustment": adjustment,
                           "feed": "sip", "limit": "10000"}
                 if cursor is not None:
                     params["page_token"] = cursor
@@ -124,8 +127,8 @@ class AlpacaDailyCollector:
                 captured_at = self.clock()
                 if captured_at.tzinfo is None or captured_at.utcoffset() != UTC.utcoffset(None):
                     raise ValueError("Alpaca capture clock must return UTC")
-                if end >= captured_at.astimezone(_EASTERN).date():
-                    raise ValueError("Alpaca SIP daily request must end before the US capture date")
+                if captured_at < requested_at:
+                    raise ValueError("Alpaca capture precedes request")
                 if len(body) > _MAX_BYTES or "json" not in response.headers.get(
                     "content-type", ""
                 ).lower():
