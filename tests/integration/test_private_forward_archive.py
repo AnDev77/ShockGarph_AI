@@ -585,3 +585,66 @@ def test_cli_requires_private_bucket_before_loading_the_archive(monkeypatch, cap
     assert json.loads(capsys.readouterr().out) == {"status": "private_archive_not_configured"}
     assert audit_main(["--index-key", "private/index.json"]) == 2
     assert json.loads(capsys.readouterr().out) == {"status": "private_archive_not_configured"}
+
+
+@pytest.mark.parametrize("case", ["success", "stale", "late", "corrupt"])
+def test_required_origin_gate_reads_remote_archive_and_rejects_false_success(
+    tmp_path, monkeypatch, capsys, case,
+) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    captured = datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
+    origin = captured.astimezone(ZoneInfo("America/New_York")).date()
+    client = MemoryS3()
+    client.written_at = captured + timedelta(minutes=5 if case != "late" else 4 * 24 * 60)
+    archived = archive_capture(manifest, raw_root=raw_root, s3=client,
+                               bucket="private-risk-research", prefix="research",
+                               prediction_at=client.written_at,
+                               receipt_clock=lambda: client.written_at)
+    if case == "corrupt":
+        key = archived["index_key"]
+        body, digest = client.objects[key]
+        client.objects[key] = body + b"private-canary", digest
+    monkeypatch.setattr("scripts.audit_private_capture.configured_r2",
+                        lambda: (client, "private-risk-research"))
+    expected = origin + timedelta(days=4) if case == "stale" else origin
+    result = audit_main(["--latest", "--prefix", "research", "--expected-origin",
+                         expected.isoformat()])
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert result == (0 if case == "success" else 2 if case == "corrupt" else 1)
+    assert payload["status"] == (
+        "prospective_capture_verified" if case == "success" else
+        "private_archive_audit_failed" if case == "corrupt" else "prospective_capture_missing"
+    )
+    assert "private-canary" not in output
+    assert archived["index_key"] not in output
+    assert "private-risk-research" not in output
+    if case != "corrupt":
+        assert payload["public_performance_allowed"] is False
+    if case == "success":
+        before = dict(client.objects)
+        assert not capture_due(client, bucket="private-risk-research", prefix="research",
+                               end=origin + timedelta(days=1))
+        assert audit_main(["--latest", "--prefix", "research", "--expected-origin",
+                           origin.isoformat()]) == 0
+        assert client.objects == before
+
+
+def test_required_origin_cannot_be_used_for_inventory_or_non_session() -> None:
+    with pytest.raises(SystemExit) as error:
+        audit_main(["--inventory", "--expected-origin", "2026-11-19"])
+    assert error.value.code == 2
+    with pytest.raises(SystemExit) as error:
+        audit_main(["--latest", "--expected-origin", "2026-11-22"])
+    assert error.value.code == 2
+
+
+def test_preflight_reports_actual_trading_origin_on_holiday(monkeypatch, capsys) -> None:
+    from scripts.check_capture_due import main as preflight_main
+
+    monkeypatch.setattr("scripts.check_capture_due.configured_r2",
+                        lambda: (MemoryS3(), "private-risk-research"))
+    assert preflight_main(["--end", "2026-11-26", "--prefix", "research"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["origin_session"] == "2026-11-25"
+    assert result["due"] is True

@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
   # The schedule is active only after this workflow reaches the default branch.
   schedule:
-    - cron: '10 7 * * 1-5'
+    # Evening capture leaves overnight headroom before the next 08:30 NY cutoff.
+    # Retries audit/skip the same origin after a successful first capture.
+    - cron: '23 20 * * 1-5'
+      timezone: America/New_York
+    - cron: '23 0,6 * * 1-5'
       timezone: America/New_York
   push:
     branches:
@@ -50,14 +54,14 @@ jobs:
       - name: 원격 빈티지와 마지막 거래일 사전 검사
         id: preflight
         run: |
-          PRICE_END=$(python -c 'from datetime import datetime, timedelta; from zoneinfo import ZoneInfo; print((datetime.now(ZoneInfo("America/New_York")).date() - timedelta(days=1)).isoformat())')
-          python scripts/check_capture_due.py --end "$PRICE_END" > /tmp/capture-preflight.json
-          echo "price_end=$PRICE_END" >> "$GITHUB_OUTPUT"
+          python scripts/check_capture_due.py > /tmp/capture-preflight.json
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           from pathlib import Path
           result = json.loads(Path('/tmp/capture-preflight.json').read_text())
           print(f"due={str(result['due']).lower()}")
+          print(f"price_end={result['price_end']}")
+          print(f"origin_session={result['origin_session']}")
           PY
       - name: 가격 원본 검증과 비공개 보관
         if: steps.preflight.outputs.due == 'true'
@@ -88,3 +92,8 @@ jobs:
               print(f"{asset['symbol']}: {asset['session_count']}거래일, {len(asset['horizons'])}개 평가 기간")
           print('과거 가격 빈티지와 독립 시험은 아직 검증되지 않았습니다.')
           PY
+      - name: 해당 거래일 사전 예측 저장 필수 확인
+        if: ${{ !cancelled() && steps.preflight.outcome == 'success' }}
+        run: |
+          python scripts/audit_private_capture.py --latest \
+            --expected-origin "${{ steps.preflight.outputs.origin_session }}"

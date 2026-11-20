@@ -143,3 +143,38 @@ def test_alpaca_cli_writes_two_private_snapshots_and_source_manifest(
     assert (output / "SPY" / "20260409T220000.000000Z.csv").is_file()
     assert json.loads((output / "captures" / "2026-04-09T22-00-00+00-00.json")
                       .read_text(encoding="utf-8"))["prices"] == result["prices"]
+
+
+def test_same_day_completed_capture_bounds_request_and_preserves_receipt(tmp_path) -> None:
+    now = datetime(2026, 4, 8, 21, tzinfo=UTC)
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        assert request.url.params["end"] == "2026-04-08T20:45:00Z"
+        return httpx.Response(200, json={"bars": [_bar(day, 100) for day in (6, 7, 8)],
+                                         "next_page_token": None})
+
+    with AlpacaDailyCollector("id", "secret", transport=httpx.MockTransport(handler),
+                              clock=lambda: now) as collector:
+        capture = collector.collect("SPY", START, END, ImmutableRawStore(tmp_path))
+    assert capture.captured_at == now
+    assert len(requests) == 2
+    imported = import_daily_prices(
+        capture.csv_bytes, store=ImmutableRawStore(tmp_path), source="alpaca-sip",
+        captured_at=capture.captured_at, start=START, end=END, symbol="SPY",
+        venue="US_SIP", full_snapshot=True,
+    )
+    assert all(row.available_at == now for row in imported.prices)
+    assert imported.quality.structurally_ready
+
+
+def test_unclosed_or_too_recent_session_fails_before_network_call(tmp_path) -> None:
+    def forbidden(request):
+        pytest.fail("incomplete daily session must not be requested")
+
+    now = datetime(2026, 4, 8, 20, 59, tzinfo=UTC)
+    with AlpacaDailyCollector("id", "secret", transport=httpx.MockTransport(forbidden),
+                              clock=lambda: now) as collector, \
+            pytest.raises(ValueError, match="completed"):
+        collector.collect("TLT", START, END, ImmutableRawStore(tmp_path))

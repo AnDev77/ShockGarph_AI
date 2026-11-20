@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Alpaca TLT·SPY SIP 일봉 원본과 수정본 수집")
     parser.add_argument("--start", type=date.fromisoformat, default=date(2024, 1, 2))
     parser.add_argument("--end", type=date.fromisoformat, required=True,
-                        help="미국 수신일 이전의 마지막 거래일 YYYY-MM-DD")
+                        help="실제 폐장 후 한 시간이 지난 마지막 거래일 YYYY-MM-DD")
     parser.add_argument("--raw-root", type=Path, default=ROOT / "data/raw")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "artifacts/alpaca-private")
     args = parser.parse_args(argv)

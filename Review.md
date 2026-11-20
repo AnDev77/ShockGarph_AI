@@ -95,3 +95,10 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 - scripts/audit_capture_timing.py와 tests/unit/test_capture_timing_audit.py를 기존 연구 감사 #20에 추가했다. 원본 마지막 거래일과 공개 실행 시각으로 개장 전 시간 여유를 검증하고, 원본 보관 완료 여부는 미확인으로 남긴다.
 - 공개 실행이 늦은 것과 워커 시작이 늦은 것을 구분하기 위한 구조다. 원문·가격·비밀값·점수 없이 원인을 좁히며 원본을 과거 시각으로 소급하거나 모델 성능 판정을 바꾸지 않는다.
 - 주말·공휴일·서머타임·마감 경계·잘못된 시각을 시험한다. 시작·중간·완료와 실제 메타데이터 가정, 오류·미검증 범위는 [감사 리뷰](docs/reviews/forecast-capture-coverage-diagnostics.md)에 기록했다. 예약·Java·웹·운영 배포는 변경하지 않았다.
+
+## 늦은 수집으로 사전 예측이 쌓이지 않는 병목 수정 (2026-11-20)
+
+- 바뀐 구조: `capture_window.py`가 실제 폐장·수집 지연 조건으로 거래일을 고르고, Alpaca 수집기는 그날 장 종료 후에도 지연 SIP 범위 안에서 요청한다. `private-forward-capture.yml`은 뉴욕 저녁 20:23에 먼저 시도하고 00:23·06:23에 재시도한다.
+- 선택 이유: 최근 실행은 마감 뒤 생성되어 원본만 저장했으며, 기존 당일 수집 금지와 아침 단일 예약 때문에 선제 수집이 불가능했다. 타임스탬프를 앞당기거나 이미 지난 정답을 예측했다고 기록하지 않고 수집 기회를 전날 저녁으로 옮긴다.
+- 추가 기능: `audit_private_capture.py --latest --expected-origin`으로 실제 원격 감사 후 해당 거래일 TLT/SPY 예측 둘이 있어야 성공한다. 원본 보관 성공·이전 예측만으로 성공 표시하지 않는다. 정답 정의와 모델은 그대로다.
+- 실행 흐름·작업량·코드 경로·시험·오류·남은 한계·운영 적용 조건은 [사전 예측 저장 병목 복구](docs/reviews/evening-forward-capture-recovery.md)에 기록한다. 실제 예약 복구와 모델 성능 HOLD 해제는 별도 확인이다.
