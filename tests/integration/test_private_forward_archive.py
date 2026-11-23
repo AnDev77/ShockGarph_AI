@@ -677,3 +677,28 @@ def test_archive_audit_checks_forecast_calendar_against_source_bytes(tmp_path, f
     client.objects[key] = body, hashlib.sha256(body).hexdigest()
     with pytest.raises(ValueError, match='calendar|origin'):
         audit_capture(client, bucket='private-risk-research', index_key=key)
+
+
+@pytest.mark.parametrize('metric', ['trailing_volatility', 'ewma_volatility',
+                                    'garch_volatility', 'gjr_volatility'])
+@pytest.mark.parametrize('value', [float('nan'), float('inf'), -0.1, True, '0.1', None, 0.0])
+def test_archive_checks_risk_values_even_with_matching_hash(tmp_path, metric, value) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True)
+    client = MemoryS3()
+    captured = datetime.fromisoformat(json.loads(manifest.read_text())['prices'][0]['capture'])
+    client.written_at = captured + timedelta(minutes=5)
+    result = archive_capture(manifest, raw_root=raw_root, s3=client,
+                             bucket='private-risk-research', prefix='research',
+                             prediction_at=client.written_at,
+                             receipt_clock=lambda: client.written_at)
+    key = result['index_key']
+    index = json.loads(client.objects[key][0])
+    index['forecasts'][1]['horizons'][1][metric] = value
+    body = json.dumps(index).encode()
+    client.objects[key] = body, hashlib.sha256(body).hexdigest()
+    if type(value) is float and value == 0.0:
+        assert audit_capture(client, bucket='private-risk-research', index_key=key)[
+            'forecast_count'] == 2
+    else:
+        with pytest.raises(ValueError, match='risk value'):
+            audit_capture(client, bucket='private-risk-research', index_key=key)

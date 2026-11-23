@@ -108,3 +108,9 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 - `scripts/archive_forward_capture.py`의 원격 감사가 검증한 CSV 마지막 거래일을 예측 기준일과 대조한다. 5·20거래일의 시작·끝·폐장 시각과 기간 중복도 검사한다.
 - 해시 일치만으로 잘못된 날짜가 통과할 수 있어 추가한 검증이다. 기존 원격 감사·재고·공식 채점 흐름을 공유하고 외부 요청은 늘리지 않는다.
 - 변경 구조·선택 이유·5개 재현 시험·시작/중간/완료·세 저장소 상태·운영 한계는 [원본 달력 검증 리뷰](docs/reviews/forecast-source-calendar-validation.md)에 기록한다. 실제 수집 성공과 모델 성능은 이 변경의 완료 주장에 포함하지 않는다.
+
+## 사전 예측 수치의 유효성 검사 (2026-11-23)
+
+- `scripts/archive_forward_capture.py`에서 저장된 네 변동성 값의 숫자 형식·유한성·음수 여부를 검사한다. 해시와 날짜가 맞더라도 NaN·무한대·음수·bool·문자열·null이면 감사를 실패시킨다.
+- 잘못된 값이 정상 예측 재고나 채점에 들어가지 않도록 공통 감사 함수에 배치했다. 정상 0은 허용하고 모델 계산·데이터 삭제·원격 호출 추가는 없다.
+- `tests/integration/test_private_forward_archive.py`의 합성 오류 주입 28건과 [기능 리뷰](docs/reviews/finite-risk-archive-validation.md)에서 구조·이유·작업량·시작/중간/완료·운영 한계를 확인한다. 운영 예약 적용과 모델 성능 판정은 별도다.

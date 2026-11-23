@@ -13,6 +13,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import re
 import sys
 from collections.abc import Callable, Mapping
@@ -190,6 +191,12 @@ def audit_capture(s3: S3Like, *, bucket: str, index_key: str) -> dict[str, Any]:
             if len(future) < 20 or len(item['horizons']) != 2:
                 raise ValueError('forecast calendar horizons are incomplete or duplicated')
             for horizon in item['horizons']:
+                for metric in ('trailing_volatility', 'ewma_volatility',
+                               'garch_volatility', 'gjr_volatility'):
+                    value = horizon.get(metric)
+                    if (isinstance(value, bool) or not isinstance(value, (int, float))
+                            or not math.isfinite(value) or value < 0):
+                        raise ValueError('private forecast risk value is invalid')
                 last = future[horizon['horizon'] - 1]
                 if (horizon.get('first_outcome_session') != future[0].session_date.isoformat()
                         or horizon.get('last_outcome_session') != last.session_date.isoformat()
