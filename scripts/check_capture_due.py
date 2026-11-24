@@ -13,7 +13,12 @@ sys.path[:0] = [str(Path(__file__).resolve().parents[1]),
                 str(Path(__file__).resolve().parents[1] / "packages/data_pipeline")]
 
 from shockgraph_data_pipeline.capture_window import latest_capture_session  # noqa: E402
-from shockgraph_data_pipeline.market_calendar import nasdaq_sessions  # noqa: E402
+from shockgraph_data_pipeline.market_calendar import (  # noqa: E402
+    REVIEWED_CALENDAR_END,
+    REVIEWED_CALENDAR_START,
+    nasdaq_sessions,
+    reviewed_future_sessions,
+)
 
 from scripts.audit_private_capture import latest_capture  # noqa: E402
 from scripts.private_r2 import configured_r2  # noqa: E402
@@ -49,12 +54,19 @@ def main(argv: list[str] | None = None) -> int:
         end = args.end or latest_capture_session(datetime.now(UTC))
         due = capture_due(client, bucket=bucket, prefix=args.prefix, end=end)
         origin = expected_origin(end)
+        future = reviewed_future_sessions(origin)
+        reviewed = nasdaq_sessions(REVIEWED_CALENDAR_START, REVIEWED_CALENDAR_END)
+        last_origin = reviewed[-21].session_date
     except Exception:
         print(json.dumps({"status": "capture_preflight_failed"}))
         return 2
     print(json.dumps({"status": "capture_due" if due else "capture_already_archived",
                       "due": due, "origin_session": origin.isoformat(),
-                      "price_end": origin.isoformat()}))
+                      "price_end": origin.isoformat(),
+                      "forecast_calendar_ready": len(future) >= 20,
+                      "last_supported_forecast_origin": last_origin.isoformat(),
+                      "calendar_end": REVIEWED_CALENDAR_END.isoformat(),
+                      "public_performance_allowed": False}))
     return 0
 
 

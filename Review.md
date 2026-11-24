@@ -114,3 +114,10 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 - `scripts/archive_forward_capture.py`에서 저장된 네 변동성 값의 숫자 형식·유한성·음수 여부를 검사한다. 해시와 날짜가 맞더라도 NaN·무한대·음수·bool·문자열·null이면 감사를 실패시킨다.
 - 잘못된 값이 정상 예측 재고나 채점에 들어가지 않도록 공통 감사 함수에 배치했다. 정상 0은 허용하고 모델 계산·데이터 삭제·원격 호출 추가는 없다.
 - `tests/integration/test_private_forward_archive.py`의 합성 오류 주입 28건과 [기능 리뷰](docs/reviews/finite-risk-archive-validation.md)에서 구조·이유·작업량·시작/중간/완료·운영 한계를 확인한다. 운영 예약 적용과 모델 성능 판정은 별도다.
+
+## 거래일 달력 종료 시 원본과 정답 보존 (2026-11-24)
+
+- `market_calendar.py`의 `reviewed_future_sessions`로 수집·예측·감사의 미래 거래일 조회를 통일했다. 마지막 검증 날짜에서는 빈 일정을 반환하고 미검증 연도를 임의 연장하지 않는다.
+- `archive_forward_capture.py`가 12/31 원본 쓰기 후 역전된 날짜 범위로 중단되던 문제를 수정했다. 새 예측이 불가능해도 원본 전용 index를 남겨 이전 예측의 정답 채점에 사용할 수 있게 한다.
+- `check_capture_due.py`와 예약 워크플로는 달력 부족과 마지막 지원 기준일을 알리되 가격 수집을 막지 않는다. 기존 새 예측 필수 확인은 그대로 유지한다.
+- 변경 이유·실행 흐름·12개 파일 작업량·실패 재현·전체 269개 시험·wheel 필수 소스 14개·운영 한계는 [기능 리뷰](docs/reviews/calendar-boundary-snapshot-review.md)에 기록했다. 공식 Nasdaq 2027 일정 미확인, #20 미병합, 실전 성능 HOLD는 남아 있다.

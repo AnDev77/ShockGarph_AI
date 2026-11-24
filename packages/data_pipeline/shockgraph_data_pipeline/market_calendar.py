@@ -11,6 +11,8 @@ NASDAQ_2026_SOURCE = "https://www.nasdaq.com/market-activity/stock-market-holida
 NASDAQ_2026_VERSION = "nasdaq-us-equities-2026-checked-2026-10-19"
 NASDAQ_CALENDAR_SOURCE = "https://www.nasdaqtrader.com/trader.aspx?id=calendar"
 NASDAQ_CALENDAR_VERSION = "nasdaq-us-equities-2024-2026-checked-2026-10-21"
+REVIEWED_CALENDAR_START = date(2024, 1, 1)
+REVIEWED_CALENDAR_END = date(2026, 12, 31)
 _NEW_YORK = ZoneInfo("America/New_York")
 _CLOSED_BY_YEAR = {
     2024: (
@@ -53,7 +55,7 @@ class ScheduledSession:
 
 def nasdaq_sessions(start: date, end: date) -> tuple[ScheduledSession, ...]:
     """Return reviewed 2024–2026 Nasdaq US equity regular-session closes in UTC."""
-    if not 2024 <= start.year <= end.year <= 2026 or end < start:
+    if not REVIEWED_CALENDAR_START <= start <= end <= REVIEWED_CALENDAR_END:
         raise ValueError("the reviewed Nasdaq calendar covers only 2024 through 2026")
     sessions = []
     day = start
@@ -65,6 +67,15 @@ def nasdaq_sessions(start: date, end: date) -> tuple[ScheduledSession, ...]:
             sessions.append(ScheduledSession(day, local_close.astimezone(UTC)))
         day += timedelta(days=1)
     return tuple(sessions)
+
+
+def reviewed_future_sessions(origin: date) -> tuple[ScheduledSession, ...]:
+    """Return only verified future sessions; exhaustion is not a reversed range."""
+    if not nasdaq_sessions(origin, origin):
+        raise ValueError("origin is not a reviewed trading session")
+    if origin == REVIEWED_CALENDAR_END:
+        return ()
+    return nasdaq_sessions(origin + timedelta(days=1), REVIEWED_CALENDAR_END)
 
 
 def nasdaq_2026_sessions(start: date, end: date) -> tuple[ScheduledSession, ...]:

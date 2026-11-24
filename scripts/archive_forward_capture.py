@@ -27,7 +27,10 @@ sys.path[:0] = [str(ROOT), str(ROOT / "packages/domain"),
                 str(ROOT / "packages/data_pipeline"), str(ROOT / "packages/risk_engine")]
 
 from shockgraph_data_pipeline.kalshi_contract import payload_sha256  # noqa: E402
-from shockgraph_data_pipeline.market_calendar import nasdaq_sessions  # noqa: E402
+from shockgraph_data_pipeline.market_calendar import (  # noqa: E402
+    nasdaq_sessions,
+    reviewed_future_sessions,
+)
 from shockgraph_risk.forward_risk_capture import (  # noqa: E402
     build_forward_risk_record,
     next_outcome_open,
@@ -187,7 +190,7 @@ def audit_capture(s3: S3Like, *, bucket: str, index_key: str) -> dict[str, Any]:
             origin = source_origins.get(prefix + f'/{symbol}/prices.csv')
             if origin is None or item.get('origin_session') != origin.isoformat():
                 raise ValueError('forecast origin differs from source calendar')
-            future = nasdaq_sessions(origin + timedelta(days=1), date(2026, 12, 31))
+            future = reviewed_future_sessions(origin)
             if len(future) < 20 or len(item['horizons']) != 2:
                 raise ValueError('forecast calendar horizons are incomplete or duplicated')
             for horizon in item['horizons']:
@@ -289,8 +292,7 @@ def archive_capture(
     forward = []
     reviewed_calendar = True
     for symbol, prices, capture_time, snapshot_hash in captured_series:
-        future = nasdaq_sessions(prices[-1].session_date + timedelta(days=1),
-                                 datetime(2026, 12, 31, tzinfo=UTC).date())
+        future = reviewed_future_sessions(prices[-1].session_date)
         if len(future) < 20:
             reviewed_calendar = False
         # The Actions job has a 20-minute timeout. Keep an additional hour

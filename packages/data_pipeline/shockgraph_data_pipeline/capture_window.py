@@ -3,7 +3,11 @@
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from shockgraph_data_pipeline.market_calendar import nasdaq_sessions
+from shockgraph_data_pipeline.market_calendar import (
+    REVIEWED_CALENDAR_END,
+    REVIEWED_CALENDAR_START,
+    nasdaq_sessions,
+)
 
 # Project safety buffer, not a promise that the provider never revises a bar.
 DAILY_CAPTURE_LAG = timedelta(hours=1)
@@ -21,9 +25,9 @@ def latest_capture_session(now: datetime) -> date:
     """Choose the most recent reviewed close that passed the safety buffer."""
     now = _utc(now)
     end = now.astimezone(_NEW_YORK).date()
-    if not 2024 <= end.year <= 2026:
+    if not REVIEWED_CALENDAR_START <= end <= REVIEWED_CALENDAR_END:
         raise ValueError("capture date is outside the reviewed calendar")
-    start = max(date(2024, 1, 1), end - timedelta(days=14))
+    start = max(REVIEWED_CALENDAR_START, end - timedelta(days=14))
     completed = [row.session_date for row in nasdaq_sessions(start, end)
                  if row.close_at + DAILY_CAPTURE_LAG <= now]
     if not completed:

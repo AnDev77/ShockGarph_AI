@@ -204,7 +204,7 @@ def test_inventory_distinguishes_calendar_exhaustion(tmp_path, monkeypatch) -> N
     manifest, raw_root = _manifest(tmp_path)
     client = MemoryS3()
     receipt = datetime(2026, 4, 9, 22, 20, tzinfo=UTC)
-    monkeypatch.setattr(archive_forward_capture, "nasdaq_sessions", lambda *_: ())
+    monkeypatch.setattr(archive_forward_capture, "reviewed_future_sessions", lambda *_: ())
     archive_capture(manifest, raw_root=raw_root, s3=client,
                     bucket="private-risk-research", prefix="research",
                     prediction_at=receipt, receipt_clock=lambda value=receipt: value)
@@ -372,12 +372,14 @@ def test_official_plan_rejects_first_eligible_vintage_when_corrupt(tmp_path) -> 
 
 
 def _manifest(tmp_path: Path, *, full_history: bool = False,
-              extra_sessions: int = 0) -> tuple[Path, Path]:
+              extra_sessions: int = 0, through: date | None = None) -> tuple[Path, Path]:
     root = tmp_path / "raw"
     store = ImmutableRawStore(root)
     private = tmp_path / "private"
     sessions = (nasdaq_sessions(date(2026, 1, 2), date(2026, 9, 30))[:125 + extra_sessions]
                 if full_history else nasdaq_sessions(date(2026, 4, 6), date(2026, 4, 8)))
+    if through is not None:
+        sessions = nasdaq_sessions(date(2026, 1, 2), through)
     capture_time = (sessions[-1].close_at + timedelta(minutes=40) if full_history else
                     datetime(2026, 4, 9, 22, tzinfo=UTC))
     entries = []
@@ -702,3 +704,69 @@ def test_archive_checks_risk_values_even_with_matching_hash(tmp_path, metric, va
     else:
         with pytest.raises(ValueError, match='risk value'):
             audit_capture(client, bucket='private-risk-research', index_key=key)
+
+
+@pytest.mark.parametrize("origin", ["2026-12-03", "2026-12-24", "2026-12-31"])
+def test_calendar_exhaustion_keeps_auditable_snapshot_and_no_forecast(tmp_path, origin) -> None:
+    manifest, raw_root = _manifest(tmp_path, full_history=True, through=date.fromisoformat(origin))
+    client = MemoryS3()
+    captured = datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
+    client.written_at = captured + timedelta(minutes=5)
+    report = archive_capture(manifest, raw_root=raw_root, s3=client,
+                             bucket="private-risk-research", prefix="research",
+                             prediction_at=client.written_at,
+                             receipt_clock=lambda: client.written_at)
+    assert report["status"] == "snapshot_only_reviewed_calendar_exhausted"
+    assert report["forecast_count"] == 0
+    checked = audit_capture(client, bucket="private-risk-research", index_key=report["index_key"])
+    assert checked["status"] == "archive_readback_verified"
+    inventory = capture_inventory(client, bucket="private-risk-research", prefix="research")
+    assert inventory["unique_origin_session_count"] == 0
+    reasons = inventory["snapshot_only_reason_counts"]
+    assert reasons["snapshot_only_reviewed_calendar_exhausted"] == 1
+    before = dict(client.objects)
+    repeated = archive_capture(manifest, raw_root=raw_root, s3=client,
+                               bucket="private-risk-research", prefix="research",
+                               prediction_at=client.written_at,
+                               receipt_clock=lambda: client.written_at)
+    assert repeated["created_object_count"] == 0
+    assert client.objects == before
+
+
+@pytest.mark.parametrize(("origin", "ready"), [("2026-12-02", True),
+                                               ("2026-12-03", False),
+                                               ("2026-12-31", False)])
+def test_preflight_exposes_calendar_limit_without_blocking_label_collection(
+    monkeypatch, capsys, origin, ready,
+) -> None:
+    from scripts.check_capture_due import main as preflight_main
+
+    monkeypatch.setattr("scripts.check_capture_due.configured_r2",
+                        lambda: (MemoryS3(), "private-risk-research"))
+    assert preflight_main(["--end", origin]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["due"] is True
+    assert report["forecast_calendar_ready"] is ready
+    assert report["last_supported_forecast_origin"] == "2026-12-02"
+    assert report["calendar_end"] == "2026-12-31"
+    assert report["public_performance_allowed"] is False
+
+
+def test_last_supported_forecast_can_be_scored_from_calendar_end_snapshot(tmp_path) -> None:
+    client = MemoryS3()
+    keys = []
+    for name, day in [("origin", date(2026, 12, 2)), ("outcome", date(2026, 12, 31))]:
+        manifest, raw_root = _manifest(tmp_path / name, full_history=True, through=day)
+        captured = datetime.fromisoformat(json.loads(manifest.read_text())["prices"][0]["capture"])
+        client.written_at = captured + timedelta(minutes=5)
+        report = archive_capture(manifest, raw_root=raw_root, s3=client,
+                                 bucket="private-risk-research", prefix="research",
+                                 prediction_at=client.written_at,
+                                 receipt_clock=lambda: client.written_at)
+        keys.append(report["index_key"])
+    # No new forecast is possible at year end, but existing outcomes remain usable.
+    scores = score_archived_pair(client, bucket="private-risk-research",
+                                 forecast_index_key=keys[0], label_index_key=keys[1])
+    assert len(scores) == 4
+    assert {row.horizon for row in scores} == {5, 20}
+    assert all(row.public_performance_allowed is False for row in scores)

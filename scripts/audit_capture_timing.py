@@ -11,7 +11,10 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages/data_pipeline"))
 
-from shockgraph_data_pipeline.market_calendar import nasdaq_sessions  # noqa: E402
+from shockgraph_data_pipeline.market_calendar import (  # noqa: E402
+    nasdaq_sessions,
+    reviewed_future_sessions,
+)
 
 
 def aware_utc(value: str) -> datetime:
@@ -33,9 +36,7 @@ def audit_timing(*, origin: date, created_at: datetime, started_at: datetime) ->
         raise ValueError("price origin is not a reviewed trading session")
     if origin_sessions[0].close_at > created_at:
         raise ValueError("price origin has not closed at run creation")
-    if origin == date(2026, 12, 31):
-        return {"status": "reviewed_calendar_exhausted", "public_performance_allowed": False}
-    sessions = nasdaq_sessions(origin + timedelta(days=1), date(2026, 12, 31))
+    sessions = reviewed_future_sessions(origin)
     if len(sessions) < 20:
         return {"status": "reviewed_calendar_exhausted", "public_performance_allowed": False}
     next_day = sessions[0].session_date

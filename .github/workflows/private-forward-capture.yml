@@ -55,6 +55,14 @@ jobs:
         id: preflight
         run: |
           python scripts/check_capture_due.py > /tmp/capture-preflight.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('/tmp/capture-preflight.json').read_text())
+          if not result['forecast_calendar_ready']:
+              print('::warning::검증된 거래일 달력이 부족합니다. 가격과 기존 정답은 보관하지만 새 예측은 만들지 않습니다.')
+          print('달력상 마지막 20거래일 예측 기준일: ' + result['last_supported_forecast_origin'])
+          PY
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           from pathlib import Path

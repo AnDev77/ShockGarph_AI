@@ -148,3 +148,24 @@ def test_full_snapshot_mode_accepts_late_revisions_without_backdating_them(tmp_p
     assert imported.quality.late_sessions == ("2026-03-30",)
     assert imported.quality.structurally_ready
     assert imported.captured_at == CAPTURED
+
+
+@pytest.mark.parametrize(("origin", "remaining"), [("2026-12-02", 20),
+                                                   ("2026-12-03", 19),
+                                                   ("2026-12-31", 0)])
+def test_reviewed_future_sessions_stop_at_verified_boundary(origin, remaining) -> None:
+    from shockgraph_data_pipeline.market_calendar import reviewed_future_sessions
+
+    rows = reviewed_future_sessions(date.fromisoformat(origin))
+    assert len(rows) == remaining
+    assert all(row.session_date > date.fromisoformat(origin) for row in rows)
+    if rows:
+        assert rows[-1].session_date == date(2026, 12, 31)
+
+
+@pytest.mark.parametrize("origin", ["2026-12-25", "2026-12-26", "2027-01-04", "2023-12-29"])
+def test_reviewed_future_sessions_reject_unreviewed_or_nontrading_origin(origin) -> None:
+    from shockgraph_data_pipeline.market_calendar import reviewed_future_sessions
+
+    with pytest.raises(ValueError):
+        reviewed_future_sessions(date.fromisoformat(origin))
