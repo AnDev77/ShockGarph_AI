@@ -121,3 +121,9 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 - `archive_forward_capture.py`가 12/31 원본 쓰기 후 역전된 날짜 범위로 중단되던 문제를 수정했다. 새 예측이 불가능해도 원본 전용 index를 남겨 이전 예측의 정답 채점에 사용할 수 있게 한다.
 - `check_capture_due.py`와 예약 워크플로는 달력 부족과 마지막 지원 기준일을 알리되 가격 수집을 막지 않는다. 기존 새 예측 필수 확인은 그대로 유지한다.
 - 변경 이유·실행 흐름·12개 파일 작업량·실패 재현·전체 269개 시험·wheel 필수 소스 14개·운영 한계는 [기능 리뷰](docs/reviews/calendar-boundary-snapshot-review.md)에 기록했다. 공식 Nasdaq 2027 일정 미확인, #20 미병합, 실전 성능 HOLD는 남아 있다.
+
+## 연구 PR 통합 준비 검증 (2026-11-25)
+
+- #19와 #20은 개별적으로 main에 병합 가능하지만 서로 합치면 Review.md에서 충돌함을 재현했다. 격리된 로컬 후보에서 역할 변경과 연구 복구의 양쪽 추가 기록을 보존했다.
+- 실행 코드는 바꾸지 않았다. 신규 기능을 쌓기보다 진행 중 수집 복구의 통합 위험을 확인했으며 전체 269개 시험, 정적 검사, wheel 필수 소스 14개 검사가 통과했다.
+- [통합 준비 리뷰](docs/reviews/pr-integration-readiness-review.md)에 정확한 head·후보 tree·권장 순서·작업량·오류·운영 한계를 기록했다. 원격 병합/배포는 하지 않았고 실제 수집에서 새 예측 거래일 증가도 없었다.
