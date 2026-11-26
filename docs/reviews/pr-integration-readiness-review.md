@@ -52,3 +52,32 @@ Python 작업 트리는 기존 build/dist만 미추적이었다. Java의 기존 
 4. 웹 #13은 최신 main의 Java 연결 문서와 중복 여부를 확인하고 필요한 문구만 남기거나 닫는 방향을 결정한다. 오래된 성공 CI만으로 병합하지 않는다.
 
 이번 작업은 새로운 예측 성과를 만들지 않았다. 이미 준비된 수집 복구를 실제 main에 반영하는 결정이 우선이며, 추가 진단 기능을 계속 붙이는 것은 현재 병목을 해결하지 못한다. 성능과 제품 수요는 HOLD다. 2027 달력과 EC2 접근·TLS·SMTP·공유 MySQL/Redis·스키마 공존·운영 전환/되돌리기는 별도 미검증 조건이다. 배포·자동 병합·데이터 삭제를 수행하지 않았다.
+
+## 2026-11-26 재확인: 이미지 배포와 학습 분기 구분
+
+### 시작
+
+세 main은 전날과 같은 Python 6288f6c, Java b76f93a, 웹 38e38b0다. 해당 main의 AGENTS.md·제품 방향·일일 계획도 이전 확인본과 diff가 없음을 확인했다. Java 작업 트리의 기존 미커밋 파일 3개와 웹 작업 트리를 보존했다. Python 진행 기능을 통합하기 전 다른 기능을 추가하지 않는 작업 규칙에 따라 오늘은 독립 검증과 문서 기록만 수행했다.
+
+열린 PR 생성 순서와 상태:
+
+- Python #19(11/17, feat/java-rag-ownership → main, head 40faea7), #20(11/18, feat/forecast-capture-coverage → main, head e756ff4): CI 성공, 개별 main 병합 가능. 함께 병합하면 Review.md 충돌이 계속 재현된다.
+- Java #40(11/26 00:25 UTC, exercise/rag-asof-fetched-at → main, head 7cef562): CI 실패. 본문에서 의도적으로 SQL 바인딩을 틀리게 만든 사용자 학습용 초안이며 병합·배포 금지라고 명시한다. 제품 결함으로 자동 수정하거나 #41에 포함하지 않는다.
+- Java #41(11/26 05:03 UTC, feat/immutable-image-release → main, head 7037899): 병합 가능, 일반 품질·Compose·Blue/Green·스키마 검사 성공. AWS publish/start-candidate 및 SMTP 실발송은 skipped다.
+- 웹 #13(11/17, feat/review-change-rationale → main, head 6316e87): 기존 CI 성공, 현재 main과 충돌.
+
+### 중간: 검증한 경로
+
+Java #41을 별도 release-verification 작업 트리에 읽어 기존 변경을 건드리지 않고 `python3 -B -m unittest discover -s deploy -p test_image_release.py -v`를 실행했다. 대상은 deploy/image_release.py, deploy/test_image_release.py, deploy/image-release.md다. 이 경로는 로컬/CI에서 검사한 이미지를 ECR에 올리고 digest를 고정해 EC2가 pull하도록 한다. 그러나 운영 apply는 단일 api를 교체하며 기존 Blue/Green 전환과 별도다. 따라서 #41의 일반 Blue/Green CI 성공을 새 digest 배포 경로의 대기 버전 검사·트래픽 전환·되돌리기 검증으로 합쳐 해석하지 않는다.
+
+### 완료와 한계
+
+이미지 배포 계약 시험 10개가 로컬에서 통과했다. 입력·digest·revision 거부, 의존 서비스 재시작 제외, 환경 파일 보존, 실패 복귀 명령을 모의 실행으로 확인했다. 시험 출력의 published/healthy 문구는 Mock이 반환한 결과이며 실제 AWS 업로드나 서버 건강 상태가 아니다. Java 전체 시험·JAR·컨테이너 시험은 기존 정확한 head의 원격 게이트에서 확인했고 이번 로컬 실행에서 다시 수행하지 않았다. Python 실행 코드는 변경하지 않았으므로 같은 전체 시험을 로컬에서 반복하지 않았다. 문서 변경 뒤 원격 게이트는 해당 커밋으로 확인해 PR 본문에 기록한다.
+
+작업량: 세 저장소 재조회, Java 새 PR 2건의 목적·CI 구분, 이미지 배포 계약 시험 10개, Python 병합 충돌 재확인, 문서 2개 갱신. 신규 제품 기능·새 PR·병합·배포·볼륨 삭제는 없다. Learner's High 직접 구현 변경은 없으며 버전 고정과 운영 검증 범위를 구분하는 검토만 했다.
+
+### 실제 수집 상태와 다음 조건
+
+[Python 예약 실행 45705961106](https://github.com/AnDev77/ShockGarph_AI/actions/runs/45705961106)은 11/25 21:36:56 UTC(11/26 06:36:56 KST)에 생성됐고 전체 작업 성공이다. 그러나 snapshot_only_preopen_gate_failed로 원본만 보관했다. readback·재고·기존 공식 채점은 성공했지만 직전 45499964035 대비 고유 예측 거래일은 늘지 않았다. 비공개 수치·원본·키는 공개하지 않는다.
+
+현재 정리 권고는 Python #19 → #20(문서 충돌 해결·최신 main 재검증), Java #40은 사용자 학습 후 병합 없이 종료, #41은 별도 배포 기능 검토다. #41을 적용하더라도 운영 Blue/Green 성공을 주장하려면 digest 이미지를 대기 버전에 기동하고 실제 API/채팅·공유 DB/Redis·스키마 공존·트래픽 전환·실패 복구를 별도로 검증해야 한다. 이번에는 EC2 권한·TLS·SMTP·운영 데이터 상태를 확인하지 못했으며, 연구 성능과 제품 수요는 HOLD다.

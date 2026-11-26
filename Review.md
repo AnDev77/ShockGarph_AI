@@ -127,3 +127,9 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 - #19와 #20은 개별적으로 main에 병합 가능하지만 서로 합치면 Review.md에서 충돌함을 재현했다. 격리된 로컬 후보에서 역할 변경과 연구 복구의 양쪽 추가 기록을 보존했다.
 - 실행 코드는 바꾸지 않았다. 신규 기능을 쌓기보다 진행 중 수집 복구의 통합 위험을 확인했으며 전체 269개 시험, 정적 검사, wheel 필수 소스 14개 검사가 통과했다.
 - [통합 준비 리뷰](docs/reviews/pr-integration-readiness-review.md)에 정확한 head·후보 tree·권장 순서·작업량·오류·운영 한계를 기록했다. 원격 병합/배포는 하지 않았고 실제 수집에서 새 예측 거래일 증가도 없었다.
+
+## 이미지 배포·학습 분기와 연구 수집 상태 재확인 (2026-11-26)
+
+- 실행 코드는 변경하지 않고 [통합 준비 리뷰](docs/reviews/pr-integration-readiness-review.md)에 최신 시작·중간·완료 기록을 추가했다. Python #19/#20 통합 승인 전 새 기능을 쌓지 않았다.
+- Java #41의 이미지 배포 계약 시험 10개를 격리 실행했다. 단일 API digest 교체와 Blue/Green을 구분하며 실제 AWS publish·EC2 기동은 미확인이다. #40은 사용자가 풀 학습용 결함이라 자동 수정하지 않았다.
+- 최신 예약도 새 예측 거래일을 늘리지 못했다. 시험 성공과 실제 운영·연구 성공을 분리하고 HOLD를 유지한다.
