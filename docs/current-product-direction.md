@@ -1,3 +1,15 @@
+# 현재 제품 방향: Python 예측 연구와 Java RAG 이관
+
+기준일: 2026-11-17 KST. 사용자 결정으로 Java doChallenge가 공시 수집·RAG·LLM 초안·Kafka 생산/소비·검토된 브리핑 조회를 소유한다. React는 Java 공개 API를 사용한다. Python ShockGarph_AI는 예측·가격 연구를 담당한다.
+
+Python #18은 main에 병합됐다(6288f6c). 해당 CAMT 수집·근거 검색·해시·인용·사람 검토·파일 기반 Kafka 실험은 Java 이관의 참고 구현이다. 실제 외부 LLM·실브로커·다중 호스트·운영 배포는 미검증이며 Java가 이를 완료한 것으로 계산하지 않는다. 현재 Java는 내부 Python API 읽기 게이트웨이만 구현했다. Java RAG 완료 후 Python 브리핑 실행 경로 정리는 파일별로 결정한다. 전체 연구 이력을 되돌리지 않는다.
+
+첫 단계는 세 저장소 역할 문서, 다음은 Java 호환 기반, CAMT 수집·검색·초안·검토, 이후 Java Kafka 실브로커 검증, 웹 종단 인수다. 옛 11/18·11/20 일정을 새 Java 완료 일정으로 옮기지 않는다. 연구 예측 성능은 HOLD를 유지한다.
+
+## 2026-11-17 이전 계획 이력
+
+아래는 Python이 RAG를 소유하던 당시의 기록이다. 현재 실행 지시로 사용하지 않는다.
+
 # 현재 제품 방향: 관심 종목 RAG 브리핑
 
 기준일: 2026-11-17 KST. [웹 현재 방향](https://github.com/AnDev77/shockgraph-web/blob/main/docs/current-product-direction.md), [이번 주 계획](https://github.com/AnDev77/shockgraph-web/blob/main/docs/daily-work-plan.md), 사용자의 11/17 Kafka 우선 적용 결정을 따른다. 계획과 현재 구현을 구분한다.

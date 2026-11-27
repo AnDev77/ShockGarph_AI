@@ -133,3 +133,11 @@ python -m uvicorn shockgraph_briefing_api.app:create_app --factory --host 127.0.
 - 실행 코드는 변경하지 않고 [통합 준비 리뷰](docs/reviews/pr-integration-readiness-review.md)에 최신 시작·중간·완료 기록을 추가했다. Python #19/#20 통합 승인 전 새 기능을 쌓지 않았다.
 - Java #41의 이미지 배포 계약 시험 10개를 격리 실행했다. 단일 API digest 교체와 Blue/Green을 구분하며 실제 AWS publish·EC2 기동은 미확인이다. #40은 사용자가 풀 학습용 결함이라 자동 수정하지 않았다.
 - 최신 예약도 새 예측 거래일을 늘리지 못했다. 시험 성공과 실제 운영·연구 성공을 분리하고 HOLD를 유지한다.
+
+
+## Java RAG 소유권 변경 (2026-11-17)
+
+- 변경: AGENTS.md·현재 방향·일일 계획을 Java 공시 수집·검색·LLM 초안·Kafka 소비의 소유권으로 갱신한다. 기존 #18 코드와 이 리뷰 상단의 Python 실행 경로는 과거 구현 기록이다.
+- 이유: 사용자가 Java에서 RAG를 구현하기로 결정했다. Python은 예측·가격 연구와 이관 참고 코드로 남는다.
+- 추가 기능: 문서의 현재 지시만 변경한다. 실행 코드·운영 배포는 바뀌지 않는다.
+- 검증·한계: #18 main 병합과 현재 Java 게이트웨이 및 세 저장소 역할을 확인했다. 실제 Java RAG·Kafka·LLM은 이후 구현·검증한다.
