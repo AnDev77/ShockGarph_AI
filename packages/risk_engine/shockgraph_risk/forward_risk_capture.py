@@ -13,7 +13,11 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from shockgraph_data_pipeline.market_calendar import ScheduledSession, nasdaq_sessions
+from shockgraph_data_pipeline.market_calendar import (
+    ScheduledSession,
+    nasdaq_sessions,
+    reviewed_future_sessions,
+)
 
 from shockgraph_risk.exploratory_history import HistoryPrice
 from shockgraph_risk.garch import fit_garch_11, forecast_garch_11
@@ -86,8 +90,7 @@ def _prices(prices: Sequence[HistoryPrice]) -> tuple[HistoryPrice, ...]:
 def _outcome_sessions(origin: date, horizon: int) -> tuple[ScheduledSession, ...]:
     if horizon not in (5, 20):
         raise ValueError("forward risk supports only five or twenty sessions")
-    # The reviewed calendar ends in 2026. Extend and reverify it before 2027.
-    sessions = nasdaq_sessions(origin + timedelta(days=1), date(2026, 12, 31))
+    sessions = reviewed_future_sessions(origin)
     if len(sessions) < horizon:
         raise ValueError("reviewed future calendar is too short")
     return sessions[:horizon]

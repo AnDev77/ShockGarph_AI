@@ -9,8 +9,11 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import csv
 import hashlib
+import io
 import json
+import math
 import re
 import sys
 from collections.abc import Callable, Mapping
@@ -24,7 +27,10 @@ sys.path[:0] = [str(ROOT), str(ROOT / "packages/domain"),
                 str(ROOT / "packages/data_pipeline"), str(ROOT / "packages/risk_engine")]
 
 from shockgraph_data_pipeline.kalshi_contract import payload_sha256  # noqa: E402
-from shockgraph_data_pipeline.market_calendar import nasdaq_sessions  # noqa: E402
+from shockgraph_data_pipeline.market_calendar import (  # noqa: E402
+    nasdaq_sessions,
+    reviewed_future_sessions,
+)
 from shockgraph_risk.forward_risk_capture import (  # noqa: E402
     build_forward_risk_record,
     next_outcome_open,
@@ -138,13 +144,25 @@ def audit_capture(s3: S3Like, *, bucket: str, index_key: str) -> dict[str, Any]:
     seen: set[str] = set()
     source_written_at = []
     source_hashes = {}
+    source_origins: dict[str, date] = {}
     for item in sources:
         key, expected = item.get("key"), item.get("sha256")
         if (not isinstance(key, str) or not key.startswith(prefix + "/")
                 or key in seen or not isinstance(expected, str) or not _SHA.fullmatch(expected)):
             raise ValueError("private archive source key or hash is invalid")
         seen.add(key)
-        _, stored_at = verified_object(key, expected)
+        body, stored_at = verified_object(key, expected)
+        if (index.get('status') == 'forward_forecasts_archived'
+                and key in (prefix + '/TLT/prices.csv', prefix + '/SPY/prices.csv')):
+            try:
+                days = tuple(date.fromisoformat(row['session_date'])
+                             for row in csv.DictReader(io.StringIO(body.decode('utf-8'))))
+                if not days or days != tuple(row.session_date
+                                              for row in nasdaq_sessions(days[0], days[-1])):
+                    raise ValueError('source calendar is incomplete')
+            except (KeyError, TypeError, UnicodeError, csv.Error) as error:
+                raise ValueError('source calendar is invalid') from error
+            source_origins[key] = days[-1]
         source_written_at.append(stored_at)
         source_hashes[key] = expected
     if source_hashes.get(prefix + "/manifest.json") != index.get("archive_manifest_sha256"):
@@ -169,7 +187,25 @@ def audit_capture(s3: S3Like, *, bucket: str, index_key: str) -> dict[str, Any]:
                     or not isinstance(item.get("horizons"), list)
                     or {h.get("horizon") for h in item["horizons"]} != {5, 20}):
                 raise ValueError("private archive forecast differs from its source")
-            first_session = date.fromisoformat(item["horizons"][0]["first_outcome_session"])
+            origin = source_origins.get(prefix + f'/{symbol}/prices.csv')
+            if origin is None or item.get('origin_session') != origin.isoformat():
+                raise ValueError('forecast origin differs from source calendar')
+            future = reviewed_future_sessions(origin)
+            if len(future) < 20 or len(item['horizons']) != 2:
+                raise ValueError('forecast calendar horizons are incomplete or duplicated')
+            for horizon in item['horizons']:
+                for metric in ('trailing_volatility', 'ewma_volatility',
+                               'garch_volatility', 'gjr_volatility'):
+                    value = horizon.get(metric)
+                    if (isinstance(value, bool) or not isinstance(value, (int, float))
+                            or not math.isfinite(value) or value < 0):
+                        raise ValueError('private forecast risk value is invalid')
+                last = future[horizon['horizon'] - 1]
+                if (horizon.get('first_outcome_session') != future[0].session_date.isoformat()
+                        or horizon.get('last_outcome_session') != last.session_date.isoformat()
+                        or horizon.get('label_end_at') != last.close_at.isoformat()):
+                    raise ValueError('forecast calendar differs from source calendar')
+            first_session = future[0].session_date
             if index_written_at >= next_outcome_open(first_session):
                 raise ValueError("private archive forecast index was stored after opening")
     elif (index.get("status") not in ("snapshot_only_reviewed_calendar_exhausted",
@@ -256,8 +292,7 @@ def archive_capture(
     forward = []
     reviewed_calendar = True
     for symbol, prices, capture_time, snapshot_hash in captured_series:
-        future = nasdaq_sessions(prices[-1].session_date + timedelta(days=1),
-                                 datetime(2026, 12, 31, tzinfo=UTC).date())
+        future = reviewed_future_sessions(prices[-1].session_date)
         if len(future) < 20:
             reviewed_calendar = False
         # The Actions job has a 20-minute timeout. Keep an additional hour

@@ -6,11 +6,13 @@ import argparse
 import json
 import re
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from shockgraph_data_pipeline.market_calendar import nasdaq_sessions  # noqa: E402
 
 from scripts.archive_forward_capture import audit_capture  # noqa: E402
 from scripts.private_r2 import configured_r2  # noqa: E402
@@ -64,6 +66,7 @@ def latest_capture(client: Any, *, bucket: str, prefix: str) -> dict[str, Any]:
     if result["forecast_count"] and (len(origins) != 1 or None in origins):
         raise ValueError("private forecast origins differ")
     return {**result, "capture_index_count": len(indices),
+            "capture_status": index["status"],
             "origin_session": next(iter(origins)) if origins else None}
 
 
@@ -74,17 +77,28 @@ def capture_inventory(client: Any, *, bucket: str, prefix: str) -> dict[str, Any
         raise ValueError("archive inventory exceeds the review limit")
     origins: set[str] = set()
     forecast_indices = 0
+    snapshot_reasons = {
+        "snapshot_only_preopen_gate_failed": 0,
+        "snapshot_only_reviewed_calendar_exhausted": 0,
+    }
     for _, key in indices:
         verified = audit_capture(client, bucket=bucket, index_key=key)
-        if not verified["forecast_count"]:
-            continue
         index = json.loads(client.get_object(Bucket=bucket, Key=key)["Body"].read())
+        if not verified["forecast_count"]:
+            reason = index.get("status")
+            if reason not in snapshot_reasons:
+                raise ValueError("snapshot-only archive has an unrecognized reason")
+            snapshot_reasons[reason] += 1
+            continue
         days = {item.get("origin_session") for item in index["forecasts"]}
         if len(days) != 1 or None in days:
             raise ValueError("private forecast origins differ")
         origins.update(days)
         forecast_indices += 1
     return {"status": "archive_inventory_verified", "audited_index_count": len(indices),
+            "forecast_index_count": forecast_indices,
+            "snapshot_only_index_count": sum(snapshot_reasons.values()),
+            "snapshot_only_reason_counts": snapshot_reasons,
             "unique_origin_session_count": len(origins),
             "duplicate_forecast_index_count": forecast_indices - len(origins)}
 
@@ -95,8 +109,19 @@ def main(argv: list[str] | None = None) -> int:
     target.add_argument("--index-key")
     target.add_argument("--latest", action="store_true")
     target.add_argument("--inventory", action="store_true")
+    parser.add_argument("--expected-origin", type=date.fromisoformat,
+                        help="--latest에 한해 이 거래일의 사전 예측 저장을 필수로 검사")
     parser.add_argument("--prefix", default="shockgraph-research")
     args = parser.parse_args(argv)
+    if args.expected_origin is not None:
+        if not args.latest:
+            parser.error("--expected-origin requires --latest")
+        try:
+            valid_session = bool(nasdaq_sessions(args.expected_origin, args.expected_origin))
+        except ValueError:
+            valid_session = False
+        if not valid_session:
+            parser.error("--expected-origin must be a reviewed trading session")
     try:
         client, bucket = configured_r2()
     except (ValueError, ImportError):
@@ -115,6 +140,19 @@ def main(argv: list[str] | None = None) -> int:
     except Exception:
         print(json.dumps({"status": "private_archive_audit_failed"}))
         return 2
+    if args.expected_origin is not None:
+        # A successful object read or an older forecast is not today's forecast.
+        # latest_capture has already verified remote bytes and write timestamps.
+        ready = (result["capture_status"] == "forward_forecasts_archived"
+                 and result["forecast_count"] == 2
+                 and result["origin_session"] == args.expected_origin.isoformat())
+        print(json.dumps({
+            "status": "prospective_capture_verified" if ready else "prospective_capture_missing",
+            "expected_origin_session": args.expected_origin.isoformat(),
+            "capture_status": result["capture_status"],
+            "public_performance_allowed": False,
+        }))
+        return 0 if ready else 1
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

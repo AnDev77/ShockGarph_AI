@@ -16,6 +16,8 @@ EXPECTED = {
     "shockgraph_briefing_api/app.py",
     "shockgraph_collector/__init__.py",
     "shockgraph_data_pipeline/__init__.py",
+    "shockgraph_data_pipeline/capture_window.py",
+    "shockgraph_data_pipeline/market_calendar.py",
     "shockgraph_domain/__init__.py",
     "shockgraph_risk/__init__.py",
     "shockgraph_risk/forward_risk_capture.py",
