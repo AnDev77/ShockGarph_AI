@@ -1,3 +1,9 @@
+# Python 작업 순서 변경 (2026-11-17 KST)
+
+Java doChallenge가 CAMT 공시 수집·RAG·Kafka 생성 작업을 담당한다. 이 문서 아래의 기존 Python RAG·Kafka 개발 순서와 11/18·11/20 목표는 이전 계획 이력이다. Python #18은 main에 병합됐으나 실 Kafka/LLM/운영 검증은 없었다. Python 후속은 예측·가격 연구와 Java 이관에 필요한 출처/인용 시험 사례 선별이다. Java RAG 완료 뒤 Python 브리핑 실행 경로의 비활성화 여부를 결정한다.
+
+## 이전 계획 이력
+
 # 이번 주 Python 작업 순서
 
 기준일: 2026-11-17 KST. 제품 일정은 [웹 이번 주 계획](https://github.com/AnDev77/shockgraph-web/blob/main/docs/daily-work-plan.md), 역할은 [현재 방향](current-product-direction.md)을 따른다. 날짜는 목표이며 완료 기록이 아니다.
